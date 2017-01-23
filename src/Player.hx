@@ -2,9 +2,7 @@
     Player entity
 **/
 class Player extends Entity {       
-    private static inline var SPEED = 5;
-
-    private var _graph : h2d.Graphics;
+    private static inline var SPEED = 5;    
 
     /**
         Constructor
@@ -14,32 +12,37 @@ class Player extends Entity {
 
         var tile = h2d.Tile.fromColor(0xFF0000, 32, 32);
         Sprite = new h2d.Bitmap(tile, Main.Scene);
-        Sprite.x = Main.Scene.width * 0.5;
-        Sprite.y = Main.Scene.height * 0.5;
-        _graph = new h2d.Graphics (Sprite);
-
-        _graph.lineStyle(1, 0xFF00FF);
-        _graph.drawRect (-16, -16, 32, 32);
-        _graph.drawRect (16, -16, 32, 32);
-        _graph.drawRect (-16, 16, 32, 32);
-        _graph.drawRect (16, 16, 32, 32);
+        Sprite.x = 100;
+        Sprite.y = 100;
     }
 
     /**
         On update
     **/
     public override function Update (dt : Float) : Void {
+        var dx = 0;
+        var dy = 0;
         if (hxd.Key.isDown (hxd.Key.W)) {
-            Move (0, -SPEED);
+            dy = -SPEED;            
         }
         if (hxd.Key.isDown (hxd.Key.S)) {
-            Move (0, SPEED);
+            dy = SPEED;
         }
         if (hxd.Key.isDown (hxd.Key.A)) {
-            Move (-SPEED, 0);
+            dx = -SPEED;
         }
         if (hxd.Key.isDown (hxd.Key.D)) {
-            Move (SPEED, 0);
-        }                
+            dx = SPEED;
+        }
+
+        Move (dx, dy);
+
+        var bounds = Main.Level.Collide (this);
+        if (bounds != null) {
+            if (dy < 0) Move (0, -(bounds.y - bounds.yMax));
+            if (dy > 0) Move (0, -(bounds.yMax - bounds.y));
+            if (dx < 0) Move (-(bounds.x - bounds.xMax), 0);
+            if (dx > 0) Move (-(bounds.xMax - bounds.x), 0);            
+        }
     }
 }

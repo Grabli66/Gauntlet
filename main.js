@@ -115,42 +115,120 @@ Lambda.indexOf = function(it,v) {
 	}
 	return -1;
 };
+var ColliderCell = function() {
+};
+$hxClasses["ColliderCell"] = ColliderCell;
+ColliderCell.__name__ = ["ColliderCell"];
+ColliderCell.prototype = {
+	__class__: ColliderCell
+};
+var ColliderGrid = function() {
+	this._colliders = new haxe_ds_IntMap();
+};
+$hxClasses["ColliderGrid"] = ColliderGrid;
+ColliderGrid.__name__ = ["ColliderGrid"];
+ColliderGrid.prototype = {
+	Add: function(idx,idy,cell) {
+		var n = this._colliders.h[idx];
+		if(n == null) {
+			n = new haxe_ds_IntMap();
+			this._colliders.h[idx] = n;
+		}
+		n.h[idy] = cell;
+		haxe_Log.trace(this._colliders.toString(),{ fileName : "Level.hx", lineNumber : 45, className : "ColliderGrid", methodName : "Add"});
+	}
+	,Exist: function(idx,idy) {
+		var n = this._colliders.h[idx];
+		if(n == null) {
+			return false;
+		}
+		if(n.h[idy] == null) {
+			return false;
+		}
+		return true;
+	}
+	,__class__: ColliderGrid
+};
 var Level = function() {
-	this._colliders = [];
+	this._collideGrid = new ColliderGrid();
 	var tile = h2d_Tile.fromColor(16755455,32,32);
 	this._tileGroup = new h2d_TileGroup(tile,Main.Scene);
 	var _this = this._tileGroup;
 	_this.posChanged = true;
-	_this.x = 400;
+	_this.x = 0;
 	var _this1 = this._tileGroup;
 	_this1.posChanged = true;
-	_this1.y = 400;
-	var _g = 0;
-	while(_g < 10) {
+	_this1.y = 0;
+	var _g = 5;
+	while(_g < 15) {
 		var i = _g++;
 		var _this2 = this._tileGroup;
 		_this2.content.add(32 * i,0,_this2.curColor.x,_this2.curColor.y,_this2.curColor.z,_this2.curColor.w,tile);
-		this._colliders.push(new h2d_col_IPoint(i,0));
+		this._collideGrid.Add(i,0,new ColliderCell());
 	}
-	haxe_Log.trace(this._colliders.toString(),{ fileName : "Level.hx", lineNumber : 39, className : "Level", methodName : "new"});
+	var _g1 = 5;
+	while(_g1 < 15) {
+		var i1 = _g1++;
+		var _this3 = this._tileGroup;
+		_this3.content.add(32 * i1,320,_this3.curColor.x,_this3.curColor.y,_this3.curColor.z,_this3.curColor.w,tile);
+		this._collideGrid.Add(i1,10,new ColliderCell());
+	}
+	this._debug = new h2d_Graphics(Main.Scene);
+	var _this4 = this._debug;
+	_this4.posChanged = true;
+	_this4.x = 0;
+	var _this5 = this._debug;
+	_this5.posChanged = true;
+	_this5.y = 0;
 };
 $hxClasses["Level"] = Level;
 Level.__name__ = ["Level"];
 Level.prototype = {
 	Collide: function(e) {
 		var bounds = e.GetBounds();
-		var x = Math.round((bounds.xMin - this._tileGroup.x) / 32);
-		var y = Math.round((bounds.yMin - this._tileGroup.y) / 32);
-		var _g = 0;
-		var _g1 = this._colliders;
-		while(_g < _g1.length) {
-			var point = _g1[_g];
-			++_g;
-			if(point.x == x && point.y == y) {
-				return true;
+		var points = new List();
+		points.push(new h2d_col_IPoint(Math.floor((bounds.xMin - this._tileGroup.x) / 32),Math.floor((bounds.yMin - this._tileGroup.y) / 32)));
+		points.push(new h2d_col_IPoint(Math.floor((bounds.xMax - this._tileGroup.x) / 32),Math.floor((bounds.yMin - this._tileGroup.y) / 32)));
+		points.push(new h2d_col_IPoint(Math.floor((bounds.xMin - this._tileGroup.x) / 32),Math.floor((bounds.yMax - this._tileGroup.y) / 32)));
+		points.push(new h2d_col_IPoint(Math.floor((bounds.xMax - this._tileGroup.x) / 32),Math.floor((bounds.yMax - this._tileGroup.y) / 32)));
+		this._debug.clear();
+		this._debug.lineStyle(1,16711935);
+		var res = null;
+		var _g_head = points.h;
+		while(_g_head != null) {
+			var val = _g_head.item;
+			_g_head = _g_head.next;
+			var dex = Math.floor(this._tileGroup.x + val.x * 32);
+			var dey = Math.floor(this._tileGroup.y + val.y * 32);
+			var b = new h2d_col_Bounds();
+			b.xMin = dex;
+			b.yMin = dey;
+			b.xMax = dex + 32;
+			b.yMax = dey + 32;
+			if(this._collideGrid.Exist(val.x,val.y)) {
+				if(res == null) {
+					res = new h2d_col_Bounds();
+				}
+				var intb = bounds.intersection(b);
+				if(intb.xMin < res.xMin) {
+					res.xMin = intb.xMin;
+				}
+				if(intb.xMax > res.xMax) {
+					res.xMax = intb.xMax;
+				}
+				if(intb.yMin < res.yMin) {
+					res.yMin = intb.yMin;
+				}
+				if(intb.yMax > res.yMax) {
+					res.yMax = intb.yMax;
+				}
+				this._debug.beginFill(16776960);
+				this._debug.drawRect(res.xMin,res.yMin,res.xMax - res.xMin,res.yMax - res.yMin);
+				this._debug.endFill();
 			}
+			this._debug.drawRect(b.xMin,b.yMin,b.xMax - b.xMin,b.yMax - b.yMin);
 		}
-		return false;
+		return res;
 	}
 	,__class__: Level
 };
@@ -353,12 +431,11 @@ Main.__super__ = hxd_App;
 Main.prototype = $extend(hxd_App.prototype,{
 	init: function() {
 		Main.Scene = this.s2d;
-		this._level = new Level();
 		this._player = new Player();
+		Main.Level = new Level();
 	}
 	,update: function(dt) {
 		this._player.Update(dt);
-		this._level.Collide(this._player);
 	}
 	,__class__: Main
 });
@@ -368,33 +445,45 @@ var Player = function() {
 	this.Sprite = new h2d_Bitmap(h2d_Tile.fromColor(16711680,32,32),Main.Scene);
 	var _this = this.Sprite;
 	_this.posChanged = true;
-	_this.x = Main.Scene.width * 0.5;
+	_this.x = 100;
 	var _this1 = this.Sprite;
 	_this1.posChanged = true;
-	_this1.y = Main.Scene.height * 0.5;
-	this._graph = new h2d_Graphics(this.Sprite);
-	this._graph.lineStyle(1,16711935);
-	this._graph.drawRect(-16,-16,32,32);
-	this._graph.drawRect(16,-16,32,32);
-	this._graph.drawRect(-16,16,32,32);
-	this._graph.drawRect(16,16,32,32);
+	_this1.y = 100;
 };
 $hxClasses["Player"] = Player;
 Player.__name__ = ["Player"];
 Player.__super__ = Entity;
 Player.prototype = $extend(Entity.prototype,{
 	Update: function(dt) {
+		var dx = 0;
+		var dy = 0;
 		if(hxd_Key.isDown(87)) {
-			this.Move(0,-5);
+			dy = -5;
 		}
 		if(hxd_Key.isDown(83)) {
-			this.Move(0,5);
+			dy = 5;
 		}
 		if(hxd_Key.isDown(65)) {
-			this.Move(-5,0);
+			dx = -5;
 		}
 		if(hxd_Key.isDown(68)) {
-			this.Move(5,0);
+			dx = 5;
+		}
+		this.Move(dx,dy);
+		var bounds = Main.Level.Collide(this);
+		if(bounds != null) {
+			if(dy < 0) {
+				this.Move(0,-(bounds.yMin - bounds.yMax));
+			}
+			if(dy > 0) {
+				this.Move(0,-(bounds.yMax - bounds.yMin));
+			}
+			if(dx < 0) {
+				this.Move(-(bounds.xMin - bounds.xMax),0);
+			}
+			if(dx > 0) {
+				this.Move(-(bounds.xMax - bounds.xMin),0);
+			}
 		}
 	}
 	,__class__: Player
@@ -15515,6 +15604,13 @@ h3d_impl__$GlDriver_CompiledShader.__name__ = ["h3d","impl","_GlDriver","Compile
 h3d_impl__$GlDriver_CompiledShader.prototype = {
 	__class__: h3d_impl__$GlDriver_CompiledShader
 };
+var h3d_impl__$GlDriver_CompiledAttribute = function() {
+};
+$hxClasses["h3d.impl._GlDriver.CompiledAttribute"] = h3d_impl__$GlDriver_CompiledAttribute;
+h3d_impl__$GlDriver_CompiledAttribute.__name__ = ["h3d","impl","_GlDriver","CompiledAttribute"];
+h3d_impl__$GlDriver_CompiledAttribute.prototype = {
+	__class__: h3d_impl__$GlDriver_CompiledAttribute
+};
 var h3d_impl__$GlDriver_CompiledProgram = function() {
 };
 $hxClasses["h3d.impl._GlDriver.CompiledProgram"] = h3d_impl__$GlDriver_CompiledProgram;
@@ -15523,6 +15619,7 @@ h3d_impl__$GlDriver_CompiledProgram.prototype = {
 	__class__: h3d_impl__$GlDriver_CompiledProgram
 };
 var h3d_impl_GlDriver = function() {
+	this.boundTextures = [];
 	this.canvas = hxd_Stage.getCanvas();
 	if(this.canvas == null) {
 		throw new js__$Boot_HaxeError("Canvas #webgl not found");
@@ -15572,7 +15669,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.gl.compileShader(s);
 		var log = this.gl.getShaderInfoLog(s);
 		if(log != "") {
-			haxe_Log.trace(log,{ fileName : "GlDriver.hx", lineNumber : 162, className : "h3d.impl.GlDriver", methodName : "compileShader"});
+			haxe_Log.trace(log,{ fileName : "GlDriver.hx", lineNumber : 173, className : "h3d.impl.GlDriver", methodName : "compileShader"});
 		}
 		if(this.gl.getShaderParameter(s,35713) != 1) {
 			var log1 = this.gl.getShaderInfoLog(s);
@@ -15659,7 +15756,12 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 						p.stride += size;
 						continue;
 					}
-					p.attribs.push({ offset : p.stride, index : index, size : size, type : t});
+					var a = new h3d_impl__$GlDriver_CompiledAttribute();
+					a.type = t;
+					a.size = size;
+					a.index = index;
+					a.offset = p.stride;
+					p.attribs.push(a);
 					p.attribNames.push(v.name);
 					p.stride += size;
 				}
@@ -15700,10 +15802,12 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			}
 			break;
 		case 2:
+			var tcount = s.textures.length;
 			var _g1 = 0;
 			var _g = s.textures.length + s.cubeTextures.length;
 			while(_g1 < _g) {
-				var t = buf.tex[_g1++];
+				var i = _g1++;
+				var t = buf.tex[i];
 				if(t == null || t.t == null && t.realloc == null) {
 					var color = h3d_mat_Defaults.loadingTextureColor;
 					t = h3d_mat_Texture.fromColor(color,(color >>> 24) / 255);
@@ -15713,42 +15817,32 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 					t.realloc();
 				}
 				t.lastFrame = this.frame;
-			}
-			var _g11 = 0;
-			var _g2 = s.textures.length;
-			while(_g11 < _g2) {
-				var i = _g11++;
-				var t1 = buf.tex[i];
-				if(s.textures[i] == null) {
+				var isCube = i >= tcount;
+				var pt = isCube?s.cubeTextures[i - tcount]:s.textures[i];
+				if(pt == null) {
 					continue;
 				}
+				if(this.boundTextures[i] == t) {
+					continue;
+				}
+				this.boundTextures[i] = t;
+				var mode = isCube?34067:3553;
 				this.gl.activeTexture(33984 + i);
-				this.gl.uniform1i(s.textures[i],i);
-				this.gl.bindTexture(3553,t1.t.t);
-				var flags = h3d_impl_GlDriver.TFILTERS[t1.mipMap[1]][t1.filter[1]];
-				this.gl.texParameteri(3553,10240,flags[0]);
-				this.gl.texParameteri(3553,10241,flags[1]);
-				var w = h3d_impl_GlDriver.TWRAP[t1.wrap[1]];
-				this.gl.texParameteri(3553,10242,w);
-				this.gl.texParameteri(3553,10243,w);
-			}
-			var _g12 = 0;
-			var _g3 = s.cubeTextures.length;
-			while(_g12 < _g3) {
-				var i1 = _g12++;
-				var t2 = buf.tex[i1 + s.textures.length];
-				if(s.cubeTextures[i1] == null) {
-					continue;
+				this.gl.uniform1i(pt,i);
+				this.gl.bindTexture(mode,t.t.t);
+				var mip = t.mipMap[1];
+				var filter = t.filter[1];
+				var wrap = t.wrap[1];
+				var bits = mip | filter << 3 | wrap << 6;
+				if(bits != t.t.bits) {
+					t.t.bits = bits;
+					var flags = h3d_impl_GlDriver.TFILTERS[mip][filter];
+					this.gl.texParameteri(mode,10240,flags[0]);
+					this.gl.texParameteri(mode,10241,flags[1]);
+					var w = h3d_impl_GlDriver.TWRAP[wrap];
+					this.gl.texParameteri(mode,10242,w);
+					this.gl.texParameteri(mode,10243,w);
 				}
-				this.gl.activeTexture(33984 + i1 + s.textures.length);
-				this.gl.uniform1i(s.cubeTextures[i1],i1 + s.textures.length);
-				this.gl.bindTexture(34067,t2.t.t);
-				var flags1 = h3d_impl_GlDriver.TFILTERS[t2.mipMap[1]][t2.filter[1]];
-				this.gl.texParameteri(34067,10240,flags1[0]);
-				this.gl.texParameteri(34067,10241,flags1[1]);
-				var w1 = h3d_impl_GlDriver.TWRAP[t2.wrap[1]];
-				this.gl.texParameteri(34067,10242,w1);
-				this.gl.texParameteri(34067,10243,w1);
 			}
 			break;
 		}
@@ -15936,7 +16030,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		}
 	}
 	,allocTexture: function(t) {
-		var tt = { t : this.gl.createTexture(), width : t.width, height : t.height, internalFmt : 6408, pixelFmt : 5121};
+		var tt = { t : this.gl.createTexture(), width : t.width, height : t.height, internalFmt : 6408, pixelFmt : 5121, bits : -1};
 		switch(t.format[1]) {
 		case 2:
 			break;
@@ -16021,6 +16115,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.gl.bufferData(34963,count * 2,35044);
 		var outOfMem = this.gl.getError() == 1285;
 		this.gl.bindBuffer(34963,null);
+		this.curIndexBuffer = null;
 		if(outOfMem) {
 			this.gl.deleteBuffer(b);
 			return null;
@@ -16090,12 +16185,14 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		var sub = new Uint16Array(new Uint16Array(buf).buffer,bufPos,indiceCount);
 		this.gl.bufferSubData(34963,startIndice * 2,sub);
 		this.gl.bindBuffer(34963,null);
+		this.curIndexBuffer = null;
 	}
 	,uploadIndexBytes: function(i,startIndice,indiceCount,buf,bufPos) {
 		this.gl.bindBuffer(34963,i);
 		var sub = new Uint8Array(new Uint8Array(buf.b.bufferValue).buffer,bufPos * 2,indiceCount * 2);
 		this.gl.bufferSubData(34963,startIndice * 2,sub);
 		this.gl.bindBuffer(34963,null);
+		this.curIndexBuffer = null;
 	}
 	,selectBuffer: function(v) {
 		if(v == this.curBuffer) {
@@ -16129,30 +16226,32 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			while(_g11 < _g2) {
 				var i = _g11++;
 				var a1 = this.curShader.attribs[i];
+				var pos;
 				var _g21 = this.curShader.attribNames[i];
 				switch(_g21) {
 				case "normal":
 					if(m.stride < 6) {
 						throw new js__$Boot_HaxeError("Buffer is missing NORMAL data, set it to RAW format ?");
 					}
-					this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,12);
+					pos = 3;
 					break;
 				case "position":
-					this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,0);
+					pos = 0;
 					break;
 				case "uv":
 					if(m.stride < 8) {
 						throw new js__$Boot_HaxeError("Buffer is missing UV data, set it to RAW format ?");
 					}
-					this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,24);
+					pos = 6;
 					break;
 				default:
-					this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,offset * 4);
+					pos = offset;
 					offset += a1.size;
 					if(offset > m.stride) {
 						throw new js__$Boot_HaxeError("Buffer is missing '" + _g21 + "' data, set it to RAW format ?");
 					}
 				}
+				this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,pos * 4);
 			}
 		}
 	}
@@ -16169,9 +16268,11 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.curBuffer = null;
 	}
 	,draw: function(ibuf,startIndex,ntriangles) {
-		this.gl.bindBuffer(34963,ibuf);
+		if(ibuf != this.curIndexBuffer) {
+			this.curIndexBuffer = ibuf;
+			this.gl.bindBuffer(34963,ibuf);
+		}
 		this.gl.drawElements(4,ntriangles * 3,5123,startIndex * 2);
-		this.gl.bindBuffer(34963,null);
 	}
 	,present: function() {
 		this.gl.finish();
@@ -26596,6 +26697,22 @@ haxe_ds_IntMap.prototype = {
 			var i = this.it.next();
 			return this.ref[i];
 		}};
+	}
+	,toString: function() {
+		var s_b = "";
+		s_b = "{";
+		var it = this.keys();
+		while(it.hasNext()) {
+			var i = it.next();
+			s_b += i == null?"null":"" + i;
+			s_b += " => ";
+			s_b += Std.string(Std.string(this.h[i]));
+			if(it.hasNext()) {
+				s_b += ", ";
+			}
+		}
+		s_b += "}";
+		return s_b;
 	}
 	,__class__: haxe_ds_IntMap
 };
