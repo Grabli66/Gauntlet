@@ -111,8 +111,8 @@ class Level {
     /**
         Check collision
     **/
-    public function Collide ( e : Entity) : Bounds {
-        var bounds = e.GetBounds ();
+    public function Collide ( e : Bounds) : Bounds {
+        var bounds = e;
         var points = new List<IPoint> ();
         points.push (new IPoint (Math.floor ((bounds.x - _tileGroup.x) / SIZE), Math.floor ((bounds.y - _tileGroup.y) / SIZE)));
         points.push (new IPoint (Math.floor ((bounds.xMax - _tileGroup.x) / SIZE), Math.floor ((bounds.y - _tileGroup.y) / SIZE)));
