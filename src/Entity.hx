@@ -7,12 +7,16 @@ class Entity {
     /**
         Sprite
     **/
-    public var Sprite : h2d.Sprite;
+    public var Sprite : h2d.Bitmap;
 
     /**
         Constructor
     **/
-    public function new () {}
+    public function new (x : Int, y : Int) {
+        Sprite = new h2d.Bitmap (null, Game.Scene);
+        Sprite.x = x;
+        Sprite.y = y;
+    }
 
     /**
         Return bounds of entity
@@ -24,13 +28,15 @@ class Entity {
     /**
         Move entity by dx, dy
     **/
-    public function Move (dx : Float, dy : Float) : Void {
-        Sprite.x += dx;
-        Sprite.y += dy;
+    public function Move (dx : Int, dy : Int) : Void {        
+        // check collision and roll back move
+        var pos = Game.CollideGrid.Move (dx, dy, GetBounds ().toIBounds ());
+        Sprite.x += pos.dx;
+        Sprite.y += pos.dy;
     }
 
     /**
-        On update for overrider
+        On update for override
     **/
     public function Update (dt : Float) : Void {
     }

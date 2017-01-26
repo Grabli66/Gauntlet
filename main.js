@@ -7,6 +7,89 @@ function $extend(from, fields) {
 	if( fields.toString !== Object.prototype.toString ) proto.toString = fields.toString;
 	return proto;
 }
+var Side = $hxClasses["Side"] = { __ename__ : true, __constructs__ : ["Top","Right","Bottom","Left"] };
+Side.Top = ["Top",0];
+Side.Top.toString = $estr;
+Side.Top.__enum__ = Side;
+Side.Right = ["Right",1];
+Side.Right.toString = $estr;
+Side.Right.__enum__ = Side;
+Side.Bottom = ["Bottom",2];
+Side.Bottom.toString = $estr;
+Side.Bottom.__enum__ = Side;
+Side.Left = ["Left",3];
+Side.Left.toString = $estr;
+Side.Left.__enum__ = Side;
+Side.__empty_constructs__ = [Side.Top,Side.Right,Side.Bottom,Side.Left];
+var Cell = function() {
+	this.Objects = [];
+};
+$hxClasses["Cell"] = Cell;
+Cell.__name__ = ["Cell"];
+Cell.prototype = {
+	__class__: Cell
+};
+var CollisionGrid = function(countX,countY,cellSize) {
+	this._cells = [];
+	this.CountX = countX;
+	this.CountY = countY;
+	this.CellSize = cellSize;
+	var _g1 = 0;
+	var _g = this.CountX;
+	while(_g1 < _g) {
+		++_g1;
+		var cells = [];
+		var _g3 = 0;
+		var _g2 = this.CountY;
+		while(_g3 < _g2) {
+			++_g3;
+			cells.push(new Cell());
+		}
+		this._cells.push(cells);
+	}
+};
+$hxClasses["CollisionGrid"] = CollisionGrid;
+CollisionGrid.__name__ = ["CollisionGrid"];
+CollisionGrid.prototype = {
+	SetByIdx: function(idx,idy,data) {
+		this._cells[idx][idy].Objects.push(data);
+	}
+	,SetByBounds: function(bound,data) {
+	}
+	,Move: function(dx,dy,bound) {
+		var rx = dx;
+		var ry = dy;
+		if(this._cells[Math.floor(bound.xMin / this.CellSize)][Math.floor((bound.yMin + dy) / this.CellSize)].Objects.length > 0) {
+			ry = 0;
+		}
+		if(this._cells[Math.floor((bound.xMin + (bound.xMax - bound.xMin)) / this.CellSize)][Math.floor((bound.yMin + dy) / this.CellSize)].Objects.length > 0) {
+			ry = 0;
+		}
+		if(this._cells[Math.floor(bound.xMin / this.CellSize)][Math.floor((bound.yMin + dy + (bound.yMax - bound.yMin)) / this.CellSize)].Objects.length > 0) {
+			ry = 0;
+		}
+		if(this._cells[Math.floor((bound.xMin + (bound.xMax - bound.xMin)) / this.CellSize)][Math.floor((bound.yMin + dy + (bound.yMax - bound.yMin)) / this.CellSize)].Objects.length > 0) {
+			ry = 0;
+		}
+		if(this._cells[Math.floor((bound.xMin + dx) / this.CellSize)][Math.floor(bound.yMin / this.CellSize)].Objects.length > 0) {
+			rx = 0;
+		}
+		if(this._cells[Math.floor((bound.xMin + dx) / this.CellSize)][Math.floor((bound.yMin + (bound.yMax - bound.yMin)) / this.CellSize)].Objects.length > 0) {
+			rx = 0;
+		}
+		if(this._cells[Math.floor((bound.xMin + dx + (bound.xMax - bound.xMin)) / this.CellSize)][Math.floor(bound.yMin / this.CellSize)].Objects.length > 0) {
+			rx = 0;
+		}
+		if(this._cells[Math.floor((bound.xMin + dx + (bound.xMax - bound.xMin)) / this.CellSize)][Math.floor((bound.yMin + (bound.yMax - bound.yMin)) / this.CellSize)].Objects.length > 0) {
+			rx = 0;
+		}
+		return { dx : rx, dy : ry};
+	}
+	,Collide: function(x,y) {
+		return { Data : null, Side : Side.Top};
+	}
+	,__class__: CollisionGrid
+};
 var EReg = function(r,opt) {
 	this.r = new RegExp(r,opt.split("u").join(""));
 };
@@ -15,7 +98,14 @@ EReg.__name__ = ["EReg"];
 EReg.prototype = {
 	__class__: EReg
 };
-var Entity = function() {
+var Entity = function(x,y) {
+	this.Sprite = new h2d_Bitmap(null,Game.Scene);
+	var _this = this.Sprite;
+	_this.posChanged = true;
+	_this.x = x;
+	var _this1 = this.Sprite;
+	_this1.posChanged = true;
+	_this1.y = y;
 };
 $hxClasses["Entity"] = Entity;
 Entity.__name__ = ["Entity"];
@@ -24,287 +114,28 @@ Entity.prototype = {
 		return this.Sprite.getBounds();
 	}
 	,Move: function(dx,dy) {
+		var pos = Game.CollideGrid;
+		var _this = this.GetBounds();
+		var x0 = Math.floor(_this.xMin);
+		var y0 = Math.floor(_this.yMin);
+		var width = Math.floor(_this.xMax - _this.xMin);
+		var height = Math.floor(_this.yMax - _this.yMin);
+		var b = new h2d_col_IBounds();
+		b.xMin = x0;
+		b.yMin = y0;
+		b.xMax = x0 + width;
+		b.yMax = y0 + height;
+		var pos1 = pos.Move(dx,dy,b);
 		var _g = this.Sprite;
 		_g.posChanged = true;
-		_g.x += dx;
+		_g.x += pos1.dx;
 		var _g1 = this.Sprite;
 		_g1.posChanged = true;
-		_g1.y += dy;
+		_g1.y += pos1.dy;
 	}
 	,Update: function(dt) {
 	}
 	,__class__: Entity
-};
-var HxOverrides = function() { };
-$hxClasses["HxOverrides"] = HxOverrides;
-HxOverrides.__name__ = ["HxOverrides"];
-HxOverrides.strDate = function(s) {
-	var _g = s.length;
-	switch(_g) {
-	case 8:
-		var k = s.split(":");
-		var d = new Date();
-		d["setTime"](0);
-		d["setUTCHours"](k[0]);
-		d["setUTCMinutes"](k[1]);
-		d["setUTCSeconds"](k[2]);
-		return d;
-	case 10:
-		var k1 = s.split("-");
-		return new Date(k1[0],k1[1] - 1,k1[2],0,0,0);
-	case 19:
-		var k2 = s.split(" ");
-		var y = k2[0].split("-");
-		var t = k2[1].split(":");
-		return new Date(y[0],y[1] - 1,y[2],t[0],t[1],t[2]);
-	default:
-		throw new js__$Boot_HaxeError("Invalid date format : " + s);
-	}
-};
-HxOverrides.cca = function(s,index) {
-	var x = s.charCodeAt(index);
-	if(x != x) {
-		return undefined;
-	}
-	return x;
-};
-HxOverrides.substr = function(s,pos,len) {
-	if(len == null) {
-		len = s.length;
-	} else if(len < 0) {
-		if(pos == 0) {
-			len = s.length + len;
-		} else {
-			return "";
-		}
-	}
-	return s.substr(pos,len);
-};
-HxOverrides.remove = function(a,obj) {
-	var i = a.indexOf(obj);
-	if(i == -1) {
-		return false;
-	}
-	a.splice(i,1);
-	return true;
-};
-HxOverrides.iter = function(a) {
-	return { cur : 0, arr : a, hasNext : function() {
-		return this.cur < this.arr.length;
-	}, next : function() {
-		return this.arr[this.cur++];
-	}};
-};
-var Lambda = function() { };
-$hxClasses["Lambda"] = Lambda;
-Lambda.__name__ = ["Lambda"];
-Lambda.array = function(it) {
-	var a = [];
-	var i = $iterator(it)();
-	while(i.hasNext()) a.push(i.next());
-	return a;
-};
-Lambda.indexOf = function(it,v) {
-	var i = 0;
-	var v2 = $iterator(it)();
-	while(v2.hasNext()) {
-		if(v == v2.next()) {
-			return i;
-		}
-		++i;
-	}
-	return -1;
-};
-var ColliderCell = function() {
-};
-$hxClasses["ColliderCell"] = ColliderCell;
-ColliderCell.__name__ = ["ColliderCell"];
-ColliderCell.prototype = {
-	__class__: ColliderCell
-};
-var ColliderGrid = function() {
-	this._colliders = new haxe_ds_IntMap();
-};
-$hxClasses["ColliderGrid"] = ColliderGrid;
-ColliderGrid.__name__ = ["ColliderGrid"];
-ColliderGrid.prototype = {
-	Add: function(idx,idy,cell) {
-		var n = this._colliders.h[idx];
-		if(n == null) {
-			n = new haxe_ds_IntMap();
-			this._colliders.h[idx] = n;
-		}
-		n.h[idy] = cell;
-		haxe_Log.trace(this._colliders.toString(),{ fileName : "Level.hx", lineNumber : 45, className : "ColliderGrid", methodName : "Add"});
-	}
-	,Exist: function(idx,idy) {
-		var n = this._colliders.h[idx];
-		if(n == null) {
-			return false;
-		}
-		if(n.h[idy] == null) {
-			return false;
-		}
-		return true;
-	}
-	,__class__: ColliderGrid
-};
-var Level = function() {
-	this._collideGrid = new ColliderGrid();
-	var tile = h2d_Tile.fromColor(16755455,32,32);
-	this._tileGroup = new h2d_TileGroup(tile,Main.Scene);
-	var _this = this._tileGroup;
-	_this.posChanged = true;
-	_this.x = 0;
-	var _this1 = this._tileGroup;
-	_this1.posChanged = true;
-	_this1.y = 0;
-	var _g = 5;
-	while(_g < 15) {
-		var i = _g++;
-		var _this2 = this._tileGroup;
-		_this2.content.add(32 * i,0,_this2.curColor.x,_this2.curColor.y,_this2.curColor.z,_this2.curColor.w,tile);
-		this._collideGrid.Add(i,0,new ColliderCell());
-	}
-	var _g1 = 5;
-	while(_g1 < 15) {
-		var i1 = _g1++;
-		var _this3 = this._tileGroup;
-		_this3.content.add(32 * i1,320,_this3.curColor.x,_this3.curColor.y,_this3.curColor.z,_this3.curColor.w,tile);
-		this._collideGrid.Add(i1,10,new ColliderCell());
-	}
-	this._debug = new h2d_Graphics(Main.Scene);
-	var _this4 = this._debug;
-	_this4.posChanged = true;
-	_this4.x = 0;
-	var _this5 = this._debug;
-	_this5.posChanged = true;
-	_this5.y = 0;
-};
-$hxClasses["Level"] = Level;
-Level.__name__ = ["Level"];
-Level.prototype = {
-	Collide: function(e) {
-		var points = new List();
-		points.push(new h2d_col_IPoint(Math.floor((e.xMin - this._tileGroup.x) / 32),Math.floor((e.yMin - this._tileGroup.y) / 32)));
-		points.push(new h2d_col_IPoint(Math.floor((e.xMax - this._tileGroup.x) / 32),Math.floor((e.yMin - this._tileGroup.y) / 32)));
-		points.push(new h2d_col_IPoint(Math.floor((e.xMin - this._tileGroup.x) / 32),Math.floor((e.yMax - this._tileGroup.y) / 32)));
-		points.push(new h2d_col_IPoint(Math.floor((e.xMax - this._tileGroup.x) / 32),Math.floor((e.yMax - this._tileGroup.y) / 32)));
-		this._debug.clear();
-		this._debug.lineStyle(1,16711935);
-		var res = null;
-		var _g_head = points.h;
-		while(_g_head != null) {
-			var val = _g_head.item;
-			_g_head = _g_head.next;
-			var dex = Math.floor(this._tileGroup.x + val.x * 32);
-			var dey = Math.floor(this._tileGroup.y + val.y * 32);
-			var b = new h2d_col_Bounds();
-			b.xMin = dex;
-			b.yMin = dey;
-			b.xMax = dex + 32;
-			b.yMax = dey + 32;
-			if(this._collideGrid.Exist(val.x,val.y)) {
-				if(res == null) {
-					res = new h2d_col_Bounds();
-				}
-				var intb = e.intersection(b);
-				if(intb.xMin < res.xMin) {
-					res.xMin = intb.xMin;
-				}
-				if(intb.xMax > res.xMax) {
-					res.xMax = intb.xMax;
-				}
-				if(intb.yMin < res.yMin) {
-					res.yMin = intb.yMin;
-				}
-				if(intb.yMax > res.yMax) {
-					res.yMax = intb.yMax;
-				}
-				this._debug.beginFill(16776960);
-				this._debug.drawRect(res.xMin,res.yMin,res.xMax - res.xMin,res.yMax - res.yMin);
-				this._debug.endFill();
-			}
-			this._debug.drawRect(b.xMin,b.yMin,b.xMax - b.xMin,b.yMax - b.yMin);
-		}
-		return res;
-	}
-	,__class__: Level
-};
-var List = function() {
-	this.length = 0;
-};
-$hxClasses["List"] = List;
-List.__name__ = ["List"];
-List.prototype = {
-	add: function(item) {
-		var x = new _$List_ListNode(item,null);
-		if(this.h == null) {
-			this.h = x;
-		} else {
-			this.q.next = x;
-		}
-		this.q = x;
-		this.length++;
-	}
-	,push: function(item) {
-		var x = new _$List_ListNode(item,this.h);
-		this.h = x;
-		if(this.q == null) {
-			this.q = x;
-		}
-		this.length++;
-	}
-	,remove: function(v) {
-		var prev = null;
-		var l = this.h;
-		while(l != null) {
-			if(l.item == v) {
-				if(prev == null) {
-					this.h = l.next;
-				} else {
-					prev.next = l.next;
-				}
-				if(this.q == l) {
-					this.q = prev;
-				}
-				this.length--;
-				return true;
-			}
-			prev = l;
-			l = l.next;
-		}
-		return false;
-	}
-	,iterator: function() {
-		return new _$List_ListIterator(this.h);
-	}
-	,__class__: List
-};
-var _$List_ListNode = function(item,next) {
-	this.item = item;
-	this.next = next;
-};
-$hxClasses["_List.ListNode"] = _$List_ListNode;
-_$List_ListNode.__name__ = ["_List","ListNode"];
-_$List_ListNode.prototype = {
-	__class__: _$List_ListNode
-};
-var _$List_ListIterator = function(head) {
-	this.head = head;
-};
-$hxClasses["_List.ListIterator"] = _$List_ListIterator;
-_$List_ListIterator.__name__ = ["_List","ListIterator"];
-_$List_ListIterator.prototype = {
-	hasNext: function() {
-		return this.head != null;
-	}
-	,next: function() {
-		var val = this.head.item;
-		this.head = this.head.next;
-		return val;
-	}
-	,__class__: _$List_ListIterator
 };
 var h3d_IDrawable = function() { };
 $hxClasses["h3d.IDrawable"] = h3d_IDrawable;
@@ -417,100 +248,292 @@ hxd_App.prototype = {
 	}
 	,__class__: hxd_App
 };
-var Main = function(engine) {
+var Game = function(engine) {
 	hxd_App.call(this,engine);
 };
-$hxClasses["Main"] = Main;
-Main.__name__ = ["Main"];
-Main.main = function() {
+$hxClasses["Game"] = Game;
+Game.__name__ = ["Game"];
+Game.main = function() {
 	hxd_Res.set_loader(new hxd_res_Loader(new hxd_fs_EmbedFileSystem(haxe_Unserializer.run("oy9:tiles.pngtg"))));
-	new Main();
+	new Game();
 };
-Main.__super__ = hxd_App;
-Main.prototype = $extend(hxd_App.prototype,{
+Game.__super__ = hxd_App;
+Game.prototype = $extend(hxd_App.prototype,{
 	init: function() {
-		Main.Scene = this.s2d;
-		this._player = new Player();
-		Main.Level = new Level();
+		Game.Scene = this.s2d;
+		Game.CollideGrid = new CollisionGrid(100,100,32);
+		Game.Player = new Player(100,100);
+		Game.Ghost = new Ghost(500,200);
+		Game.Level = new Level();
 	}
 	,update: function(dt) {
-		this._player.Update(dt);
+		Game.Player.Update(dt);
+		Game.Ghost.Update(dt);
 	}
-	,__class__: Main
+	,__class__: Game
 });
-Math.__name__ = ["Math"];
-var Player = function() {
-	Entity.call(this);
-	this.Sprite = new h2d_Bitmap(h2d_Tile.fromColor(16711680,32,32),Main.Scene);
-	var _this = this.Sprite;
+var Ghost = function(x,y) {
+	Entity.call(this,x,y);
+	this.Sprite.tile = h2d_Tile.fromColor(255,32,32);
+};
+$hxClasses["Ghost"] = Ghost;
+Ghost.__name__ = ["Ghost"];
+Ghost.__super__ = Entity;
+Ghost.prototype = $extend(Entity.prototype,{
+	Update: function(dt) {
+		var pb = Game.Player.GetBounds();
+		var sb = this.GetBounds();
+		var dx = 0;
+		var dy = 0;
+		if(pb.xMin < sb.xMin) {
+			dx = -2;
+		}
+		if(pb.xMin > sb.xMin) {
+			dx = 2;
+		}
+		if(pb.yMin < sb.yMin) {
+			dy = -2;
+		}
+		if(pb.yMin > sb.yMin) {
+			dy = 2;
+		}
+		this.Move(dx,dy);
+	}
+	,__class__: Ghost
+});
+var HxOverrides = function() { };
+$hxClasses["HxOverrides"] = HxOverrides;
+HxOverrides.__name__ = ["HxOverrides"];
+HxOverrides.strDate = function(s) {
+	var _g = s.length;
+	switch(_g) {
+	case 8:
+		var k = s.split(":");
+		var d = new Date();
+		d["setTime"](0);
+		d["setUTCHours"](k[0]);
+		d["setUTCMinutes"](k[1]);
+		d["setUTCSeconds"](k[2]);
+		return d;
+	case 10:
+		var k1 = s.split("-");
+		return new Date(k1[0],k1[1] - 1,k1[2],0,0,0);
+	case 19:
+		var k2 = s.split(" ");
+		var y = k2[0].split("-");
+		var t = k2[1].split(":");
+		return new Date(y[0],y[1] - 1,y[2],t[0],t[1],t[2]);
+	default:
+		throw new js__$Boot_HaxeError("Invalid date format : " + s);
+	}
+};
+HxOverrides.cca = function(s,index) {
+	var x = s.charCodeAt(index);
+	if(x != x) {
+		return undefined;
+	}
+	return x;
+};
+HxOverrides.substr = function(s,pos,len) {
+	if(len == null) {
+		len = s.length;
+	} else if(len < 0) {
+		if(pos == 0) {
+			len = s.length + len;
+		} else {
+			return "";
+		}
+	}
+	return s.substr(pos,len);
+};
+HxOverrides.remove = function(a,obj) {
+	var i = a.indexOf(obj);
+	if(i == -1) {
+		return false;
+	}
+	a.splice(i,1);
+	return true;
+};
+HxOverrides.iter = function(a) {
+	return { cur : 0, arr : a, hasNext : function() {
+		return this.cur < this.arr.length;
+	}, next : function() {
+		return this.arr[this.cur++];
+	}};
+};
+var Lambda = function() { };
+$hxClasses["Lambda"] = Lambda;
+Lambda.__name__ = ["Lambda"];
+Lambda.array = function(it) {
+	var a = [];
+	var i = $iterator(it)();
+	while(i.hasNext()) a.push(i.next());
+	return a;
+};
+Lambda.indexOf = function(it,v) {
+	var i = 0;
+	var v2 = $iterator(it)();
+	while(v2.hasNext()) {
+		if(v == v2.next()) {
+			return i;
+		}
+		++i;
+	}
+	return -1;
+};
+var LevelCell = function() {
+};
+$hxClasses["LevelCell"] = LevelCell;
+LevelCell.__name__ = ["LevelCell"];
+LevelCell.prototype = {
+	__class__: LevelCell
+};
+var Level = function() {
+	var tile = h2d_Tile.fromColor(16755455,32,32);
+	this._tileGroup = new h2d_TileGroup(tile,Game.Scene);
+	var _this = this._tileGroup;
 	_this.posChanged = true;
-	_this.x = 100;
-	var _this1 = this.Sprite;
+	_this.x = 0;
+	var _this1 = this._tileGroup;
 	_this1.posChanged = true;
-	_this1.y = 100;
+	_this1.y = 0;
+	var _g = 5;
+	while(_g < 15) {
+		var i = _g++;
+		var _this2 = this._tileGroup;
+		_this2.content.add(32 * i,0,_this2.curColor.x,_this2.curColor.y,_this2.curColor.z,_this2.curColor.w,tile);
+		Game.CollideGrid.SetByIdx(i,0,null);
+	}
+	var _g1 = 5;
+	while(_g1 < 15) {
+		var i1 = _g1++;
+		var _this3 = this._tileGroup;
+		_this3.content.add(32 * i1,320,_this3.curColor.x,_this3.curColor.y,_this3.curColor.z,_this3.curColor.w,tile);
+		Game.CollideGrid.SetByIdx(i1,10,null);
+	}
+	this._debug = new h2d_Graphics(Game.Scene);
+	var _this4 = this._debug;
+	_this4.posChanged = true;
+	_this4.x = 0;
+	var _this5 = this._debug;
+	_this5.posChanged = true;
+	_this5.y = 0;
+};
+$hxClasses["Level"] = Level;
+Level.__name__ = ["Level"];
+Level.prototype = {
+	__class__: Level
+};
+var List = function() {
+	this.length = 0;
+};
+$hxClasses["List"] = List;
+List.__name__ = ["List"];
+List.prototype = {
+	add: function(item) {
+		var x = new _$List_ListNode(item,null);
+		if(this.h == null) {
+			this.h = x;
+		} else {
+			this.q.next = x;
+		}
+		this.q = x;
+		this.length++;
+	}
+	,push: function(item) {
+		var x = new _$List_ListNode(item,this.h);
+		this.h = x;
+		if(this.q == null) {
+			this.q = x;
+		}
+		this.length++;
+	}
+	,remove: function(v) {
+		var prev = null;
+		var l = this.h;
+		while(l != null) {
+			if(l.item == v) {
+				if(prev == null) {
+					this.h = l.next;
+				} else {
+					prev.next = l.next;
+				}
+				if(this.q == l) {
+					this.q = prev;
+				}
+				this.length--;
+				return true;
+			}
+			prev = l;
+			l = l.next;
+		}
+		return false;
+	}
+	,iterator: function() {
+		return new _$List_ListIterator(this.h);
+	}
+	,__class__: List
+};
+var _$List_ListNode = function(item,next) {
+	this.item = item;
+	this.next = next;
+};
+$hxClasses["_List.ListNode"] = _$List_ListNode;
+_$List_ListNode.__name__ = ["_List","ListNode"];
+_$List_ListNode.prototype = {
+	__class__: _$List_ListNode
+};
+var _$List_ListIterator = function(head) {
+	this.head = head;
+};
+$hxClasses["_List.ListIterator"] = _$List_ListIterator;
+_$List_ListIterator.__name__ = ["_List","ListIterator"];
+_$List_ListIterator.prototype = {
+	hasNext: function() {
+		return this.head != null;
+	}
+	,next: function() {
+		var val = this.head.item;
+		this.head = this.head.next;
+		return val;
+	}
+	,__class__: _$List_ListIterator
+};
+Math.__name__ = ["Math"];
+var Player = function(x,y) {
+	Entity.call(this,x,y);
+	this.Sprite.tile = h2d_Tile.fromColor(16711680,32,32);
 };
 $hxClasses["Player"] = Player;
 Player.__name__ = ["Player"];
 Player.__super__ = Entity;
 Player.prototype = $extend(Entity.prototype,{
 	Update: function(dt) {
-		var sbound = this.Sprite.getBounds();
+		var dx = 0;
+		var dy = 0;
+		var _this = this.Sprite.getBounds();
+		var x0 = Math.floor(_this.xMin);
+		var y0 = Math.floor(_this.yMin);
+		var width = Math.floor(_this.xMax - _this.xMin);
+		var height = Math.floor(_this.yMax - _this.yMin);
+		var b = new h2d_col_IBounds();
+		b.xMin = x0;
+		b.yMin = y0;
+		b.xMax = x0 + width;
+		b.yMax = y0 + height;
 		if(hxd_Key.isDown(87)) {
-			var x0 = this.Sprite.x;
-			var y0 = this.Sprite.y + -5;
-			var width = sbound.xMax - sbound.xMin;
-			var height = sbound.yMax - sbound.yMin;
-			var b = new h2d_col_Bounds();
-			b.xMin = x0;
-			b.yMin = y0;
-			b.xMax = x0 + width;
-			b.yMax = y0 + height;
-			if(Main.Level.Collide(b) == null) {
-				this.Move(0,-5);
-			}
+			dy = -5;
 		}
 		if(hxd_Key.isDown(83)) {
-			var x01 = this.Sprite.x;
-			var y01 = this.Sprite.y + 5;
-			var width1 = sbound.xMax - sbound.xMin;
-			var height1 = sbound.yMax - sbound.yMin;
-			var b1 = new h2d_col_Bounds();
-			b1.xMin = x01;
-			b1.yMin = y01;
-			b1.xMax = x01 + width1;
-			b1.yMax = y01 + height1;
-			if(Main.Level.Collide(b1) == null) {
-				this.Move(0,5);
-			}
+			dy = 5;
 		}
 		if(hxd_Key.isDown(65)) {
-			var x02 = this.Sprite.x + -5;
-			var y02 = this.Sprite.y;
-			var width2 = sbound.xMax - sbound.xMin;
-			var height2 = sbound.yMax - sbound.yMin;
-			var b2 = new h2d_col_Bounds();
-			b2.xMin = x02;
-			b2.yMin = y02;
-			b2.xMax = x02 + width2;
-			b2.yMax = y02 + height2;
-			if(Main.Level.Collide(b2) == null) {
-				this.Move(-5,0);
-			}
+			dx = -5;
 		}
 		if(hxd_Key.isDown(68)) {
-			var x03 = this.Sprite.x + 5;
-			var y03 = this.Sprite.y;
-			var width3 = sbound.xMax - sbound.xMin;
-			var height3 = sbound.yMax - sbound.yMin;
-			var b3 = new h2d_col_Bounds();
-			b3.xMin = x03;
-			b3.yMin = y03;
-			b3.xMax = x03 + width3;
-			b3.yMax = y03 + height3;
-			if(Main.Level.Collide(b3) == null) {
-				this.Move(5,0);
-			}
+			dx = 5;
 		}
+		this.Move(dx,dy);
 	}
 	,__class__: Player
 });
@@ -1320,11 +1343,11 @@ format_gif_Tools.extractBGRA = function(data,frameIndex) {
 			var frame = val[2];
 			if(frameCaret == frameIndex) {
 				var bytes = new haxe_io_Bytes(new ArrayBuffer(frame.width * frame.height * 4));
-				var ct = frame.localColorTable?frame.colorTable:data.globalColorTable;
+				var ct = frame.localColorTable ? frame.colorTable : data.globalColorTable;
 				if(ct == null) {
 					throw new js__$Boot_HaxeError("Frame does not have a color table!");
 				}
-				var transparentIndex = gce != null && gce.hasTransparentColor?gce.transparentIndex * 3:-1;
+				var transparentIndex = gce != null && gce.hasTransparentColor ? gce.transparentIndex * 3 : -1;
 				var writeCaret = 0;
 				var _g1 = 0;
 				var _g = frame.pixels.length;
@@ -1368,11 +1391,11 @@ format_gif_Tools.extractRGBA = function(data,frameIndex) {
 			var frame = val[2];
 			if(frameCaret == frameIndex) {
 				var bytes = new haxe_io_Bytes(new ArrayBuffer(frame.width * frame.height * 4));
-				var ct = frame.localColorTable?frame.colorTable:data.globalColorTable;
+				var ct = frame.localColorTable ? frame.colorTable : data.globalColorTable;
 				if(ct == null) {
 					throw new js__$Boot_HaxeError("Frame does not have a color table!");
 				}
-				var transparentIndex = gce != null && gce.hasTransparentColor?gce.transparentIndex * 3:-1;
+				var transparentIndex = gce != null && gce.hasTransparentColor ? gce.transparentIndex * 3 : -1;
 				var writeCaret = 0;
 				var _g1 = 0;
 				var _g = frame.pixels.length;
@@ -1415,16 +1438,16 @@ format_gif_Tools.extractFullBGRA = function(data,frameIndex) {
 		switch(val[1]) {
 		case 0:
 			var frame = val[2];
-			var ct = frame.localColorTable?frame.colorTable:data.globalColorTable;
+			var ct = frame.localColorTable ? frame.colorTable : data.globalColorTable;
 			if(ct == null) {
 				throw new js__$Boot_HaxeError("Frame does not have a color table!");
 			}
-			var transparentIndex = gce != null && gce.hasTransparentColor?gce.transparentIndex * 3:-1;
+			var transparentIndex = gce != null && gce.hasTransparentColor ? gce.transparentIndex * 3 : -1;
 			var pixels = frame.pixels;
 			var x = 0;
 			var writeCaret = (frame.y * data.logicalScreenDescriptor.width + frame.x) * 4;
 			var lineSkip = (data.logicalScreenDescriptor.width - frame.width) * 4 + 4;
-			switch((frameCaret != frameIndex && gce != null?gce.disposalMethod:format_gif_DisposalMethod.NO_ACTION)[1]) {
+			switch((frameCaret != frameIndex && gce != null ? gce.disposalMethod : format_gif_DisposalMethod.NO_ACTION)[1]) {
 			case 2:
 				var _g1 = 0;
 				var _g = pixels.length;
@@ -1491,16 +1514,16 @@ format_gif_Tools.extractFullRGBA = function(data,frameIndex) {
 		switch(val[1]) {
 		case 0:
 			var frame = val[2];
-			var ct = frame.localColorTable?frame.colorTable:data.globalColorTable;
+			var ct = frame.localColorTable ? frame.colorTable : data.globalColorTable;
 			if(ct == null) {
 				throw new js__$Boot_HaxeError("Frame does not have a color table!");
 			}
-			var transparentIndex = gce != null && gce.hasTransparentColor?gce.transparentIndex * 3:-1;
+			var transparentIndex = gce != null && gce.hasTransparentColor ? gce.transparentIndex * 3 : -1;
 			var pixels = frame.pixels;
 			var x = 0;
 			var writeCaret = (frame.y * data.logicalScreenDescriptor.width + frame.x) * 4;
 			var lineSkip = (data.logicalScreenDescriptor.width - frame.width) * 4 + 4;
-			switch((frameCaret != frameIndex && gce != null?gce.disposalMethod:format_gif_DisposalMethod.NO_ACTION)[1]) {
+			switch((frameCaret != frameIndex && gce != null ? gce.disposalMethod : format_gif_DisposalMethod.NO_ACTION)[1]) {
 			case 2:
 				var _g1 = 0;
 				var _g = pixels.length;
@@ -1755,7 +1778,7 @@ format_mp3_MPEG.srEnum2Num = function(sr) {
 	}
 };
 format_mp3_MPEG.getBitrateIdx = function(br,mpeg,layer) {
-	var arr = (mpeg == format_mp3_MPEGVersion.MPEG_V1?format_mp3_MPEG.V1_Bitrates:format_mp3_MPEG.V2_Bitrates)[format_mp3_CLayer.enum2Num(layer)];
+	var arr = (mpeg == format_mp3_MPEGVersion.MPEG_V1 ? format_mp3_MPEG.V1_Bitrates : format_mp3_MPEG.V2_Bitrates)[format_mp3_CLayer.enum2Num(layer)];
 	var _g = 0;
 	while(_g < 16) {
 		var i = _g++;
@@ -2154,7 +2177,7 @@ format_mp3_Reader.prototype = {
 		}
 	}
 	,read: function() {
-		return { frames : this.readFrames(), sampleCount : this.samples, sampleSize : this.sampleSize, id3v2 : this.id3v2_data == null?null:{ versionBytes : this.id3v2_version, flagByte : this.id3v2_flags, data : this.id3v2_data}};
+		return { frames : this.readFrames(), sampleCount : this.samples, sampleSize : this.sampleSize, id3v2 : this.id3v2_data == null ? null : { versionBytes : this.id3v2_version, flagByte : this.id3v2_flags, data : this.id3v2_data}};
 	}
 	,__class__: format_mp3_Reader
 };
@@ -2165,7 +2188,7 @@ format_mp3_Tools.getBitrate = function(mpegVersion,layerIdx,bitrateIdx) {
 	if(mpegVersion == format_mp3_MPEG.Reserved || layerIdx == format_mp3_CLayer.LReserved) {
 		return format_mp3_Bitrate.BR_Bad;
 	}
-	return (mpegVersion == 3?format_mp3_MPEG.V1_Bitrates:format_mp3_MPEG.V2_Bitrates)[layerIdx][bitrateIdx];
+	return (mpegVersion == 3 ? format_mp3_MPEG.V1_Bitrates : format_mp3_MPEG.V2_Bitrates)[layerIdx][bitrateIdx];
 };
 format_mp3_Tools.getSamplingRate = function(mpegVersion,samplingRateIdx) {
 	return format_mp3_MPEG.SamplingRates[mpegVersion][samplingRateIdx];
@@ -2178,7 +2201,7 @@ format_mp3_Tools.isInvalidFrameHeader = function(hdr) {
 	}
 };
 format_mp3_Tools.getSampleDataSize = function(mpegVersion,bitrate,samplingRate,isPadded,hasCrc) {
-	return ((mpegVersion == 3?144:72) * bitrate * 1000 / samplingRate | 0) + (isPadded?1:0) - (hasCrc?2:0) - 4;
+	return ((mpegVersion == 3 ? 144 : 72) * bitrate * 1000 / samplingRate | 0) + (isPadded ? 1 : 0) - (hasCrc ? 2 : 0) - 4;
 };
 format_mp3_Tools.getSampleDataSizeHdr = function(hdr) {
 	return format_mp3_Tools.getSampleDataSize(format_mp3_MPEG.enum2Num(hdr.version),format_mp3_MPEG.bitrateEnum2Num(hdr.bitrate),format_mp3_MPEG.srEnum2Num(hdr.samplingRate),hdr.isPadded,hdr.hasCrc);
@@ -2194,7 +2217,7 @@ format_mp3_Tools.getSampleCountHdr = function(hdr) {
 	return format_mp3_Tools.getSampleCount(format_mp3_MPEG.enum2Num(hdr.version));
 };
 format_mp3_Tools.getFrameInfo = function(fr) {
-	return Std.string(fr.header.version) + ", " + Std.string(fr.header.layer) + ", " + Std.string(fr.header.channelMode) + ", " + Std.string(fr.header.samplingRate) + " Hz, " + Std.string(fr.header.bitrate) + " kbps " + "Emphasis: " + Std.string(fr.header.emphasis) + ", " + (fr.header.hasCrc?"(CRC) ":"") + (fr.header.isPadded?"(Padded) ":"") + (fr.header.isIntensityStereo?"(Intensity Stereo) ":"") + (fr.header.isMSStereo?"(MS Stereo) ":"") + (fr.header.isCopyrighted?"(Copyrighted) ":"") + (fr.header.isOriginal?"(Original) ":"");
+	return Std.string(fr.header.version) + ", " + Std.string(fr.header.layer) + ", " + Std.string(fr.header.channelMode) + ", " + Std.string(fr.header.samplingRate) + " Hz, " + Std.string(fr.header.bitrate) + " kbps " + "Emphasis: " + Std.string(fr.header.emphasis) + ", " + (fr.header.hasCrc ? "(CRC) " : "") + (fr.header.isPadded ? "(Padded) " : "") + (fr.header.isIntensityStereo ? "(Intensity Stereo) " : "") + (fr.header.isMSStereo ? "(MS Stereo) " : "") + (fr.header.isCopyrighted ? "(Copyrighted) " : "") + (fr.header.isOriginal ? "(Original) " : "");
 };
 var format_png_Color = $hxClasses["format.png.Color"] = { __ename__ : true, __constructs__ : ["ColGrey","ColTrue","ColIndexed"] };
 format_png_Color.ColGrey = function(alpha) { var $x = ["ColGrey",0,alpha]; $x.__enum__ = format_png_Color; $x.toString = $estr; return $x; };
@@ -2335,8 +2358,8 @@ format_png_Tools.filter = function(data,x,y,stride,prev,p,numChannels) {
 	if(numChannels == null) {
 		numChannels = 4;
 	}
-	var b = y == 0?0:data.b[p - stride];
-	var c = x == 0 || y == 0?0:data.b[p - stride - numChannels];
+	var b = y == 0 ? 0 : data.b[p - stride];
+	var c = x == 0 || y == 0 ? 0 : data.b[p - stride - numChannels];
 	var k = prev + b - c;
 	var pa = k - prev;
 	if(pa < 0) {
@@ -2422,10 +2445,10 @@ format_png_Tools.extractGrey = function(d) {
 			throw new js__$Boot_HaxeError("Unsupported color mode");
 		}
 		var width = h.width;
-		if(data.length < h.height * ((alpha?2:1) * width + 1)) {
+		if(data.length < h.height * ((alpha ? 2 : 1) * width + 1)) {
 			throw new js__$Boot_HaxeError("Not enough data");
 		}
-		var rinc = alpha?2:1;
+		var rinc = alpha ? 2 : 1;
 		var _g13 = 0;
 		var _g5 = h.height;
 		while(_g13 < _g5) {
@@ -2452,7 +2475,7 @@ format_png_Tools.extractGrey = function(d) {
 				}
 				break;
 			case 2:
-				var stride = y == 0?0:width;
+				var stride = y == 0 ? 0 : width;
 				var _g33 = 0;
 				while(_g33 < width) {
 					++_g33;
@@ -2463,7 +2486,7 @@ format_png_Tools.extractGrey = function(d) {
 				break;
 			case 3:
 				var cv1 = 0;
-				var stride1 = y == 0?0:width;
+				var stride1 = y == 0 ? 0 : width;
 				var _g34 = 0;
 				while(_g34 < width) {
 					++_g34;
@@ -2477,8 +2500,8 @@ format_png_Tools.extractGrey = function(d) {
 				var _g35 = 0;
 				while(_g35 < width) {
 					var x = _g35++;
-					var b1 = y == 0?0:grey.b[w - width];
-					var c = x == 0 || y == 0?0:grey.b[w - width - 1];
+					var b1 = y == 0 ? 0 : grey.b[w - width];
+					var c = x == 0 || y == 0 ? 0 : grey.b[w - width - 1];
 					var k = cv2 + b1 - c;
 					var pa = k - cv2;
 					if(pa < 0) {
@@ -2492,7 +2515,7 @@ format_png_Tools.extractGrey = function(d) {
 					if(pc < 0) {
 						pc = -pc;
 					}
-					cv2 = (pa <= pb && pa <= pc?cv2:pb <= pc?b1:c) + data.b[r] & 255;
+					cv2 = (pa <= pb && pa <= pc ? cv2 : pb <= pc ? b1 : c) + data.b[r] & 255;
 					r += rinc;
 					grey.b[w++] = cv2 & 255;
 				}
@@ -2508,7 +2531,7 @@ format_png_Tools.extractGrey = function(d) {
 };
 format_png_Tools.extract32 = function(d,bytes,flipY) {
 	var h = format_png_Tools.getHeader(d);
-	var bgra = bytes == null?new haxe_io_Bytes(new ArrayBuffer(h.width * h.height * 4)):bytes;
+	var bgra = bytes == null ? new haxe_io_Bytes(new ArrayBuffer(h.width * h.height * 4)) : bytes;
 	var data = null;
 	var fullData = null;
 	var _g_head = d.h;
@@ -2552,7 +2575,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 		lineDelta = -h.width * 8;
 		w = (h.height - 1) * (h.width * 4);
 	}
-	var flipY1 = flipY?-1:1;
+	var flipY1 = flipY ? -1 : 1;
 	var _g4 = h.color;
 	switch(_g4[1]) {
 	case 0:
@@ -2561,7 +2584,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			throw new js__$Boot_HaxeError("Unsupported color mode");
 		}
 		var width = h.width;
-		if(data.length < h.height * ((alpha?2:1) * width + 1)) {
+		if(data.length < h.height * ((alpha ? 2 : 1) * width + 1)) {
 			throw new js__$Boot_HaxeError("Not enough data");
 		}
 		var alphvaIdx = -1;
@@ -2606,7 +2629,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						bgra.b[w++] = v1 & 255;
 						bgra.b[w++] = v1 & 255;
 						bgra.b[w++] = v1 & 255;
-						bgra.b[w++] = (v1 == alphvaIdx?0:255) & 255;
+						bgra.b[w++] = (v1 == alphvaIdx ? 0 : 255) & 255;
 					}
 				}
 				break;
@@ -2632,12 +2655,12 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						bgra.b[w++] = cv & 255;
 						bgra.b[w++] = cv & 255;
 						bgra.b[w++] = cv & 255;
-						bgra.b[w++] = (cv == alphvaIdx?0:255) & 255;
+						bgra.b[w++] = (cv == alphvaIdx ? 0 : 255) & 255;
 					}
 				}
 				break;
 			case 2:
-				var stride = y == 0?0:width * 4 * flipY1;
+				var stride = y == 0 ? 0 : width * 4 * flipY1;
 				if(alpha) {
 					var _g35 = 0;
 					while(_g35 < width) {
@@ -2656,14 +2679,14 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						bgra.b[w++] = v3 & 255;
 						bgra.b[w++] = v3 & 255;
 						bgra.b[w++] = v3 & 255;
-						bgra.b[w++] = (v3 == alphvaIdx?0:255) & 255;
+						bgra.b[w++] = (v3 == alphvaIdx ? 0 : 255) & 255;
 					}
 				}
 				break;
 			case 3:
 				var cv1 = 0;
 				var ca1 = 0;
-				var stride1 = y == 0?0:width * 4 * flipY1;
+				var stride1 = y == 0 ? 0 : width * 4 * flipY1;
 				if(alpha) {
 					var _g37 = 0;
 					while(_g37 < width) {
@@ -2683,7 +2706,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						bgra.b[w++] = cv1 & 255;
 						bgra.b[w++] = cv1 & 255;
 						bgra.b[w++] = cv1 & 255;
-						bgra.b[w++] = (cv1 == alphvaIdx?0:255) & 255;
+						bgra.b[w++] = (cv1 == alphvaIdx ? 0 : 255) & 255;
 					}
 				}
 				break;
@@ -2695,8 +2718,8 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					var _g39 = 0;
 					while(_g39 < width) {
 						var x = _g39++;
-						var b1 = y == 0?0:bgra.b[w - stride2];
-						var c = x == 0 || y == 0?0:bgra.b[w - stride2 - 4];
+						var b1 = y == 0 ? 0 : bgra.b[w - stride2];
+						var c = x == 0 || y == 0 ? 0 : bgra.b[w - stride2 - 4];
 						var k = cv2 + b1 - c;
 						var pa = k - cv2;
 						if(pa < 0) {
@@ -2710,12 +2733,12 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc < 0) {
 							pc = -pc;
 						}
-						cv2 = (pa <= pb && pa <= pc?cv2:pb <= pc?b1:c) + data.b[r++] & 255;
+						cv2 = (pa <= pb && pa <= pc ? cv2 : pb <= pc ? b1 : c) + data.b[r++] & 255;
 						bgra.b[w++] = cv2 & 255;
 						bgra.b[w++] = cv2 & 255;
 						bgra.b[w++] = cv2 & 255;
-						var b3 = y == 0?0:bgra.b[w - stride2];
-						var c1 = x == 0 || y == 0?0:bgra.b[w - stride2 - 4];
+						var b3 = y == 0 ? 0 : bgra.b[w - stride2];
+						var c1 = x == 0 || y == 0 ? 0 : bgra.b[w - stride2 - 4];
 						var k1 = ca2 + b3 - c1;
 						var pa1 = k1 - ca2;
 						if(pa1 < 0) {
@@ -2729,15 +2752,15 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc1 < 0) {
 							pc1 = -pc1;
 						}
-						ca2 = (pa1 <= pb1 && pa1 <= pc1?ca2:pb1 <= pc1?b3:c1) + data.b[r++] & 255;
+						ca2 = (pa1 <= pb1 && pa1 <= pc1 ? ca2 : pb1 <= pc1 ? b3 : c1) + data.b[r++] & 255;
 						bgra.b[w++] = ca2 & 255;
 					}
 				} else {
 					var _g310 = 0;
 					while(_g310 < width) {
 						var x1 = _g310++;
-						var b4 = y == 0?0:bgra.b[w - stride2];
-						var c2 = x1 == 0 || y == 0?0:bgra.b[w - stride2 - 4];
+						var b4 = y == 0 ? 0 : bgra.b[w - stride2];
+						var c2 = x1 == 0 || y == 0 ? 0 : bgra.b[w - stride2 - 4];
 						var k2 = cv2 + b4 - c2;
 						var pa2 = k2 - cv2;
 						if(pa2 < 0) {
@@ -2751,11 +2774,11 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc2 < 0) {
 							pc2 = -pc2;
 						}
-						cv2 = (pa2 <= pb2 && pa2 <= pc2?cv2:pb2 <= pc2?b4:c2) + data.b[r++] & 255;
+						cv2 = (pa2 <= pb2 && pa2 <= pc2 ? cv2 : pb2 <= pc2 ? b4 : c2) + data.b[r++] & 255;
 						bgra.b[w++] = cv2 & 255;
 						bgra.b[w++] = cv2 & 255;
 						bgra.b[w++] = cv2 & 255;
-						bgra.b[w++] = (cv2 == alphvaIdx?0:255) & 255;
+						bgra.b[w++] = (cv2 == alphvaIdx ? 0 : 255) & 255;
 					}
 				}
 				break;
@@ -2771,7 +2794,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			throw new js__$Boot_HaxeError("Unsupported color mode");
 		}
 		var width1 = h.width;
-		if(data.length < h.height * ((alpha1?4:3) * width1 + 1)) {
+		if(data.length < h.height * ((alpha1 ? 4 : 3) * width1 + 1)) {
 			throw new js__$Boot_HaxeError("Not enough data");
 		}
 		var alphaRed = -1;
@@ -2826,7 +2849,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						bgra.b[w++] = cg & 255;
 						cr = data.b[r];
 						bgra.b[w++] = cr & 255;
-						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue?0:255) & 255;
+						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue ? 0 : 255) & 255;
 						r += 3;
 					}
 				}
@@ -2860,13 +2883,13 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						bgra.b[w++] = cg & 255;
 						cr += data.b[r];
 						bgra.b[w++] = cr & 255;
-						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue?0:255) & 255;
+						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue ? 0 : 255) & 255;
 						r += 3;
 					}
 				}
 				break;
 			case 2:
-				var stride3 = y1 == 0?0:width1 * 4 * flipY1;
+				var stride3 = y1 == 0 ? 0 : width1 * 4 * flipY1;
 				if(alpha1) {
 					var _g315 = 0;
 					while(_g315 < width1) {
@@ -2894,7 +2917,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						cr = data.b[r] + bgra.b[w - stride3];
 						bgra.b[w] = cr & 255;
 						++w;
-						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue?0:255) & 255;
+						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue ? 0 : 255) & 255;
 						r += 3;
 					}
 				}
@@ -2904,7 +2927,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				cb = 0;
 				cg = 0;
 				cr = 0;
-				var stride4 = y1 == 0?0:width1 * 4 * flipY1;
+				var stride4 = y1 == 0 ? 0 : width1 * 4 * flipY1;
 				if(alpha1) {
 					var _g317 = 0;
 					while(_g317 < width1) {
@@ -2929,7 +2952,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						bgra.b[w++] = cg & 255;
 						cr = data.b[r] + (cr + bgra.b[w - stride4] >> 1) & 255;
 						bgra.b[w++] = cr & 255;
-						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue?0:255) & 255;
+						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue ? 0 : 255) & 255;
 						r += 3;
 					}
 				}
@@ -2944,8 +2967,8 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					var _g319 = 0;
 					while(_g319 < width1) {
 						var x2 = _g319++;
-						var b5 = y1 == 0?0:bgra.b[w - stride5];
-						var c3 = x2 == 0 || y1 == 0?0:bgra.b[w - stride5 - 4];
+						var b5 = y1 == 0 ? 0 : bgra.b[w - stride5];
+						var c3 = x2 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
 						var k3 = cb + b5 - c3;
 						var pa3 = k3 - cb;
 						if(pa3 < 0) {
@@ -2959,10 +2982,10 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc3 < 0) {
 							pc3 = -pc3;
 						}
-						cb = (pa3 <= pb3 && pa3 <= pc3?cb:pb3 <= pc3?b5:c3) + data.b[r + 2] & 255;
+						cb = (pa3 <= pb3 && pa3 <= pc3 ? cb : pb3 <= pc3 ? b5 : c3) + data.b[r + 2] & 255;
 						bgra.b[w++] = cb & 255;
-						var b6 = y1 == 0?0:bgra.b[w - stride5];
-						var c4 = x2 == 0 || y1 == 0?0:bgra.b[w - stride5 - 4];
+						var b6 = y1 == 0 ? 0 : bgra.b[w - stride5];
+						var c4 = x2 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
 						var k4 = cg + b6 - c4;
 						var pa4 = k4 - cg;
 						if(pa4 < 0) {
@@ -2976,10 +2999,10 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc4 < 0) {
 							pc4 = -pc4;
 						}
-						cg = (pa4 <= pb4 && pa4 <= pc4?cg:pb4 <= pc4?b6:c4) + data.b[r + 1] & 255;
+						cg = (pa4 <= pb4 && pa4 <= pc4 ? cg : pb4 <= pc4 ? b6 : c4) + data.b[r + 1] & 255;
 						bgra.b[w++] = cg & 255;
-						var b7 = y1 == 0?0:bgra.b[w - stride5];
-						var c5 = x2 == 0 || y1 == 0?0:bgra.b[w - stride5 - 4];
+						var b7 = y1 == 0 ? 0 : bgra.b[w - stride5];
+						var c5 = x2 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
 						var k5 = cr + b7 - c5;
 						var pa5 = k5 - cr;
 						if(pa5 < 0) {
@@ -2993,10 +3016,10 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc5 < 0) {
 							pc5 = -pc5;
 						}
-						cr = (pa5 <= pb5 && pa5 <= pc5?cr:pb5 <= pc5?b7:c5) + data.b[r] & 255;
+						cr = (pa5 <= pb5 && pa5 <= pc5 ? cr : pb5 <= pc5 ? b7 : c5) + data.b[r] & 255;
 						bgra.b[w++] = cr & 255;
-						var b8 = y1 == 0?0:bgra.b[w - stride5];
-						var c6 = x2 == 0 || y1 == 0?0:bgra.b[w - stride5 - 4];
+						var b8 = y1 == 0 ? 0 : bgra.b[w - stride5];
+						var c6 = x2 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
 						var k6 = ca3 + b8 - c6;
 						var pa6 = k6 - ca3;
 						if(pa6 < 0) {
@@ -3010,7 +3033,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc6 < 0) {
 							pc6 = -pc6;
 						}
-						ca3 = (pa6 <= pb6 && pa6 <= pc6?ca3:pb6 <= pc6?b8:c6) + data.b[r + 3] & 255;
+						ca3 = (pa6 <= pb6 && pa6 <= pc6 ? ca3 : pb6 <= pc6 ? b8 : c6) + data.b[r + 3] & 255;
 						bgra.b[w++] = ca3 & 255;
 						r += 4;
 					}
@@ -3018,8 +3041,8 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					var _g320 = 0;
 					while(_g320 < width1) {
 						var x3 = _g320++;
-						var b9 = y1 == 0?0:bgra.b[w - stride5];
-						var c7 = x3 == 0 || y1 == 0?0:bgra.b[w - stride5 - 4];
+						var b9 = y1 == 0 ? 0 : bgra.b[w - stride5];
+						var c7 = x3 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
 						var k7 = cb + b9 - c7;
 						var pa7 = k7 - cb;
 						if(pa7 < 0) {
@@ -3033,10 +3056,10 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc7 < 0) {
 							pc7 = -pc7;
 						}
-						cb = (pa7 <= pb7 && pa7 <= pc7?cb:pb7 <= pc7?b9:c7) + data.b[r + 2] & 255;
+						cb = (pa7 <= pb7 && pa7 <= pc7 ? cb : pb7 <= pc7 ? b9 : c7) + data.b[r + 2] & 255;
 						bgra.b[w++] = cb & 255;
-						var b10 = y1 == 0?0:bgra.b[w - stride5];
-						var c8 = x3 == 0 || y1 == 0?0:bgra.b[w - stride5 - 4];
+						var b10 = y1 == 0 ? 0 : bgra.b[w - stride5];
+						var c8 = x3 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
 						var k8 = cg + b10 - c8;
 						var pa8 = k8 - cg;
 						if(pa8 < 0) {
@@ -3050,10 +3073,10 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc8 < 0) {
 							pc8 = -pc8;
 						}
-						cg = (pa8 <= pb8 && pa8 <= pc8?cg:pb8 <= pc8?b10:c8) + data.b[r + 1] & 255;
+						cg = (pa8 <= pb8 && pa8 <= pc8 ? cg : pb8 <= pc8 ? b10 : c8) + data.b[r + 1] & 255;
 						bgra.b[w++] = cg & 255;
-						var b11 = y1 == 0?0:bgra.b[w - stride5];
-						var c9 = x3 == 0 || y1 == 0?0:bgra.b[w - stride5 - 4];
+						var b11 = y1 == 0 ? 0 : bgra.b[w - stride5];
+						var c9 = x3 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
 						var k9 = cr + b11 - c9;
 						var pa9 = k9 - cr;
 						if(pa9 < 0) {
@@ -3067,9 +3090,9 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 						if(pc9 < 0) {
 							pc9 = -pc9;
 						}
-						cr = (pa9 <= pb9 && pa9 <= pc9?cr:pb9 <= pc9?b11:c9) + data.b[r] & 255;
+						cr = (pa9 <= pb9 && pa9 <= pc9 ? cr : pb9 <= pc9 ? b11 : c9) + data.b[r] & 255;
 						bgra.b[w++] = cr & 255;
-						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue?0:255) & 255;
+						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue ? 0 : 255) & 255;
 						r += 3;
 					}
 				}
@@ -3128,7 +3151,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				}
 				break;
 			case 2:
-				var stride6 = y2 == 0?0:rline + 1;
+				var stride6 = y2 == 0 ? 0 : rline + 1;
 				var _g322 = 0;
 				while(_g322 < width2) {
 					++_g322;
@@ -3138,7 +3161,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				break;
 			case 3:
 				var c11 = 0;
-				var stride7 = y2 == 0?0:rline + 1;
+				var stride7 = y2 == 0 ? 0 : rline + 1;
 				var _g323 = 0;
 				while(_g323 < width2) {
 					++_g323;
@@ -3152,8 +3175,8 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				var _g324 = 0;
 				while(_g324 < width2) {
 					var x4 = _g324++;
-					var b12 = y2 == 0?0:data.b[r - stride8];
-					var c13 = x4 == 0 || y2 == 0?0:data.b[r - stride8 - 1];
+					var b12 = y2 == 0 ? 0 : data.b[r - stride8];
+					var c13 = x4 == 0 || y2 == 0 ? 0 : data.b[r - stride8 - 1];
 					var k10 = c12 + b12 - c13;
 					var pa10 = k10 - c12;
 					if(pa10 < 0) {
@@ -3167,7 +3190,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					if(pc10 < 0) {
 						pc10 = -pc10;
 					}
-					c12 = (pa10 <= pb10 && pa10 <= pc10?c12:pb10 <= pc10?b12:c13) + data.b[r] & 255;
+					c12 = (pa10 <= pb10 && pa10 <= pc10 ? c12 : pb10 <= pc10 ? b12 : c13) + data.b[r] & 255;
 					data.b[r++] = c12 & 255;
 				}
 				break;
@@ -3190,7 +3213,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					bgra.b[w++] = pal.b[c14 * 3 + 2] & 255;
 					bgra.b[w++] = pal.b[c14 * 3 + 1] & 255;
 					bgra.b[w++] = pal.b[c14 * 3] & 255;
-					bgra.b[w++] = (alpha2 != null?alpha2.b[c14]:255) & 255;
+					bgra.b[w++] = (alpha2 != null ? alpha2.b[c14] : 255) & 255;
 				}
 				w += lineDelta;
 			}
@@ -3217,7 +3240,7 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					bgra.b[w++] = pal.b[c15 * 3 + 2] & 255;
 					bgra.b[w++] = pal.b[c15 * 3 + 1] & 255;
 					bgra.b[w++] = pal.b[c15 * 3] & 255;
-					bgra.b[w++] = (alpha2 != null?alpha2.b[c15]:255) & 255;
+					bgra.b[w++] = (alpha2 != null ? alpha2.b[c15] : 255) & 255;
 				}
 				w += lineDelta;
 			}
@@ -3385,7 +3408,7 @@ format_png_Writer.prototype = {
 				b1.writeByte(tmp);
 				b1.writeByte(0);
 				b1.writeByte(0);
-				b1.writeByte(h.interlaced?1:0);
+				b1.writeByte(h.interlaced ? 1 : 0);
 				this.writeChunk("IHDR",b1.getBytes());
 				break;
 			case 2:
@@ -3872,7 +3895,7 @@ h2d_Sprite.prototype = {
 	,getScene: function() {
 		var p = this;
 		while(p.parent != null) p = p.parent;
-		return (p instanceof h2d_Scene)?p:null;
+		return (p instanceof h2d_Scene) ? p : null;
 	}
 	,set_visible: function(b) {
 		if(this.visible == b) {
@@ -4304,16 +4327,16 @@ h2d_Sprite.prototype = {
 		}
 		var a = bounds.xMin;
 		var b = view.xMin;
-		bounds.xMin = a < b?b:a;
+		bounds.xMin = a < b ? b : a;
 		var a1 = bounds.yMin;
 		var b1 = view.yMin;
-		bounds.yMin = a1 < b1?b1:a1;
+		bounds.yMin = a1 < b1 ? b1 : a1;
 		var a2 = bounds.xMax;
 		var b2 = view.xMax;
-		bounds.xMax = a2 > b2?b2:a2;
+		bounds.xMax = a2 > b2 ? b2 : a2;
 		var a3 = bounds.yMax;
 		var b3 = view.yMax;
-		bounds.yMax = a3 > b3?b3:a3;
+		bounds.yMax = a3 > b3 ? b3 : a3;
 	}
 	,drawFilters: function(ctx) {
 		if(!ctx.pushFilter(this)) {
@@ -4697,20 +4720,21 @@ h2d_Drawable.prototype = $extend(h2d_Sprite.prototype,{
 		}
 		var ctx = this.getScene().ctx;
 		var shader = ctx.manager.compileShaders(new hxsl_ShaderList(ctx.baseShader,this.shaders));
-		var toString = toHxsl?function(d) {
+		var toString = toHxsl ? function(d) {
 			return hxsl_Printer.shaderToString(d,true);
-		}:hxsl_GlslOut.toGlsl;
+		} : hxsl_GlslOut.toGlsl;
 		return "VERTEX=\n" + toString(shader.vertex.data) + "\n\nFRAGMENT=\n" + toString(shader.fragment.data);
 	}
 	,getShader: function(stype) {
 		if(this.shaders != null) {
+			var _g_last;
 			var _g_l = this.shaders;
-			var _g_last = null;
+			_g_last = null;
 			while(_g_l != _g_last) {
 				var s = _g_l.s;
 				_g_l = _g_l.next;
 				var s1 = s;
-				var s2 = (s1 instanceof stype)?s1:null;
+				var s2 = (s1 instanceof stype) ? s1 : null;
 				if(s2 != null) {
 					return s2;
 				}
@@ -4957,45 +4981,45 @@ h2d_col_Bounds.prototype = {
 	,doIntersect: function(b) {
 		var a = this.xMin;
 		var b1 = b.xMin;
-		this.xMin = a < b1?b1:a;
+		this.xMin = a < b1 ? b1 : a;
 		var a1 = this.yMin;
 		var b2 = b.yMin;
-		this.yMin = a1 < b2?b2:a1;
+		this.yMin = a1 < b2 ? b2 : a1;
 		var a2 = this.xMax;
 		var b3 = b.xMax;
-		this.xMax = a2 > b3?b3:a2;
+		this.xMax = a2 > b3 ? b3 : a2;
 		var a3 = this.yMax;
 		var b4 = b.yMax;
-		this.yMax = a3 > b4?b4:a3;
+		this.yMax = a3 > b4 ? b4 : a3;
 	}
 	,doUnion: function(b) {
 		var a = this.xMin;
 		var b1 = b.xMin;
-		this.xMin = a > b1?b1:a;
+		this.xMin = a > b1 ? b1 : a;
 		var a1 = this.yMin;
 		var b2 = b.yMin;
-		this.yMin = a1 > b2?b2:a1;
+		this.yMin = a1 > b2 ? b2 : a1;
 		var a2 = this.xMax;
 		var b3 = b.xMax;
-		this.xMax = a2 < b3?b3:a2;
+		this.xMax = a2 < b3 ? b3 : a2;
 		var a3 = this.yMax;
 		var b4 = b.yMax;
-		this.yMax = a3 < b4?b4:a3;
+		this.yMax = a3 < b4 ? b4 : a3;
 	}
 	,intersection: function(b) {
 		var i = new h2d_col_Bounds();
 		var a = this.xMin;
 		var b1 = b.xMin;
-		i.xMin = a < b1?b1:a;
+		i.xMin = a < b1 ? b1 : a;
 		var a1 = this.yMin;
 		var b2 = b.yMin;
-		i.yMin = a1 < b2?b2:a1;
+		i.yMin = a1 < b2 ? b2 : a1;
 		var a2 = this.xMax;
 		var b3 = b.xMax;
-		i.xMax = a2 > b3?b3:a2;
+		i.xMax = a2 > b3 ? b3 : a2;
 		var a3 = this.yMax;
 		var b4 = b.yMax;
-		i.yMax = a3 > b4?b4:a3;
+		i.yMax = a3 > b4 ? b4 : a3;
 		if(i.xMax < i.xMin) {
 			i.xMax = i.xMin;
 		}
@@ -5008,16 +5032,16 @@ h2d_col_Bounds.prototype = {
 		var i = new h2d_col_Bounds();
 		var a = this.xMin;
 		var b1 = b.xMin;
-		i.xMin = a > b1?b1:a;
+		i.xMin = a > b1 ? b1 : a;
 		var a1 = this.yMin;
 		var b2 = b.yMin;
-		i.yMin = a1 > b2?b2:a1;
+		i.yMin = a1 > b2 ? b2 : a1;
 		var a2 = this.xMax;
 		var b3 = b.xMax;
-		i.xMax = a2 < b3?b3:a2;
+		i.xMax = a2 < b3 ? b3 : a2;
 		var a3 = this.yMax;
 		var b4 = b.yMax;
-		i.yMax = a3 < b4?b4:a3;
+		i.yMax = a3 < b4 ? b4 : a3;
 		return i;
 	}
 	,load: function(b) {
@@ -5579,21 +5603,21 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 		this.onBeforeReflow();
 		var isConstraintWidth = this.realMaxWidth >= 0;
 		var isConstraintHeight = this.realMaxHeight >= 0;
-		var maxTotWidth = this.realMaxWidth < 0?100000000:this.realMaxWidth;
-		var maxTotHeight = this.realMaxHeight < 0?100000000:this.realMaxHeight;
+		var maxTotWidth = this.realMaxWidth < 0 ? 100000000 : this.realMaxWidth;
+		var maxTotHeight = this.realMaxHeight < 0 ? 100000000 : this.realMaxHeight;
 		var maxWidth = maxTotWidth - (this.paddingLeft + this.paddingRight + this.borderWidth * 2);
 		var maxHeight = maxTotHeight - (this.paddingTop + this.paddingBottom + this.borderHeight * 2);
 		var cw;
 		var ch;
 		if(!this.isVertical) {
-			var halign = this.horizontalAlign == null?h2d_FlowAlign.Left:this.horizontalAlign;
-			var valign = this.verticalAlign == null?h2d_FlowAlign.Bottom:this.verticalAlign;
+			var halign = this.horizontalAlign == null ? h2d_FlowAlign.Left : this.horizontalAlign;
+			var valign = this.verticalAlign == null ? h2d_FlowAlign.Bottom : this.verticalAlign;
 			var startX = this.paddingLeft + this.borderWidth;
 			var x = startX;
 			var y = this.paddingTop + this.borderHeight;
 			cw = x;
 			var maxLineHeight = 0.;
-			var minLineHeight = this.lineHeight != null?this.lineHeight:this.minHeight != null && !this.multiline?this.minHeight - (this.paddingTop + this.paddingBottom + this.borderHeight * 2):0;
+			var minLineHeight = this.lineHeight != null ? this.lineHeight : this.minHeight != null && !this.multiline ? this.minHeight - (this.paddingTop + this.paddingBottom + this.borderHeight * 2) : 0;
 			var tmpBounds = h2d_Flow.tmpBounds;
 			var lastIndex = 0;
 			var _g1 = 0;
@@ -5608,7 +5632,7 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				if(!c.visible) {
 					continue;
 				}
-				c.constraintSize(isConstraintWidth && p.constraint?maxWidth - (p.paddingLeft + p.paddingRight):-1,isConstraintHeight && p.constraint?maxHeight - (p.paddingTop + p.paddingBottom):-1);
+				c.constraintSize(isConstraintWidth && p.constraint ? maxWidth - (p.paddingLeft + p.paddingRight) : -1,isConstraintHeight && p.constraint ? maxHeight - (p.paddingTop + p.paddingBottom) : -1);
 				var b = c.getSize(tmpBounds);
 				var br = false;
 				p.calculatedWidth = b.xMax + p.paddingLeft + p.paddingRight;
@@ -5639,7 +5663,7 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 						}
 						c1.posChanged = true;
 						c1.y = y + p1.offsetY + p1.paddingTop;
-						switch((p1.verticalAlign != null?p1.verticalAlign:valign)[1]) {
+						switch((p1.verticalAlign != null ? p1.verticalAlign : valign)[1]) {
 						case 3:
 							c1.posChanged = true;
 							c1.y += (maxLineHeight - p1.calculatedHeight) * 0.5 | 0;
@@ -5685,7 +5709,7 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				}
 				c2.posChanged = true;
 				c2.y = y + p2.offsetY + p2.paddingTop;
-				switch((p2.verticalAlign != null?p2.verticalAlign:valign)[1]) {
+				switch((p2.verticalAlign != null ? p2.verticalAlign : valign)[1]) {
 				case 3:
 					c2.posChanged = true;
 					c2.y += (maxLineHeight - p2.calculatedHeight) * 0.5 | 0;
@@ -5720,7 +5744,7 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 					midSpace = 0;
 				}
 				var px;
-				switch((p3.horizontalAlign == null?halign:p3.horizontalAlign)[1]) {
+				switch((p3.horizontalAlign == null ? halign : p3.horizontalAlign)[1]) {
 				case 2:
 					if(midSpace != 0) {
 						xmin += midSpace;
@@ -5765,14 +5789,14 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				_this.x = px + p3.offsetX + p3.paddingLeft;
 			}
 		} else {
-			var halign1 = this.horizontalAlign == null?h2d_FlowAlign.Left:this.horizontalAlign;
-			var valign1 = this.verticalAlign == null?h2d_FlowAlign.Top:this.verticalAlign;
+			var halign1 = this.horizontalAlign == null ? h2d_FlowAlign.Left : this.horizontalAlign;
+			var valign1 = this.verticalAlign == null ? h2d_FlowAlign.Top : this.verticalAlign;
 			var startY = this.paddingTop + this.borderHeight;
 			var y1 = startY;
 			var x1 = this.paddingLeft + this.borderWidth;
 			ch = y1;
 			var maxColWidth = 0.;
-			var minColWidth = this.colWidth != null?this.colWidth:this.minWidth != null && !this.multiline?this.minWidth - (this.paddingLeft + this.paddingRight + this.borderWidth * 2):0;
+			var minColWidth = this.colWidth != null ? this.colWidth : this.minWidth != null && !this.multiline ? this.minWidth - (this.paddingLeft + this.paddingRight + this.borderWidth * 2) : 0;
 			var tmpBounds1 = h2d_Flow.tmpBounds;
 			var lastIndex1 = 0;
 			var _g14 = 0;
@@ -5787,7 +5811,7 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				if(!c3.visible) {
 					continue;
 				}
-				c3.constraintSize(isConstraintWidth && p5.constraint?maxWidth - (p5.paddingLeft + p5.paddingRight):-1,isConstraintHeight && p5.constraint?maxHeight - (p5.paddingTop + p5.paddingBottom):-1);
+				c3.constraintSize(isConstraintWidth && p5.constraint ? maxWidth - (p5.paddingLeft + p5.paddingRight) : -1,isConstraintHeight && p5.constraint ? maxHeight - (p5.paddingTop + p5.paddingBottom) : -1);
 				var b1 = c3.getSize(tmpBounds1);
 				var br1 = false;
 				p5.calculatedWidth = b1.xMax + p5.paddingLeft + p5.paddingRight;
@@ -5818,7 +5842,7 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 						}
 						c4.posChanged = true;
 						c4.x = x1 + p6.offsetX + p6.paddingLeft;
-						switch((p6.horizontalAlign != null?p6.horizontalAlign:halign1)[1]) {
+						switch((p6.horizontalAlign != null ? p6.horizontalAlign : halign1)[1]) {
 						case 2:
 							c4.posChanged = true;
 							c4.x += maxColWidth - p6.calculatedWidth;
@@ -5866,7 +5890,7 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				}
 				c5.posChanged = true;
 				c5.x = x1 + p7.offsetX + p7.paddingLeft;
-				switch((p7.horizontalAlign != null?p7.horizontalAlign:halign1)[1]) {
+				switch((p7.horizontalAlign != null ? p7.horizontalAlign : halign1)[1]) {
 				case 2:
 					c5.posChanged = true;
 					c5.x += maxColWidth - p7.calculatedWidth;
@@ -5901,7 +5925,7 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 					midSpace1 = 0;
 				}
 				var py;
-				switch((p8.verticalAlign == null?valign1:p8.verticalAlign)[1]) {
+				switch((p8.verticalAlign == null ? valign1 : p8.verticalAlign)[1]) {
 				case 3:
 					if(midSpace1 == 0) {
 						var remSize1 = p8.calculatedHeight;
@@ -6399,7 +6423,7 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 				_this1.tmp.push(g1);
 				_this1.tmp.push(b1);
 				_this1.tmp.push(a1);
-				var pnext = i == last?start:this.pindex + 2;
+				var pnext = i == last ? start : this.pindex + 2;
 				if(i < count - 1 || closed) {
 					this.content.index.push(this.pindex);
 					this.content.index.push(this.pindex + 1);
@@ -6415,7 +6439,7 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 				var d1 = this.lineSize * 0.5 / (nnx * nx1 * ns1 + nny * ny1 * ns1);
 				nnx *= d1;
 				nny *= d1;
-				var pnext1 = i == last?start:this.pindex + 3;
+				var pnext1 = i == last ? start : this.pindex + 3;
 				if((next.x - p.x) * nx + (next.y - p.y) * ny > 0) {
 					var _this2 = this.content;
 					var y2 = p.y + ny;
@@ -6534,9 +6558,9 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 		var last = null;
 		var tmp;
 		var f = p0.x - p1.x;
-		if((f < 0?-f:f) < 1e-9) {
+		if((f < 0 ? -f : f) < 1e-9) {
 			var f1 = p0.y - p1.y;
-			tmp = (f1 < 0?-f1:f1) < 1e-9;
+			tmp = (f1 < 0 ? -f1 : f1) < 1e-9;
 		} else {
 			tmp = false;
 		}
@@ -6697,7 +6721,7 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 		if(nsegments < 3) {
 			nsegments = 3;
 		}
-		var angle = 6.28318530717958623 / nsegments;
+		var angle = 6.2831853071795862 / nsegments;
 		var _g1 = 0;
 		var _g = nsegments + 1;
 		while(_g1 < _g) {
@@ -6833,7 +6857,7 @@ h2d_Interactive.prototype = $extend(h2d_Drawable.prototype,{
 		this.parentMask = null;
 		var p = this.parent;
 		while(p != null) {
-			var m = (p instanceof h2d_Mask)?p:null;
+			var m = (p instanceof h2d_Mask) ? p : null;
 			if(m != null) {
 				this.parentMask = m;
 				break;
@@ -7151,7 +7175,7 @@ h2d_Layers.prototype = $extend(h2d_Sprite.prototype,{
 		if(layer >= this.layerCount) {
 			a = [];
 		} else {
-			a = this.childs.slice(layer == 0?0:this.layersIndexes[layer - 1],this.layersIndexes[layer]);
+			a = this.childs.slice(layer == 0 ? 0 : this.layersIndexes[layer - 1],this.layersIndexes[layer]);
 		}
 		return new hxd_impl_ArrayIterator_$h2d_$Sprite(a);
 	}
@@ -7159,7 +7183,7 @@ h2d_Layers.prototype = $extend(h2d_Sprite.prototype,{
 		if(layer >= this.layerCount) {
 			return;
 		}
-		var start = layer == 0?0:this.layersIndexes[layer - 1];
+		var start = layer == 0 ? 0 : this.layersIndexes[layer - 1];
 		var max = this.layersIndexes[layer];
 		if(start == max) {
 			return;
@@ -7207,7 +7231,7 @@ h2d_Mask.prototype = $extend(h2d_Sprite.prototype,{
 		this.parentMask = null;
 		var p = this.parent;
 		while(p != null) {
-			var m = (p instanceof h2d_Mask)?p:null;
+			var m = (p instanceof h2d_Mask) ? p : null;
 			if(m != null) {
 				this.parentMask = m;
 				break;
@@ -7351,7 +7375,7 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 			filter = false;
 		}
 		var t = this.textures.allocTarget(name,this,this.scene.width >> size,this.scene.height >> size,false);
-		t.set_filter(filter?h3d_mat_Filter.Linear:h3d_mat_Filter.Nearest);
+		t.set_filter(filter ? h3d_mat_Filter.Linear : h3d_mat_Filter.Nearest);
 		return t;
 	}
 	,clear: function(color) {
@@ -7431,8 +7455,8 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 			}
 		}
 		var _this = this.baseShader.halfPixelInverse__;
-		_this.x = 0.5 / (t == null?this.engine.width:t.width);
-		_this.y = 0.5 / (t == null?this.engine.height:t.height);
+		_this.x = 0.5 / (t == null ? this.engine.width : t.width);
+		_this.y = 0.5 / (t == null ? this.engine.height : t.height);
 		_this.z = 0.;
 		_this.w = 1.;
 		var _this1 = this.baseShader.viewport__;
@@ -7440,7 +7464,7 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 		_this1.y = -height * 0.5 - startY;
 		_this1.z = 2 / width;
 		_this1.w = -2 / height;
-		this.targetsStack.push({ t : t, x : startX, y : startY, w : width, h : height, renderZone : this.hasRenderZone?{ x : this.renderX, y : this.renderY, w : this.renderW, h : this.renderH}:null});
+		this.targetsStack.push({ t : t, x : startX, y : startY, w : width, h : height, renderZone : this.hasRenderZone ? { x : this.renderX, y : this.renderY, w : this.renderW, h : this.renderH} : null});
 		this.curX = startX;
 		this.curY = startY;
 		this.curWidth = width;
@@ -7461,15 +7485,15 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 		this.engine.popTarget();
 		if(restore) {
 			var tinf = this.targetsStack[this.targetsStack.length - 1];
-			var t = tinf == null?null:tinf.t;
-			var startX = tinf == null?0:tinf.x;
-			var startY = tinf == null?0:tinf.y;
-			var width = tinf == null?this.scene.width:tinf.w;
-			var height = tinf == null?this.scene.height:tinf.h;
+			var t = tinf == null ? null : tinf.t;
+			var startX = tinf == null ? 0 : tinf.x;
+			var startY = tinf == null ? 0 : tinf.y;
+			var width = tinf == null ? this.scene.width : tinf.w;
+			var height = tinf == null ? this.scene.height : tinf.h;
 			this.initShaders(this.baseShaderList);
 			var _this = this.baseShader.halfPixelInverse__;
-			_this.x = 0.5 / (t == null?this.engine.width:t.width);
-			_this.y = 0.5 / (t == null?this.engine.height:t.height);
+			_this.x = 0.5 / (t == null ? this.engine.width : t.width);
+			_this.y = 0.5 / (t == null ? this.engine.height : t.height);
 			_this.z = 0.;
 			_this.w = 1.;
 			var _this1 = this.baseShader.viewport__;
@@ -7537,8 +7561,8 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 			this.texture = h3d_mat_Texture.fromColor(16711935);
 		}
 		this.baseShader.texture__ = this.texture;
-		this.texture.set_filter((this.currentObj.filter == null?this.defaultFilter:this.currentObj.filter)?h3d_mat_Filter.Linear:h3d_mat_Filter.Nearest);
-		this.texture.set_wrap(this.currentObj.tileWrap?h3d_mat_Wrap.Repeat:h3d_mat_Wrap.Clamp);
+		this.texture.set_filter((this.currentObj.filter == null ? this.defaultFilter : this.currentObj.filter) ? h3d_mat_Filter.Linear : h3d_mat_Filter.Nearest);
+		this.texture.set_wrap(this.currentObj.tileWrap ? h3d_mat_Wrap.Repeat : h3d_mat_Wrap.Clamp);
 		var blend = this.currentObj.blendMode;
 		if(this.inFilter == this.currentObj && blend == h2d_BlendMode.Erase) {
 			blend = h2d_BlendMode.Add;
@@ -7608,10 +7632,10 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 		}
 		if(matB == 0 && matC == 0) {
 			var f = obj.matA;
-			var a = f < 0?-f:f;
+			var a = f < 0 ? -f : f;
 			var f3 = obj.matD;
-			var b = f3 < 0?-f3:f3;
-			var tr = (tile.width > tile.height?tile.width:tile.height) * 1.5 * (a < b?b:a);
+			var b = f3 < 0 ? -f3 : f3;
+			var tr = (tile.width > tile.height ? tile.width : tile.height) * 1.5 * (a < b ? b : a);
 			var cx = absX + (tile.dx + tile.width * 0.5) * matA - this.curX;
 			var cy = absY + (tile.dy + tile.height * 0.5) * matD - this.curY;
 			if(cx < -tr || cy < -tr || cx - tr > this.curWidth || cy - tr > this.curHeight) {
@@ -7854,7 +7878,7 @@ h2d_TileGroup.prototype = $extend(h2d_Drawable.prototype,{
 		if(!ctx.beginDrawObject(obj,this.tile.innerTex)) {
 			return;
 		}
-		var min = this.rangeMin < 0?0:this.rangeMin * 2;
+		var min = this.rangeMin < 0 ? 0 : this.rangeMin * 2;
 		if(this.rangeMax > 0 && this.rangeMax < max * 2) {
 			max = this.rangeMax * 2;
 		}
@@ -8025,10 +8049,10 @@ h2d_ScaleGrid.prototype = $extend(h2d_TileGroup.prototype,{
 		}
 		var bw = this.borderWidth;
 		var bh = this.borderHeight;
-		var holdw = this.holdVertical?this.holdSize:0;
-		var holdh = this.holdVertical?0:this.holdSize;
-		var wpos = this.holdVertical?this.holdPosition:0.5;
-		var hpos = this.holdVertical?0.5:this.holdPosition;
+		var holdw = this.holdVertical ? this.holdSize : 0;
+		var holdh = this.holdVertical ? 0 : this.holdSize;
+		var wpos = this.holdVertical ? this.holdPosition : 0.5;
+		var hpos = this.holdVertical ? 0.5 : this.holdPosition;
 		var sizeX1 = Math.floor((this.tile.width - bw * 2 - holdw) * 0.5);
 		var sizeX2 = Math.ceil((this.tile.width - bw * 2 - holdw) * 0.5);
 		var sizeY1 = Math.floor((this.tile.height - bh * 2 - holdh) * 0.5);
@@ -8290,7 +8314,7 @@ h2d_Scene.prototype = $extend(h2d_Layers.prototype,{
 		this.screenToLocal(event);
 		var rx = event.relX;
 		var ry = event.relY;
-		var _g1 = last == null?0:this.interactive.indexOf(last) + 1;
+		var _g1 = last == null ? 0 : this.interactive.indexOf(last) + 1;
 		var _g = this.interactive.length;
 		while(_g1 < _g) {
 			var i = this.interactive[_g1++];
@@ -8373,7 +8397,7 @@ h2d_Scene.prototype = $extend(h2d_Layers.prototype,{
 		if(f == null) {
 			return null;
 		}
-		var i = (f instanceof h2d_Interactive)?f:null;
+		var i = (f instanceof h2d_Interactive) ? f : null;
 		if(i == null) {
 			return null;
 		}
@@ -8808,7 +8832,7 @@ h2d_Tile.prototype = {
 		return _g;
 	}
 	,toString: function() {
-		return "Tile(" + this.x + "," + this.y + "," + this.width + "x" + this.height + (this.dx != 0 || this.dy != 0?"," + this.dx + ":" + this.dy:"") + ")";
+		return "Tile(" + this.x + "," + this.y + "," + this.width + "x" + this.height + (this.dx != 0 || this.dy != 0 ? "," + this.dx + ":" + this.dy : "") + ")";
 	}
 	,upload: function(bmp) {
 		this.innerTex.uploadBitmap(bmp);
@@ -9407,45 +9431,45 @@ h2d_col_IBounds.prototype = {
 	,doIntersect: function(b) {
 		var a = this.xMin;
 		var b1 = b.xMin;
-		this.xMin = a < b1?b1:a;
+		this.xMin = a < b1 ? b1 : a;
 		var a1 = this.yMin;
 		var b2 = b.yMin;
-		this.yMin = a1 < b2?b2:a1;
+		this.yMin = a1 < b2 ? b2 : a1;
 		var a2 = this.xMax;
 		var b3 = b.xMax;
-		this.xMax = a2 > b3?b3:a2;
+		this.xMax = a2 > b3 ? b3 : a2;
 		var a3 = this.yMax;
 		var b4 = b.yMax;
-		this.yMax = a3 > b4?b4:a3;
+		this.yMax = a3 > b4 ? b4 : a3;
 	}
 	,doUnion: function(b) {
 		var a = this.xMin;
 		var b1 = b.xMin;
-		this.xMin = a > b1?b1:a;
+		this.xMin = a > b1 ? b1 : a;
 		var a1 = this.yMin;
 		var b2 = b.yMin;
-		this.yMin = a1 > b2?b2:a1;
+		this.yMin = a1 > b2 ? b2 : a1;
 		var a2 = this.xMax;
 		var b3 = b.xMax;
-		this.xMax = a2 < b3?b3:a2;
+		this.xMax = a2 < b3 ? b3 : a2;
 		var a3 = this.yMax;
 		var b4 = b.yMax;
-		this.yMax = a3 < b4?b4:a3;
+		this.yMax = a3 < b4 ? b4 : a3;
 	}
 	,intersection: function(b) {
 		var i = new h2d_col_Bounds();
 		var a = this.xMin;
 		var b1 = b.xMin;
-		i.xMin = a < b1?b1:a;
+		i.xMin = a < b1 ? b1 : a;
 		var a1 = this.yMin;
 		var b2 = b.yMin;
-		i.yMin = a1 < b2?b2:a1;
+		i.yMin = a1 < b2 ? b2 : a1;
 		var a2 = this.xMax;
 		var b3 = b.xMax;
-		i.xMax = a2 > b3?b3:a2;
+		i.xMax = a2 > b3 ? b3 : a2;
 		var a3 = this.yMax;
 		var b4 = b.yMax;
-		i.yMax = a3 > b4?b4:a3;
+		i.yMax = a3 > b4 ? b4 : a3;
 		if(i.xMax < i.xMin) {
 			i.xMax = i.xMin;
 		}
@@ -9458,16 +9482,16 @@ h2d_col_IBounds.prototype = {
 		var i = new h2d_col_Bounds();
 		var a = this.xMin;
 		var b1 = b.xMin;
-		i.xMin = a > b1?b1:a;
+		i.xMin = a > b1 ? b1 : a;
 		var a1 = this.yMin;
 		var b2 = b.yMin;
-		i.yMin = a1 > b2?b2:a1;
+		i.yMin = a1 > b2 ? b2 : a1;
 		var a2 = this.xMax;
 		var b3 = b.xMax;
-		i.xMax = a2 < b3?b3:a2;
+		i.xMax = a2 < b3 ? b3 : a2;
 		var a3 = this.yMax;
 		var b4 = b.yMax;
-		i.yMax = a3 < b4?b4:a3;
+		i.yMax = a3 < b4 ? b4 : a3;
 		return i;
 	}
 	,load: function(b) {
@@ -9885,7 +9909,7 @@ h3d_Buffer.prototype = {
 			if(cur == null) {
 				throw new js__$Boot_HaxeError("Too many vertices");
 			}
-			var count = vertices + startVertice > cur.vertices?cur.vertices - startVertice:vertices;
+			var count = vertices + startVertice > cur.vertices ? cur.vertices - startVertice : vertices;
 			cur.buffer.uploadVertexBuffer(cur.position + startVertice,count,buf,bufPos);
 			startVertice = 0;
 			bufPos += count * this.buffer.stride;
@@ -9899,7 +9923,7 @@ h3d_Buffer.prototype = {
 			if(cur == null) {
 				throw new js__$Boot_HaxeError("Too many vertices");
 			}
-			var count = vertices > cur.vertices?cur.vertices:vertices;
+			var count = vertices > cur.vertices ? cur.vertices : vertices;
 			cur.buffer.uploadVertexBytes(cur.position,count,data,dataPos);
 			dataPos += count * this.buffer.stride * 4;
 			vertices -= count;
@@ -10558,7 +10582,7 @@ h3d_Engine.prototype = {
 			throw new js__$Boot_HaxeError("popTarget() with no matching pushTarget()");
 		}
 		this.targetStack = c.next;
-		this.needFlushTarget = this.currentTarget != (this.targetStack == null?null:this.targetStack.t);
+		this.needFlushTarget = this.currentTarget != (this.targetStack == null ? null : this.targetStack.t);
 		c.t = null;
 		c.next = this.targetTmp;
 		this.targetTmp = c;
@@ -10569,7 +10593,7 @@ h3d_Engine.prototype = {
 		}
 	}
 	,doFlushTarget: function() {
-		var tex = this.targetStack == null?null:this.targetStack.t;
+		var tex = this.targetStack == null ? null : this.targetStack.t;
 		this.currentTarget = tex;
 		this.driver.setRenderTarget(tex);
 		this.needFlushTarget = false;
@@ -10585,7 +10609,7 @@ h3d_Engine.prototype = {
 		if(this.needFlushTarget) {
 			this.doFlushTarget();
 		}
-		this.driver.clear(color == null?null:this.tmpVector,depth,stencil);
+		this.driver.clear(color == null ? null : this.tmpVector,depth,stencil);
 	}
 	,setRenderZone: function(x,y,width,height) {
 		if(height == null) {
@@ -11303,7 +11327,7 @@ h3d_Matrix.prototype = {
 		this._44 = m11 * m22 * m33 - m11 * m23 * m32 - m21 * m12 * m33 + m21 * m13 * m32 + m31 * m12 * m23 - m31 * m13 * m22;
 		this._44 = 1;
 		var det = m11 * this._11 + m12 * this._21 + m13 * this._31;
-		if((det < 0?-det:det) < 1e-10) {
+		if((det < 0 ? -det : det) < 1e-10) {
 			this.zero();
 			return;
 		}
@@ -11355,7 +11379,7 @@ h3d_Matrix.prototype = {
 		this._43 = -m11 * m22 * m43 + m11 * m23 * m42 + m21 * m12 * m43 - m21 * m13 * m42 - m41 * m12 * m23 + m41 * m13 * m22;
 		this._44 = m11 * m22 * m33 - m11 * m23 * m32 - m21 * m12 * m33 + m21 * m13 * m32 + m31 * m12 * m23 - m31 * m13 * m22;
 		var det = m11 * this._11 + m12 * this._21 + m13 * this._31 + m14 * this._41;
-		if((det < 0?-det:det) < 1e-10) {
+		if((det < 0 ? -det : det) < 1e-10) {
 			this.zero();
 			return;
 		}
@@ -11397,7 +11421,7 @@ h3d_Matrix.prototype = {
 		this._32 = -m11 * m32 + m31 * m12;
 		this._33 = m11 * m22 - m21 * m12;
 		var det = m11 * this._11 + m12 * this._21 + m13 * this._31;
-		if((det < 0?-det:det) < 1e-10) {
+		if((det < 0 ? -det : det) < 1e-10) {
 			this.zero();
 			return;
 		}
@@ -11729,8 +11753,9 @@ h3d_Quat.prototype = {
 		var ay_z;
 		var ay_y;
 		var ay_x;
+		var _this_z;
 		var x2 = -y1;
-		var _this_z = 0;
+		_this_z = 0;
 		var k1 = x2 * x2 + x1 * x1 + _this_z * _this_z;
 		if(k1 < 1e-10) {
 			k1 = 0;
@@ -11884,7 +11909,7 @@ h3d_Quat.prototype = {
 	}
 	,slerp: function(q1,q2,v) {
 		var cosHalfTheta = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
-		if((cosHalfTheta < 0?-cosHalfTheta:cosHalfTheta) >= 1) {
+		if((cosHalfTheta < 0 ? -cosHalfTheta : cosHalfTheta) >= 1) {
 			this.x = q1.x;
 			this.y = q1.y;
 			this.z = q1.z;
@@ -11893,7 +11918,7 @@ h3d_Quat.prototype = {
 		}
 		var halfTheta = Math.acos(cosHalfTheta);
 		var invSinHalfTheta = 1. / Math.sqrt(1 - cosHalfTheta * cosHalfTheta);
-		if((invSinHalfTheta < 0?-invSinHalfTheta:invSinHalfTheta) > 1e3) {
+		if((invSinHalfTheta < 0 ? -invSinHalfTheta : invSinHalfTheta) > 1e3) {
 			var v2;
 			if(q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w < 0) {
 				v2 = -0.5;
@@ -11907,7 +11932,7 @@ h3d_Quat.prototype = {
 			return;
 		}
 		var a = Math.sin((1 - v) * halfTheta) * invSinHalfTheta;
-		var b = Math.sin(v * halfTheta) * invSinHalfTheta * (cosHalfTheta < 0?-1:1);
+		var b = Math.sin(v * halfTheta) * invSinHalfTheta * (cosHalfTheta < 0 ? -1 : 1);
 		this.x = q1.x * a + q2.x * b;
 		this.y = q1.y * a + q2.y * b;
 		this.z = q1.z * a + q2.z * b;
@@ -12172,22 +12197,22 @@ h3d_Vector.prototype = {
 		if(saturation == null) {
 			saturation = 1.;
 		}
-		var r = hue % 6.28318530717958623;
+		var r = hue % 6.2831853071795862;
 		if(r >= 0) {
 			hue = r;
 		} else {
-			hue = r + 6.28318530717958623;
+			hue = r + 6.2831853071795862;
 		}
 		var f = 2 * brightness - 1;
-		var c = (1 - (f < 0?-f:f)) * saturation;
+		var c = (1 - (f < 0 ? -f : f)) * saturation;
 		var f1 = hue * 3 / 3.14159265358979323 % 2. - 1;
-		var x = c * (1 - (f1 < 0?-f1:f1));
+		var x = c * (1 - (f1 < 0 ? -f1 : f1));
 		var m = brightness - c / 2;
-		if(hue < 1.04719755119659763) {
+		if(hue < 1.0471975511965976) {
 			this.x = c;
 			this.y = x;
 			this.z = 0;
-		} else if(hue < 2.09439510239319526) {
+		} else if(hue < 2.0943951023931953) {
 			this.x = x;
 			this.y = c;
 			this.z = 0;
@@ -12195,11 +12220,11 @@ h3d_Vector.prototype = {
 			this.x = 0;
 			this.y = c;
 			this.z = x;
-		} else if(hue < 4.18879020478639053) {
+		} else if(hue < 4.1887902047863905) {
 			this.x = 0;
 			this.y = x;
 			this.z = c;
-		} else if(hue < 5.23598775598298882) {
+		} else if(hue < 5.2359877559829888) {
 			this.x = x;
 			this.y = 0;
 			this.z = c;
@@ -12218,7 +12243,7 @@ h3d_Vector.prototype = {
 		var f1 = this.x;
 		var f2 = this.y;
 		var f3 = this.z;
-		return ((f < 0.?0.:f > 1.?1.:f) * 255 + 0.499 | 0) << 24 | ((f1 < 0.?0.:f1 > 1.?1.:f1) * 255 + 0.499 | 0) << 16 | ((f2 < 0.?0.:f2 > 1.?1.:f2) * 255 + 0.499 | 0) << 8 | ((f3 < 0.?0.:f3 > 1.?1.:f3) * 255 + 0.499 | 0);
+		return ((f < 0. ? 0. : f > 1. ? 1. : f) * 255 + 0.499 | 0) << 24 | ((f1 < 0. ? 0. : f1 > 1. ? 1. : f1) * 255 + 0.499 | 0) << 16 | ((f2 < 0. ? 0. : f2 > 1. ? 1. : f2) * 255 + 0.499 | 0) << 8 | ((f3 < 0. ? 0. : f3 > 1. ? 1. : f3) * 255 + 0.499 | 0);
 	}
 	,__class__: h3d_Vector
 };
@@ -12331,7 +12356,7 @@ h3d_anim_Animation.prototype = {
 			if(currentSkin != null) {
 				var key = a.objectName;
 				var _this = currentSkin.skinData.namedJoints;
-				var j = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+				var j = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 				if(j != null) {
 					a.targetSkin = currentSkin;
 					a.targetJoint = j.index;
@@ -12342,7 +12367,7 @@ h3d_anim_Animation.prototype = {
 				HxOverrides.remove(this.objects,a);
 				continue;
 			}
-			var joint = (obj instanceof h3d_scene_Joint)?obj:null;
+			var joint = (obj instanceof h3d_scene_Joint) ? obj : null;
 			if(joint != null) {
 				currentSkin = joint.parent;
 				a.targetSkin = currentSkin;
@@ -12364,7 +12389,7 @@ h3d_anim_Animation.prototype = {
 	}
 	,isPlaying: function() {
 		if(!this.pause) {
-			return (this.speed < 0?-this.speed:this.speed) > 0.000001;
+			return (this.speed < 0 ? -this.speed : this.speed) > 0.000001;
 		} else {
 			return false;
 		}
@@ -12555,7 +12580,7 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 			if(a.alphas != null) {
 				if(a.targetObject != null) {
 					var _this = a.targetObject;
-					tmp = ((_this instanceof h3d_scene_Mesh)?_this:null) == null;
+					tmp = ((_this instanceof h3d_scene_Mesh) ? _this : null) == null;
 				} else {
 					tmp = true;
 				}
@@ -12574,7 +12599,7 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 		frames.sort($bind(this,this.sortByFrameCountDesc));
 	}
 	,sortByFrameCountDesc: function(o1,o2) {
-		return (o2.frames == null?10:o2.frames.length) - (o1.frames == null?10:o1.frames.length);
+		return (o2.frames == null ? 10 : o2.frames.length) - (o1.frames == null ? 10 : o1.frames.length);
 	}
 	,uvLerp: function(v1,v2,k) {
 		v1 %= 1.;
@@ -12679,7 +12704,7 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 			m._42 = f1.ty * k1 + f2.ty * k2;
 			m._43 = f1.tz * k1 + f2.tz * k2;
 			if(o.hasRotation) {
-				var q2 = f1.qx * f2.qx + f1.qy * f2.qy + f1.qz * f2.qz + f1.qw * f2.qw < 0?-k2:k2;
+				var q2 = f1.qx * f2.qx + f1.qy * f2.qy + f1.qz * f2.qz + f1.qw * f2.qw < 0 ? -k2 : k2;
 				var qx = f1.qx * k1 + f2.qx * q2;
 				var qy = f1.qy * k1 + f2.qy * q2;
 				var qz = f1.qz * k1 + f2.qz * q2;
@@ -12741,7 +12766,7 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 				m._12 = 0;
 				m._13 = 0;
 				m._21 = 0;
-				m._23 = decompose?1:0;
+				m._23 = decompose ? 1 : 0;
 				if(o.hasScale) {
 					m._11 = f1.sx * k1 + f2.sx * k2;
 					m._22 = f1.sy * k1 + f2.sy * k2;
@@ -12966,7 +12991,7 @@ h3d_anim_Skin.prototype = {
 		while(_g1 < _g) {
 			var tri = _g1++;
 			var iid = tri * 3;
-			var mid = triangleMaterials == null?0:triangleMaterials[tri];
+			var mid = triangleMaterials == null ? 0 : triangleMaterials[tri];
 			var jl = [];
 			var _g2 = 0;
 			while(_g2 < 3) {
@@ -13348,16 +13373,16 @@ h3d_col_Bounds.prototype = {
 		var maxTx = (this.xMax - r.px) / r.lx;
 		var maxTy = (this.yMax - r.py) / r.ly;
 		var maxTz = (this.zMax - r.pz) / r.lz;
-		var realMinTx = minTx > maxTx?maxTx:minTx;
-		var realMinTy = minTy > maxTy?maxTy:minTy;
-		var realMinTz = minTz > maxTz?maxTz:minTz;
-		var realMaxTx = minTx < maxTx?maxTx:minTx;
-		var realMaxTy = minTy < maxTy?maxTy:minTy;
-		var realMaxTz = minTz < maxTz?maxTz:minTz;
-		var a = realMaxTx > realMaxTy?realMaxTy:realMaxTx;
-		var a1 = realMinTx < realMinTy?realMinTy:realMinTx;
-		var maxmin = a1 < realMinTz?realMinTz:a1;
-		if((a > realMaxTz?realMaxTz:a) < maxmin) {
+		var realMinTx = minTx > maxTx ? maxTx : minTx;
+		var realMinTy = minTy > maxTy ? maxTy : minTy;
+		var realMinTz = minTz > maxTz ? maxTz : minTz;
+		var realMaxTx = minTx < maxTx ? maxTx : minTx;
+		var realMaxTy = minTy < maxTy ? maxTy : minTy;
+		var realMaxTz = minTz < maxTz ? maxTz : minTz;
+		var a = realMaxTx > realMaxTy ? realMaxTy : realMaxTx;
+		var a1 = realMinTx < realMinTy ? realMinTy : realMinTx;
+		var maxmin = a1 < realMinTz ? realMinTz : a1;
+		if((a > realMaxTz ? realMaxTz : a) < maxmin) {
 			return null;
 		}
 		if(p == null) {
@@ -13377,40 +13402,40 @@ h3d_col_Bounds.prototype = {
 		var ny = mvp._24 + mvp._21;
 		var nz = mvp._34 + mvp._31;
 		var d = mvp._44 + mvp._41;
-		if(nx * (nx > 0?this.xMax:this.xMin) + ny * (ny > 0?this.yMax:this.yMin) + nz * (nz > 0?this.zMax:this.zMin) + d < 0) {
+		if(nx * (nx > 0 ? this.xMax : this.xMin) + ny * (ny > 0 ? this.yMax : this.yMin) + nz * (nz > 0 ? this.zMax : this.zMin) + d < 0) {
 			return -1;
 		}
-		if(nx * (nx > 0?this.xMin:this.xMax) + ny * (ny > 0?this.yMin:this.yMax) + nz * (nz > 0?this.zMin:this.zMax) + d < 0) {
+		if(nx * (nx > 0 ? this.xMin : this.xMax) + ny * (ny > 0 ? this.yMin : this.yMax) + nz * (nz > 0 ? this.zMin : this.zMax) + d < 0) {
 			ret = 0;
 		}
 		var nx1 = mvp._14 - mvp._11;
 		var ny1 = mvp._24 - mvp._21;
 		var nz1 = mvp._34 - mvp._31;
 		var d1 = mvp._44 - mvp._41;
-		if(nx1 * (nx1 > 0?this.xMax:this.xMin) + ny1 * (ny1 > 0?this.yMax:this.yMin) + nz1 * (nz1 > 0?this.zMax:this.zMin) + d1 < 0) {
+		if(nx1 * (nx1 > 0 ? this.xMax : this.xMin) + ny1 * (ny1 > 0 ? this.yMax : this.yMin) + nz1 * (nz1 > 0 ? this.zMax : this.zMin) + d1 < 0) {
 			return -1;
 		}
-		if(nx1 * (nx1 > 0?this.xMin:this.xMax) + ny1 * (ny1 > 0?this.yMin:this.yMax) + nz1 * (nz1 > 0?this.zMin:this.zMax) + d1 < 0) {
+		if(nx1 * (nx1 > 0 ? this.xMin : this.xMax) + ny1 * (ny1 > 0 ? this.yMin : this.yMax) + nz1 * (nz1 > 0 ? this.zMin : this.zMax) + d1 < 0) {
 			ret = 0;
 		}
 		var nx2 = mvp._14 + mvp._12;
 		var ny2 = mvp._24 + mvp._22;
 		var nz2 = mvp._34 + mvp._32;
 		var d2 = mvp._44 + mvp._42;
-		if(nx2 * (nx2 > 0?this.xMax:this.xMin) + ny2 * (ny2 > 0?this.yMax:this.yMin) + nz2 * (nz2 > 0?this.zMax:this.zMin) + d2 < 0) {
+		if(nx2 * (nx2 > 0 ? this.xMax : this.xMin) + ny2 * (ny2 > 0 ? this.yMax : this.yMin) + nz2 * (nz2 > 0 ? this.zMax : this.zMin) + d2 < 0) {
 			return -1;
 		}
-		if(nx2 * (nx2 > 0?this.xMin:this.xMax) + ny2 * (ny2 > 0?this.yMin:this.yMax) + nz2 * (nz2 > 0?this.zMin:this.zMax) + d2 < 0) {
+		if(nx2 * (nx2 > 0 ? this.xMin : this.xMax) + ny2 * (ny2 > 0 ? this.yMin : this.yMax) + nz2 * (nz2 > 0 ? this.zMin : this.zMax) + d2 < 0) {
 			ret = 0;
 		}
 		var nx3 = mvp._14 - mvp._12;
 		var ny3 = mvp._24 - mvp._22;
 		var nz3 = mvp._34 - mvp._32;
 		var d3 = mvp._44 - mvp._42;
-		if(nx3 * (nx3 > 0?this.xMax:this.xMin) + ny3 * (ny3 > 0?this.yMax:this.yMin) + nz3 * (nz3 > 0?this.zMax:this.zMin) + d3 < 0) {
+		if(nx3 * (nx3 > 0 ? this.xMax : this.xMin) + ny3 * (ny3 > 0 ? this.yMax : this.yMin) + nz3 * (nz3 > 0 ? this.zMax : this.zMin) + d3 < 0) {
 			return -1;
 		}
-		if(nx3 * (nx3 > 0?this.xMin:this.xMax) + ny3 * (ny3 > 0?this.yMin:this.yMax) + nz3 * (nz3 > 0?this.zMin:this.zMax) + d3 < 0) {
+		if(nx3 * (nx3 > 0 ? this.xMin : this.xMax) + ny3 * (ny3 > 0 ? this.yMin : this.yMax) + nz3 * (nz3 > 0 ? this.zMin : this.zMax) + d3 < 0) {
 			ret = 0;
 		}
 		if(checkZ) {
@@ -13418,20 +13443,20 @@ h3d_col_Bounds.prototype = {
 			var ny4 = mvp._23;
 			var nz4 = mvp._33;
 			var d4 = mvp._43;
-			if(nx4 * (nx4 > 0?this.xMax:this.xMin) + ny4 * (ny4 > 0?this.yMax:this.yMin) + nz4 * (nz4 > 0?this.zMax:this.zMin) + d4 < 0) {
+			if(nx4 * (nx4 > 0 ? this.xMax : this.xMin) + ny4 * (ny4 > 0 ? this.yMax : this.yMin) + nz4 * (nz4 > 0 ? this.zMax : this.zMin) + d4 < 0) {
 				return -1;
 			}
-			if(nx4 * (nx4 > 0?this.xMin:this.xMax) + ny4 * (ny4 > 0?this.yMin:this.yMax) + nz4 * (nz4 > 0?this.zMin:this.zMax) + d4 < 0) {
+			if(nx4 * (nx4 > 0 ? this.xMin : this.xMax) + ny4 * (ny4 > 0 ? this.yMin : this.yMax) + nz4 * (nz4 > 0 ? this.zMin : this.zMax) + d4 < 0) {
 				ret = 0;
 			}
 			var nx5 = mvp._14 - mvp._13;
 			var ny5 = mvp._24 - mvp._23;
 			var nz5 = mvp._34 - mvp._33;
 			var d5 = mvp._44 - mvp._43;
-			if(nx5 * (nx5 > 0?this.xMax:this.xMin) + ny5 * (ny5 > 0?this.yMax:this.yMin) + nz5 * (nz5 > 0?this.zMax:this.zMin) + d5 < 0) {
+			if(nx5 * (nx5 > 0 ? this.xMax : this.xMin) + ny5 * (ny5 > 0 ? this.yMax : this.yMin) + nz5 * (nz5 > 0 ? this.zMax : this.zMin) + d5 < 0) {
 				return -1;
 			}
-			if(nx5 * (nx5 > 0?this.xMin:this.xMax) + ny5 * (ny5 > 0?this.yMin:this.yMax) + nz5 * (nz5 > 0?this.zMin:this.zMax) + d5 < 0) {
+			if(nx5 * (nx5 > 0 ? this.xMin : this.xMax) + ny5 * (ny5 > 0 ? this.yMin : this.yMax) + nz5 * (nz5 > 0 ? this.zMin : this.zMax) + d5 < 0) {
 				ret = 0;
 			}
 		}
@@ -13942,12 +13967,12 @@ h3d_col_Bounds.prototype = {
 		var b5 = b.yMax;
 		var a6 = a.zMax;
 		var b6 = b.zMax;
-		this.xMin = a1 < b1?b1:a1;
-		this.xMax = a4 > b4?b4:a4;
-		this.yMin = a2 < b2?b2:a2;
-		this.yMax = a5 > b5?b5:a5;
-		this.zMin = a3 < b3?b3:a3;
-		this.zMax = a6 > b6?b6:a6;
+		this.xMin = a1 < b1 ? b1 : a1;
+		this.xMax = a4 > b4 ? b4 : a4;
+		this.yMin = a2 < b2 ? b2 : a2;
+		this.yMax = a5 > b5 ? b5 : a5;
+		this.zMin = a3 < b3 ? b3 : a3;
+		this.zMax = a6 > b6 ? b6 : a6;
 	}
 	,offset: function(dx,dy,dz) {
 		this.xMin += dx;
@@ -15024,15 +15049,21 @@ h3d_col_Polygon.prototype = {
 			var i0 = indexes[k] * stride;
 			var i1 = indexes[k + 1] * stride;
 			var i2 = indexes[k + 2] * stride;
+			var p0_z;
+			var p0_y;
 			var p0_x = vertexes[i0];
-			var p0_y = vertexes[i0 + 1];
-			var p0_z = vertexes[i0 + 2];
+			p0_y = vertexes[i0 + 1];
+			p0_z = vertexes[i0 + 2];
+			var p1_z;
+			var p1_y;
 			var p1_x = vertexes[i1];
-			var p1_y = vertexes[i1 + 1];
-			var p1_z = vertexes[i1 + 2];
+			p1_y = vertexes[i1 + 1];
+			p1_z = vertexes[i1 + 2];
+			var p2_z;
+			var p2_y;
 			var p2_x = vertexes[i2];
-			var p2_y = vertexes[i2 + 1];
-			var p2_z = vertexes[i2 + 2];
+			p2_y = vertexes[i2 + 1];
+			p2_z = vertexes[i2 + 2];
 			t.p0x = p0_x;
 			t.p0y = p0_y;
 			t.p0z = p0_z;
@@ -15225,8 +15256,8 @@ h3d_col_Ray.prototype = {
 	,intersect: function(p) {
 		var d = this.lx * p.nx + this.ly * p.ny + this.lz * p.nz;
 		var nd = p.d - (this.px * p.nx + this.py * p.ny + this.pz * p.nz);
-		if((d < 0?-d:d) < 1e-10) {
-			if((nd < 0?-nd:nd) < 1e-10) {
+		if((d < 0 ? -d : d) < 1e-10) {
+			if((nd < 0 ? -nd : nd) < 1e-10) {
 				return new h3d_col_Point(this.px,this.py,this.pz);
 			} else {
 				return null;
@@ -15272,16 +15303,16 @@ h3d_col_Ray.prototype = {
 		var t4 = (1 - a_y) * dy;
 		var t5 = (0 - a_z) * dz;
 		var t6 = (1 - a_z) * dz;
-		var a = t1 > t2?t2:t1;
-		var b = t3 > t4?t4:t3;
-		var a1 = a < b?b:a;
-		var b1 = t5 > t6?t6:t5;
-		var a2 = t1 < t2?t2:t1;
-		var b2 = t3 < t4?t4:t3;
-		var a3 = a2 > b2?b2:a2;
-		var b3 = t5 < t6?t6:t5;
-		var tmax = a3 > b3?b3:a3;
-		return !(tmax < 0 || (a1 < b1?b1:a1) > tmax);
+		var a = t1 > t2 ? t2 : t1;
+		var b = t3 > t4 ? t4 : t3;
+		var a1 = a < b ? b : a;
+		var b1 = t5 > t6 ? t6 : t5;
+		var a2 = t1 < t2 ? t2 : t1;
+		var b2 = t3 < t4 ? t4 : t3;
+		var a3 = a2 > b2 ? b2 : a2;
+		var b3 = t5 < t6 ? t6 : t5;
+		var tmax = a3 > b3 ? b3 : a3;
+		return !(tmax < 0 || (a1 < b1 ? b1 : a1) > tmax);
 	}
 	,collide: function(b) {
 		var dx = 1 / this.lx;
@@ -15293,18 +15324,18 @@ h3d_col_Ray.prototype = {
 		var t4 = (b.yMax - this.py) * dy;
 		var t5 = (b.zMin - this.pz) * dz;
 		var t6 = (b.zMax - this.pz) * dz;
-		var a = t1 > t2?t2:t1;
-		var b1 = t3 > t4?t4:t3;
-		var a1 = a < b1?b1:a;
-		var b2 = t5 > t6?t6:t5;
-		var a2 = t1 < t2?t2:t1;
-		var b3 = t3 < t4?t4:t3;
-		var a3 = a2 > b3?b3:a2;
-		var b4 = t5 < t6?t6:t5;
-		var tmax = a3 > b4?b4:a3;
+		var a = t1 > t2 ? t2 : t1;
+		var b1 = t3 > t4 ? t4 : t3;
+		var a1 = a < b1 ? b1 : a;
+		var b2 = t5 > t6 ? t6 : t5;
+		var a2 = t1 < t2 ? t2 : t1;
+		var b3 = t3 < t4 ? t4 : t3;
+		var a3 = a2 > b3 ? b3 : a2;
+		var b4 = t5 < t6 ? t6 : t5;
+		var tmax = a3 > b4 ? b4 : a3;
 		if(tmax < 0) {
 			return false;
-		} else if((a1 < b2?b2:a1) > tmax) {
+		} else if((a1 < b2 ? b2 : a1) > tmax) {
 			return false;
 		} else {
 			return true;
@@ -15367,14 +15398,18 @@ h3d_col_Sphere.prototype = {
 		var x = this.x;
 		var y = this.y;
 		var z = this.z;
+		var pl_nz;
+		var pl_ny;
+		var pl_nx;
+		var pl_d;
 		var nx = mvp._14 + mvp._11;
 		var ny = mvp._24 + mvp._21;
 		var nz = mvp._34 + mvp._31;
 		var d = -(mvp._44 + mvp._41);
-		var pl_nx = nx;
-		var pl_ny = ny;
-		var pl_nz = nz;
-		var pl_d = d;
+		pl_nx = nx;
+		pl_ny = ny;
+		pl_nz = nz;
+		pl_d = d;
 		var len = 1. / Math.sqrt(nx * nx + ny * ny + nz * nz);
 		pl_nx = nx * len;
 		pl_ny = ny * len;
@@ -15383,14 +15418,18 @@ h3d_col_Sphere.prototype = {
 		if(pl_nx * x + pl_ny * y + pl_nz * z - pl_d < -this.r) {
 			return false;
 		}
+		var pl_nz1;
+		var pl_ny1;
+		var pl_nx1;
+		var pl_d1;
 		var nx1 = mvp._14 - mvp._11;
 		var ny1 = mvp._24 - mvp._21;
 		var nz1 = mvp._34 - mvp._31;
 		var d1 = mvp._41 - mvp._44;
-		var pl_nx1 = nx1;
-		var pl_ny1 = ny1;
-		var pl_nz1 = nz1;
-		var pl_d1 = d1;
+		pl_nx1 = nx1;
+		pl_ny1 = ny1;
+		pl_nz1 = nz1;
+		pl_d1 = d1;
 		var len1 = 1. / Math.sqrt(nx1 * nx1 + ny1 * ny1 + nz1 * nz1);
 		pl_nx1 = nx1 * len1;
 		pl_ny1 = ny1 * len1;
@@ -15399,14 +15438,18 @@ h3d_col_Sphere.prototype = {
 		if(pl_nx1 * x + pl_ny1 * y + pl_nz1 * z - pl_d1 < -this.r) {
 			return false;
 		}
+		var pl_nz2;
+		var pl_ny2;
+		var pl_nx2;
+		var pl_d2;
 		var nx2 = mvp._14 + mvp._12;
 		var ny2 = mvp._24 + mvp._22;
 		var nz2 = mvp._34 + mvp._32;
 		var d2 = -(mvp._44 + mvp._42);
-		var pl_nx2 = nx2;
-		var pl_ny2 = ny2;
-		var pl_nz2 = nz2;
-		var pl_d2 = d2;
+		pl_nx2 = nx2;
+		pl_ny2 = ny2;
+		pl_nz2 = nz2;
+		pl_d2 = d2;
 		var len2 = 1. / Math.sqrt(nx2 * nx2 + ny2 * ny2 + nz2 * nz2);
 		pl_nx2 = nx2 * len2;
 		pl_ny2 = ny2 * len2;
@@ -15415,14 +15458,18 @@ h3d_col_Sphere.prototype = {
 		if(pl_nx2 * x + pl_ny2 * y + pl_nz2 * z - pl_d2 < -this.r) {
 			return false;
 		}
+		var pl_nz3;
+		var pl_ny3;
+		var pl_nx3;
+		var pl_d3;
 		var nx3 = mvp._14 - mvp._12;
 		var ny3 = mvp._24 - mvp._22;
 		var nz3 = mvp._34 - mvp._32;
 		var d3 = mvp._42 - mvp._44;
-		var pl_nx3 = nx3;
-		var pl_ny3 = ny3;
-		var pl_nz3 = nz3;
-		var pl_d3 = d3;
+		pl_nx3 = nx3;
+		pl_ny3 = ny3;
+		pl_nz3 = nz3;
+		pl_d3 = d3;
 		var len3 = 1. / Math.sqrt(nx3 * nx3 + ny3 * ny3 + nz3 * nz3);
 		pl_nx3 = nx3 * len3;
 		pl_ny3 = ny3 * len3;
@@ -15431,14 +15478,18 @@ h3d_col_Sphere.prototype = {
 		if(pl_nx3 * x + pl_ny3 * y + pl_nz3 * z - pl_d3 < -this.r) {
 			return false;
 		}
+		var pl_nz4;
+		var pl_ny4;
+		var pl_nx4;
+		var pl_d4;
 		var nx4 = mvp._13;
 		var ny4 = mvp._23;
 		var nz4 = mvp._33;
 		var d4 = -mvp._43;
-		var pl_nx4 = nx4;
-		var pl_ny4 = ny4;
-		var pl_nz4 = nz4;
-		var pl_d4 = d4;
+		pl_nx4 = nx4;
+		pl_ny4 = ny4;
+		pl_nz4 = nz4;
+		pl_d4 = d4;
 		var len4 = 1. / Math.sqrt(nx4 * nx4 + ny4 * ny4 + nz4 * nz4);
 		pl_nx4 = nx4 * len4;
 		pl_ny4 = ny4 * len4;
@@ -15447,14 +15498,18 @@ h3d_col_Sphere.prototype = {
 		if(pl_nx4 * x + pl_ny4 * y + pl_nz4 * z - pl_d4 < -this.r) {
 			return false;
 		}
+		var pl_nz5;
+		var pl_ny5;
+		var pl_nx5;
+		var pl_d5;
 		var nx5 = mvp._13;
 		var ny5 = mvp._23;
 		var nz5 = mvp._33;
 		var d5 = -mvp._43;
-		var pl_nx5 = nx5;
-		var pl_ny5 = ny5;
-		var pl_nz5 = nz5;
-		var pl_d5 = d5;
+		pl_nx5 = nx5;
+		pl_ny5 = ny5;
+		pl_nz5 = nz5;
+		pl_d5 = d5;
 		var len5 = 1. / Math.sqrt(nx5 * nx5 + ny5 * ny5 + nz5 * nz5);
 		pl_nx5 = nx5 * len5;
 		pl_ny5 = ny5 * len5;
@@ -15630,13 +15685,6 @@ h3d_impl__$GlDriver_CompiledShader.__name__ = ["h3d","impl","_GlDriver","Compile
 h3d_impl__$GlDriver_CompiledShader.prototype = {
 	__class__: h3d_impl__$GlDriver_CompiledShader
 };
-var h3d_impl__$GlDriver_CompiledAttribute = function() {
-};
-$hxClasses["h3d.impl._GlDriver.CompiledAttribute"] = h3d_impl__$GlDriver_CompiledAttribute;
-h3d_impl__$GlDriver_CompiledAttribute.__name__ = ["h3d","impl","_GlDriver","CompiledAttribute"];
-h3d_impl__$GlDriver_CompiledAttribute.prototype = {
-	__class__: h3d_impl__$GlDriver_CompiledAttribute
-};
 var h3d_impl__$GlDriver_CompiledProgram = function() {
 };
 $hxClasses["h3d.impl._GlDriver.CompiledProgram"] = h3d_impl__$GlDriver_CompiledProgram;
@@ -15645,7 +15693,6 @@ h3d_impl__$GlDriver_CompiledProgram.prototype = {
 	__class__: h3d_impl__$GlDriver_CompiledProgram
 };
 var h3d_impl_GlDriver = function() {
-	this.boundTextures = [];
 	this.canvas = hxd_Stage.getCanvas();
 	if(this.canvas == null) {
 		throw new js__$Boot_HaxeError("Canvas #webgl not found");
@@ -15689,18 +15736,18 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		return "// vertex:\n" + hxsl_GlslOut.toGlsl(shader.vertex.data) + "// fragment:\n" + hxsl_GlslOut.toGlsl(shader.fragment.data);
 	}
 	,compileShader: function(glout,shader) {
-		var s = this.gl.createShader(shader.vertex?35633:35632);
+		var s = this.gl.createShader(shader.vertex ? 35633 : 35632);
 		var code = glout.run(shader.data);
 		this.gl.shaderSource(s,code);
 		this.gl.compileShader(s);
 		var log = this.gl.getShaderInfoLog(s);
 		if(log != "") {
-			haxe_Log.trace(log,{ fileName : "GlDriver.hx", lineNumber : 173, className : "h3d.impl.GlDriver", methodName : "compileShader"});
+			haxe_Log.trace(log,{ fileName : "GlDriver.hx", lineNumber : 162, className : "h3d.impl.GlDriver", methodName : "compileShader"});
 		}
 		if(this.gl.getShaderParameter(s,35713) != 1) {
 			var log1 = this.gl.getShaderInfoLog(s);
 			var lid = Std.parseInt(HxOverrides.substr(log1,9,null));
-			var line = lid == null?null:code.split("\n")[lid - 1];
+			var line = lid == null ? null : code.split("\n")[lid - 1];
 			if(line == null) {
 				line = "";
 			} else {
@@ -15718,7 +15765,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		return new h3d_impl__$GlDriver_CompiledShader(s,shader.vertex,shader);
 	}
 	,initShader: function(p,s,shader) {
-		var prefix = s.vertex?"vertex":"fragment";
+		var prefix = s.vertex ? "vertex" : "fragment";
 		s.globals = this.gl.getUniformLocation(p.p,prefix + "Globals");
 		s.params = this.gl.getUniformLocation(p.p,prefix + "Params");
 		var _g = [];
@@ -15782,12 +15829,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 						p.stride += size;
 						continue;
 					}
-					var a = new h3d_impl__$GlDriver_CompiledAttribute();
-					a.type = t;
-					a.size = size;
-					a.index = index;
-					a.offset = p.stride;
-					p.attribs.push(a);
+					p.attribs.push({ offset : p.stride, index : index, size : size, type : t});
 					p.attribNames.push(v.name);
 					p.stride += size;
 				}
@@ -15828,12 +15870,10 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			}
 			break;
 		case 2:
-			var tcount = s.textures.length;
 			var _g1 = 0;
 			var _g = s.textures.length + s.cubeTextures.length;
 			while(_g1 < _g) {
-				var i = _g1++;
-				var t = buf.tex[i];
+				var t = buf.tex[_g1++];
 				if(t == null || t.t == null && t.realloc == null) {
 					var color = h3d_mat_Defaults.loadingTextureColor;
 					t = h3d_mat_Texture.fromColor(color,(color >>> 24) / 255);
@@ -15843,32 +15883,42 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 					t.realloc();
 				}
 				t.lastFrame = this.frame;
-				var isCube = i >= tcount;
-				var pt = isCube?s.cubeTextures[i - tcount]:s.textures[i];
-				if(pt == null) {
+			}
+			var _g11 = 0;
+			var _g2 = s.textures.length;
+			while(_g11 < _g2) {
+				var i = _g11++;
+				var t1 = buf.tex[i];
+				if(s.textures[i] == null) {
 					continue;
 				}
-				if(this.boundTextures[i] == t) {
-					continue;
-				}
-				this.boundTextures[i] = t;
-				var mode = isCube?34067:3553;
 				this.gl.activeTexture(33984 + i);
-				this.gl.uniform1i(pt,i);
-				this.gl.bindTexture(mode,t.t.t);
-				var mip = t.mipMap[1];
-				var filter = t.filter[1];
-				var wrap = t.wrap[1];
-				var bits = mip | filter << 3 | wrap << 6;
-				if(bits != t.t.bits) {
-					t.t.bits = bits;
-					var flags = h3d_impl_GlDriver.TFILTERS[mip][filter];
-					this.gl.texParameteri(mode,10240,flags[0]);
-					this.gl.texParameteri(mode,10241,flags[1]);
-					var w = h3d_impl_GlDriver.TWRAP[wrap];
-					this.gl.texParameteri(mode,10242,w);
-					this.gl.texParameteri(mode,10243,w);
+				this.gl.uniform1i(s.textures[i],i);
+				this.gl.bindTexture(3553,t1.t.t);
+				var flags = h3d_impl_GlDriver.TFILTERS[t1.mipMap[1]][t1.filter[1]];
+				this.gl.texParameteri(3553,10240,flags[0]);
+				this.gl.texParameteri(3553,10241,flags[1]);
+				var w = h3d_impl_GlDriver.TWRAP[t1.wrap[1]];
+				this.gl.texParameteri(3553,10242,w);
+				this.gl.texParameteri(3553,10243,w);
+			}
+			var _g12 = 0;
+			var _g3 = s.cubeTextures.length;
+			while(_g12 < _g3) {
+				var i1 = _g12++;
+				var t2 = buf.tex[i1 + s.textures.length];
+				if(s.cubeTextures[i1] == null) {
+					continue;
 				}
+				this.gl.activeTexture(33984 + i1 + s.textures.length);
+				this.gl.uniform1i(s.cubeTextures[i1],i1 + s.textures.length);
+				this.gl.bindTexture(34067,t2.t.t);
+				var flags1 = h3d_impl_GlDriver.TFILTERS[t2.mipMap[1]][t2.filter[1]];
+				this.gl.texParameteri(34067,10240,flags1[0]);
+				this.gl.texParameteri(34067,10241,flags1[1]);
+				var w1 = h3d_impl_GlDriver.TWRAP[t2.wrap[1]];
+				this.gl.texParameteri(34067,10242,w1);
+				this.gl.texParameteri(34067,10243,w1);
 			}
 			break;
 		}
@@ -16056,7 +16106,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		}
 	}
 	,allocTexture: function(t) {
-		var tt = { t : this.gl.createTexture(), width : t.width, height : t.height, internalFmt : 6408, pixelFmt : 5121, bits : -1};
+		var tt = { t : this.gl.createTexture(), width : t.width, height : t.height, internalFmt : 6408, pixelFmt : 5121};
 		switch(t.format[1]) {
 		case 2:
 			break;
@@ -16075,7 +16125,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		}
 		t.lastFrame = this.frame;
 		t.flags &= 268435327;
-		var bind = (t.flags & 2) != 0?34067:3553;
+		var bind = (t.flags & 2) != 0 ? 34067 : 3553;
 		this.gl.bindTexture(bind,tt.t);
 		var outOfMem = false;
 		if((t.flags & 2) != 0) {
@@ -16126,7 +16176,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		if(m.size * m.stride == 0) {
 			throw new js__$Boot_HaxeError("assert");
 		}
-		this.gl.bufferData(34962,m.size * m.stride * 4,(m.flags & 1) != 0?35048:35044);
+		this.gl.bufferData(34962,m.size * m.stride * 4,(m.flags & 1) != 0 ? 35048 : 35044);
 		var outOfMem = this.gl.getError() == 1285;
 		this.gl.bindBuffer(34962,null);
 		if(outOfMem) {
@@ -16141,7 +16191,6 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.gl.bufferData(34963,count * 2,35044);
 		var outOfMem = this.gl.getError() == 1285;
 		this.gl.bindBuffer(34963,null);
-		this.curIndexBuffer = null;
 		if(outOfMem) {
 			this.gl.deleteBuffer(b);
 			return null;
@@ -16183,11 +16232,11 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 	}
 	,uploadTexturePixels: function(t,pixels,mipLevel,side) {
 		var cubic = (t.flags & 2) != 0;
-		var bind = cubic?34067:3553;
-		var face = cubic?h3d_impl_GlDriver.CUBE_FACES[side]:3553;
+		var bind = cubic ? 34067 : 3553;
+		var face = cubic ? h3d_impl_GlDriver.CUBE_FACES[side] : 3553;
 		this.gl.bindTexture(bind,t.t.t);
 		pixels.convert(t.format);
-		this.gl.pixelStorei(37440,cubic?0:1);
+		this.gl.pixelStorei(37440,cubic ? 0 : 1);
 		this.gl.texImage2D(face,mipLevel,t.t.internalFmt,pixels.width,pixels.height,0,this.getChannels(t.t),t.t.pixelFmt,new Uint8Array(pixels.bytes.b.bufferValue));
 		this.gl.bindTexture(bind,null);
 		t.flags |= 128;
@@ -16211,14 +16260,12 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		var sub = new Uint16Array(new Uint16Array(buf).buffer,bufPos,indiceCount);
 		this.gl.bufferSubData(34963,startIndice * 2,sub);
 		this.gl.bindBuffer(34963,null);
-		this.curIndexBuffer = null;
 	}
 	,uploadIndexBytes: function(i,startIndice,indiceCount,buf,bufPos) {
 		this.gl.bindBuffer(34963,i);
 		var sub = new Uint8Array(new Uint8Array(buf.b.bufferValue).buffer,bufPos * 2,indiceCount * 2);
 		this.gl.bufferSubData(34963,startIndice * 2,sub);
 		this.gl.bindBuffer(34963,null);
-		this.curIndexBuffer = null;
 	}
 	,selectBuffer: function(v) {
 		if(v == this.curBuffer) {
@@ -16252,32 +16299,30 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			while(_g11 < _g2) {
 				var i = _g11++;
 				var a1 = this.curShader.attribs[i];
-				var pos;
 				var _g21 = this.curShader.attribNames[i];
 				switch(_g21) {
 				case "normal":
 					if(m.stride < 6) {
 						throw new js__$Boot_HaxeError("Buffer is missing NORMAL data, set it to RAW format ?");
 					}
-					pos = 3;
+					this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,12);
 					break;
 				case "position":
-					pos = 0;
+					this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,0);
 					break;
 				case "uv":
 					if(m.stride < 8) {
 						throw new js__$Boot_HaxeError("Buffer is missing UV data, set it to RAW format ?");
 					}
-					pos = 6;
+					this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,24);
 					break;
 				default:
-					pos = offset;
+					this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,offset * 4);
 					offset += a1.size;
 					if(offset > m.stride) {
 						throw new js__$Boot_HaxeError("Buffer is missing '" + _g21 + "' data, set it to RAW format ?");
 					}
 				}
-				this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,pos * 4);
 			}
 		}
 	}
@@ -16294,11 +16339,9 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.curBuffer = null;
 	}
 	,draw: function(ibuf,startIndex,ntriangles) {
-		if(ibuf != this.curIndexBuffer) {
-			this.curIndexBuffer = ibuf;
-			this.gl.bindBuffer(34963,ibuf);
-		}
+		this.gl.bindBuffer(34963,ibuf);
 		this.gl.drawElements(4,ntriangles * 3,5123,startIndex * 2);
+		this.gl.bindBuffer(34963,null);
 	}
 	,present: function() {
 		this.gl.finish();
@@ -16311,7 +16354,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			this.gl.disable(3089);
 		} else {
 			this.gl.enable(3089);
-			this.gl.scissor(x,(this.curTarget == null?this.bufferHeight:this.curTarget.height) - (y + height),width,height);
+			this.gl.scissor(x,(this.curTarget == null ? this.bufferHeight : this.curTarget.height) - (y + height),width,height);
 		}
 	}
 	,unbindTargets: function() {
@@ -16348,7 +16391,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			tex.alloc();
 		}
 		if((tex.flags & 4) != 0 && (tex.flags & 128) == 0) {
-			var bind = (tex.flags & 2) != 0?34067:3553;
+			var bind = (tex.flags & 2) != 0 ? 34067 : 3553;
 			this.gl.bindTexture(bind,tex.t.t);
 			this.gl.generateMipmap(bind);
 			this.gl.bindTexture(bind,null);
@@ -16356,7 +16399,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		}
 		tex.lastFrame = this.frame;
 		this.gl.bindFramebuffer(36160,this.commonFB);
-		this.gl.framebufferTexture2D(36160,36064,(tex.flags & 2) != 0?h3d_impl_GlDriver.CUBE_FACES[face]:3553,tex.t.t,mipLevel);
+		this.gl.framebufferTexture2D(36160,36064,(tex.flags & 2) != 0 ? h3d_impl_GlDriver.CUBE_FACES[face] : 3553,tex.t.t,mipLevel);
 		if(tex.depthBuffer != null) {
 			this.gl.framebufferRenderbuffer(36160,36096,36161,tex.depthBuffer.b.r);
 		} else {
@@ -16530,7 +16573,7 @@ h3d_impl_ManagedBuffer.prototype = {
 		return pos;
 	}
 	,allocBuffer: function(b) {
-		var p = this.allocPosition(b.vertices,(b.flags & 4) != 0?4:(b.flags & 2) != 0?3:1);
+		var p = this.allocPosition(b.vertices,(b.flags & 4) != 0 ? 4 : (b.flags & 2) != 0 ? 3 : 1);
 		if(p < 0) {
 			return false;
 		}
@@ -16677,7 +16720,7 @@ h3d_impl_MemoryManager.prototype = {
 		this.bufferCount--;
 	}
 	,allocBuffer: function(b,stride) {
-		var max = (b.flags & 4) != 0?65532:(b.flags & 2) != 0?65533:65534;
+		var max = (b.flags & 4) != 0 ? 65532 : (b.flags & 2) != 0 ? 65533 : 65534;
 		if(b.vertices > max) {
 			if(max == 65534) {
 				throw new js__$Boot_HaxeError("Cannot split buffer with " + b.vertices + " vertices if it's not Quads/Triangles");
@@ -16715,7 +16758,7 @@ h3d_impl_MemoryManager.prototype = {
 			prev = m;
 			m = m.next;
 		}
-		var align = (b.flags & 2) != 0?3:(b.flags & 4) != 0?4:0;
+		var align = (b.flags & 2) != 0 ? 3 : (b.flags & 4) != 0 ? 4 : 0;
 		if(m == null && align > 0) {
 			var total = b.vertices;
 			var size = total;
@@ -16941,7 +16984,7 @@ h3d_impl_TextureCache.prototype = {
 			t = new h3d_mat_Texture(width,height,[h3d_mat_TextureFlags.Target],format);
 			this.cache[this.position] = t;
 		}
-		t.depthBuffer = defaultDepth?this.defaultDepthBuffer:null;
+		t.depthBuffer = defaultDepth ? this.defaultDepthBuffer : null;
 		t.setName(name);
 		this.position++;
 		return t;
@@ -17171,9 +17214,9 @@ h3d_mat_ShadowsMode.ReceiveOnly.toString = $estr;
 h3d_mat_ShadowsMode.ReceiveOnly.__enum__ = h3d_mat_ShadowsMode;
 h3d_mat_ShadowsMode.__empty_constructs__ = [h3d_mat_ShadowsMode.None,h3d_mat_ShadowsMode.Active,h3d_mat_ShadowsMode.CastOnly,h3d_mat_ShadowsMode.ReceiveOnly];
 var h3d_mat_DefaultMaterialProps = function(kind,shadows,cull) {
-	this.kind = kind == null?h3d_mat_MaterialKind.Opaque:kind;
-	this.shadows = shadows == null?h3d_mat_ShadowsMode.Active:shadows;
-	this.cull = cull == null?true:cull;
+	this.kind = kind == null ? h3d_mat_MaterialKind.Opaque : kind;
+	this.shadows = shadows == null ? h3d_mat_ShadowsMode.Active : shadows;
+	this.cull = cull == null ? true : cull;
 };
 $hxClasses["h3d.mat.DefaultMaterialProps"] = h3d_mat_DefaultMaterialProps;
 h3d_mat_DefaultMaterialProps.__name__ = ["h3d","mat","DefaultMaterialProps"];
@@ -17229,7 +17272,7 @@ h3d_mat_DefaultMaterialProps.prototype = {
 			m.set_receiveShadows(true);
 			break;
 		}
-		mainPass.set_culling(this.cull?h3d_mat_Face.Back:h3d_mat_Face.None);
+		mainPass.set_culling(this.cull ? h3d_mat_Face.Back : h3d_mat_Face.None);
 	}
 	,inspect: function(onChange) {
 		var _gthis = this;
@@ -17379,7 +17422,7 @@ h3d_mat_Material.prototype = {
 		if(p != null) {
 			return p;
 		}
-		var p1 = new h3d_mat_Pass(name,null,inheritMain?this.passes:null);
+		var p1 = new h3d_mat_Pass(name,null,inheritMain ? this.passes : null);
 		this.addPass(p1);
 		return p1;
 	}
@@ -17459,7 +17502,7 @@ h3d_mat_MeshMaterial.prototype = $extend(h3d_mat_Material.prototype,{
 		return this.mshader.color__ = v;
 	}
 	,clone: function(m) {
-		var m1 = m == null?new h3d_mat_MeshMaterial():m;
+		var m1 = m == null ? new h3d_mat_MeshMaterial() : m;
 		h3d_mat_Material.prototype.clone.call(this,m1);
 		m1.set_texture(this.get_texture());
 		if(this.textureShader != null) {
@@ -17704,7 +17747,7 @@ h3d_mat_Pass.prototype = {
 		this.set_depthTest(test);
 	}
 	,setColorMask: function(r,g,b,a) {
-		this.set_colorMask((r?1:0) | (g?2:0) | (b?4:0) | (a?8:0));
+		this.set_colorMask((r ? 1 : 0) | (g ? 2 : 0) | (b ? 4 : 0) | (a ? 8 : 0));
 	}
 	,addShader: function(s) {
 		this.shaders = new hxsl_ShaderList(s,this.shaders);
@@ -17746,7 +17789,7 @@ h3d_mat_Pass.prototype = {
 		var s = this.shaders;
 		while(s != this.parentShaders) {
 			var value = s.s;
-			var sh = (value instanceof t)?value:null;
+			var sh = (value instanceof t) ? value : null;
 			if(sh != null) {
 				return sh;
 			}
@@ -17789,9 +17832,9 @@ h3d_mat_Pass.prototype = {
 			toHxsl = true;
 		}
 		var shader = scene.renderer.compileShader(this);
-		var toString = toHxsl?function(s) {
+		var toString = toHxsl ? function(s) {
 			return hxsl_Printer.shaderToString(s,true);
-		}:hxsl_GlslOut.toGlsl;
+		} : hxsl_GlslOut.toGlsl;
 		return "VERTEX=\n" + toString(shader.vertex.data) + "\n\nFRAGMENT=\n" + toString(shader.fragment.data);
 	}
 	,set_culling: function(v) {
@@ -17799,7 +17842,7 @@ h3d_mat_Pass.prototype = {
 		return this.culling = v;
 	}
 	,set_depthWrite: function(v) {
-		this.bits = this.bits & -5 | (v?1:0) << 2;
+		this.bits = this.bits & -5 | (v ? 1 : 0) << 2;
 		return this.depthWrite = v;
 	}
 	,set_depthTest: function(v) {
@@ -18092,7 +18135,7 @@ var h3d_mat_Texture = function(w,h,flags,format,allocPos) {
 	}
 	this.width = w;
 	this.height = h;
-	this.set_mipMap((this.flags & 4) != 0?h3d_mat_MipMap.Nearest:h3d_mat_MipMap.None);
+	this.set_mipMap((this.flags & 4) != 0 ? h3d_mat_MipMap.Nearest : h3d_mat_MipMap.None);
 	this.set_filter(h3d_mat_Filter.Linear);
 	this.set_wrap(h3d_mat_Wrap.Clamp);
 	this.bits &= 32767;
@@ -18572,7 +18615,7 @@ hxsl_Shader.prototype = {
 		var _this = this.shader;
 		var constBits = this.constBits;
 		var i = _this.instanceCache.get(constBits);
-		this.instance = i == null?_this.makeInstance(constBits):i;
+		this.instance = i == null ? _this.makeInstance(constBits) : i;
 	}
 	,clone: function() {
 		return this;
@@ -18739,7 +18782,7 @@ h3d_pass_Copy.prototype = $extend(h3d_pass_ScreenFx.prototype,{
 			this.pass = old;
 			h.next = null;
 		} else {
-			this.pass.setBlendMode(blend == null?h2d_BlendMode.None:blend);
+			this.pass.setBlendMode(blend == null ? h2d_BlendMode.None : blend);
 			this.render();
 		}
 		this.shader.texture__ = null;
@@ -18833,7 +18876,7 @@ h3d_pass_Default.prototype = $extend(h3d_pass_Base.prototype,{
 					while(n-- > 0) si = si.next;
 					t1 = si.s.getParamValue(t.index);
 				}
-				p.texture = t1 == null?0:t1.id;
+				p.texture = t1 == null ? 0 : t1.id;
 			}
 			p = p.next;
 		}
@@ -18915,7 +18958,7 @@ h3d_pass_Default.prototype = $extend(h3d_pass_Base.prototype,{
 								var passes1;
 								if(!(qsize == 0 || q == null)) {
 									var d = _gthis.shaderIdMap[p1.shader.id] - _gthis.shaderIdMap[q.shader.id];
-									passes1 = (d != 0?d:_gthis.textureIdMap[p1.texture] - _gthis.textureIdMap[q.texture]) <= 0;
+									passes1 = (d != 0 ? d : _gthis.textureIdMap[p1.texture] - _gthis.textureIdMap[q.texture]) <= 0;
 								} else {
 									passes1 = true;
 								}
@@ -19113,7 +19156,7 @@ h3d_pass_Depth.prototype = $extend(h3d_pass_Default.prototype,{
 	,draw: function(passes) {
 		var texture = this.tcache.allocTarget("depthMap",this.ctx,this.ctx.engine.width >> this.reduceSize,this.ctx.engine.height >> this.reduceSize);
 		this.ctx.engine.pushTarget(texture);
-		this.ctx.engine.clear(this.enableSky?0:16711680,1);
+		this.ctx.engine.clear(this.enableSky ? 0 : 16711680,1);
 		passes = h3d_pass_Default.prototype.draw.call(this,passes);
 		this.ctx.engine.popTarget();
 		this.ctx.setGlobalID(this.depthMapId,texture);
@@ -19264,11 +19307,11 @@ h3d_pass_LightSystem.__name__ = ["h3d","pass","LightSystem"];
 h3d_pass_LightSystem.prototype = {
 	get_additiveLighting: function() {
 		var value = this.ambientShader;
-		return ((value instanceof h3d_shader_AmbientLight)?value:null).additive__;
+		return ((value instanceof h3d_shader_AmbientLight) ? value : null).additive__;
 	}
 	,set_additiveLighting: function(b) {
 		var value = this.ambientShader;
-		var _this = (value instanceof h3d_shader_AmbientLight)?value:null;
+		var _this = (value instanceof h3d_shader_AmbientLight) ? value : null;
 		_this.constModified = true;
 		return _this.additive__ = b;
 	}
@@ -19369,7 +19412,7 @@ h3d_pass_LightSystem.prototype = {
 		if(this.shadowLight == null || this.shadowLight.parent == null) {
 			var l1 = ctx.lights;
 			while(l1 != null) {
-				var dl = (l1 instanceof h3d_scene_DirLight)?l1:null;
+				var dl = (l1 instanceof h3d_scene_DirLight) ? l1 : null;
 				if(dl != null) {
 					this.shadowLight = dl;
 					break;
@@ -19964,7 +20007,7 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 			}
 		}
 		if(this.idxPos + icount > this.tmpIdx.length) {
-			var size = this.tmpIdx.length == 0?1024:this.tmpIdx.length;
+			var size = this.tmpIdx.length == 0 ? 1024 : this.tmpIdx.length;
 			var req = this.idxPos + icount;
 			while(size < req) size <<= 1;
 			var this2 = this.tmpIdx;
@@ -20138,7 +20181,7 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 		if(dx == null) {
 			dx = 0.;
 		}
-		this.addSub(buf,idx,0,0,buf.length / (stride < 0?this.stride:stride) | 0,idx.length / 3 | 0,dx,dy,dz,rotation,scale,stride);
+		this.addSub(buf,idx,0,0,buf.length / (stride < 0 ? this.stride : stride) | 0,idx.length / 3 | 0,dx,dy,dz,rotation,scale,stride);
 		return;
 	}
 	,addSub: function(buf,idx,startVert,startTri,nvert,triCount,dx,dy,dz,rotation,scale,stride,deltaU,deltaV,color) {
@@ -20451,7 +20494,7 @@ h3d_prim_HMDModel.prototype = $extend(h3d_prim_MeshPrimitive.prototype,{
 		while(name.hasNext()) {
 			var name1 = name.next();
 			var _this = this.bufferAliases;
-			var alias = __map_reserved[name1] != null?_this.getReserved(name1):_this.h[name1];
+			var alias = __map_reserved[name1] != null ? _this.getReserved(name1) : _this.h[name1];
 			var this1 = this.bufferCache;
 			var key = hxsl_Globals.allocID(alias.realName);
 			var buffer = this1.h[key];
@@ -20823,7 +20866,7 @@ h3d_prim_Polygon.prototype = $extend(h3d_prim_Primitive.prototype,{
 		if(n != 0) {
 			return n;
 		}
-		return (this.idx == null?this.points.length:this.idx.length) / 3 | 0;
+		return (this.idx == null ? this.points.length : this.idx.length) / 3 | 0;
 	}
 	,vertexCount: function() {
 		return this.points.length;
@@ -20879,14 +20922,14 @@ h3d_prim_RawPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 		var inf = this.onContextLost();
 		var flags = [];
 		if(inf.ibuf == null) {
-			flags.push(inf.quads?h3d_BufferFlag.Quads:h3d_BufferFlag.Triangles);
+			flags.push(inf.quads ? h3d_BufferFlag.Quads : h3d_BufferFlag.Triangles);
 		}
 		if(inf.stride < 8) {
 			flags.push(h3d_BufferFlag.RawFormat);
 		}
 		this.buffer = h3d_Buffer.ofFloats(inf.vbuf,inf.stride,flags);
 		this.vcount = this.buffer.vertices;
-		this.tcount = inf.ibuf != null?inf.ibuf.length / 3 | 0:inf.quads?this.vcount >> 1:this.vcount / 3 | 0;
+		this.tcount = inf.ibuf != null ? inf.ibuf.length / 3 | 0 : inf.quads ? this.vcount >> 1 : this.vcount / 3 | 0;
 		if(inf.ibuf != null) {
 			this.indexes = h3d_Indexes.alloc(inf.ibuf);
 		} else if(this.indexes != null) {
@@ -21198,7 +21241,7 @@ h3d_scene_Object.prototype = {
 		if(out == null) {
 			out = [];
 		}
-		var m = (this instanceof h3d_scene_Mesh)?this:null;
+		var m = (this instanceof h3d_scene_Mesh) ? this : null;
 		if(m != null) {
 			out.push(m);
 		}
@@ -21322,7 +21365,7 @@ h3d_scene_Object.prototype = {
 			return;
 		}
 		if((this.flags & 4) == 0) {
-			var m = (this instanceof h3d_scene_Mesh)?this:null;
+			var m = (this instanceof h3d_scene_Mesh) ? this : null;
 			if(m != null) {
 				callb(m);
 			}
@@ -21378,17 +21421,17 @@ h3d_scene_Object.prototype = {
 	,getScene: function() {
 		var p = this;
 		while(p.parent != null) p = p.parent;
-		return (p instanceof h3d_scene_Scene)?p:null;
+		return (p instanceof h3d_scene_Scene) ? p : null;
 	}
 	,getAbsPos: function() {
 		this.syncPos();
 		return this.absPos;
 	}
 	,isMesh: function() {
-		return ((this instanceof h3d_scene_Mesh)?this:null) != null;
+		return ((this instanceof h3d_scene_Mesh) ? this : null) != null;
 	}
 	,toMesh: function() {
-		var m = (this instanceof h3d_scene_Mesh)?this:null;
+		var m = (this instanceof h3d_scene_Mesh) ? this : null;
 		if(m != null) {
 			return m;
 		}
@@ -21699,7 +21742,7 @@ h3d_scene_Object.prototype = {
 		this.flags |= 1;
 	}
 	,toString: function() {
-		return Type.getClassName(js_Boot.getClass(this)).split(".").pop() + (this.name == null?"":"(" + this.name + ")");
+		return Type.getClassName(js_Boot.getClass(this)).split(".").pop() + (this.name == null ? "" : "(" + this.name + ")");
 	}
 	,getChildAt: function(n) {
 		return this.childs[n];
@@ -21844,7 +21887,7 @@ h3d_scene_Mesh.prototype = $extend(h3d_scene_Object.prototype,{
 		return b;
 	}
 	,clone: function(o) {
-		var m = o == null?new h3d_scene_Mesh(null,this.material):o;
+		var m = o == null ? new h3d_scene_Mesh(null,this.material) : o;
 		m.primitive = this.primitive;
 		m.material = this.material.clone();
 		h3d_scene_Object.prototype.clone.call(this,m);
@@ -21961,7 +22004,7 @@ h3d_scene_Graphics.prototype = $extend(h3d_scene_Mesh.prototype,{
 			nx *= d;
 			ny *= d;
 			var hasIndex = i < count - 1 || closed;
-			this.bprim.begin(2,hasIndex?6:0);
+			this.bprim.begin(2,hasIndex ? 6 : 0);
 			var _this = _gthis.bprim;
 			_this.tmpBuf[_this.bufPos++] = p.x + nx;
 			var _this1 = _gthis.bprim;
@@ -22012,7 +22055,7 @@ h3d_scene_Graphics.prototype = $extend(h3d_scene_Mesh.prototype,{
 			_this23.tmpBuf[_this23.bufPos++] = p.a;
 			v = 1 - v;
 			if(hasIndex) {
-				var pnext = i == last?start - pindex:2;
+				var pnext = i == last ? start - pindex : 2;
 				var _this24 = this.bprim;
 				_this24.tmpIdx[_this24.idxPos++] = _this24.startIndex;
 				var _this25 = this.bprim;
@@ -22419,15 +22462,15 @@ h3d_scene_Interactive.prototype = $extend(h3d_scene_Object.prototype,{
 	,__class__: h3d_scene_Interactive
 });
 var h3d_scene_MultiMaterial = function(prim,mats,parent) {
-	h3d_scene_Mesh.call(this,prim,mats == null?null:mats[0],parent);
-	this.materials = mats == null?[this.material]:mats;
+	h3d_scene_Mesh.call(this,prim,mats == null ? null : mats[0],parent);
+	this.materials = mats == null ? [this.material] : mats;
 };
 $hxClasses["h3d.scene.MultiMaterial"] = h3d_scene_MultiMaterial;
 h3d_scene_MultiMaterial.__name__ = ["h3d","scene","MultiMaterial"];
 h3d_scene_MultiMaterial.__super__ = h3d_scene_Mesh;
 h3d_scene_MultiMaterial.prototype = $extend(h3d_scene_Mesh.prototype,{
 	clone: function(o) {
-		var m = o == null?new h3d_scene_MultiMaterial(null,this.materials):o;
+		var m = o == null ? new h3d_scene_MultiMaterial(null,this.materials) : o;
 		var _g = [];
 		var _g1 = 0;
 		var _g2 = this.materials;
@@ -22713,7 +22756,7 @@ h3d_scene_Renderer.prototype = {
 			create = true;
 		}
 		var _this = this.passes;
-		var p = __map_reserved[name] != null?_this.getReserved(name):_this.h[name];
+		var p = __map_reserved[name] != null ? _this.getReserved(name) : _this.h[name];
 		if(p == null && create) {
 			p = this.createDefaultPass(name);
 			this.setPass(name,p);
@@ -22802,7 +22845,7 @@ h3d_scene_Renderer.prototype = {
 								e = q;
 								q = q.next;
 								--qsize;
-							} else if(qsize == 0 || q == null || (p1.depth > q.depth?1:-1) <= 0) {
+							} else if(qsize == 0 || q == null || (p1.depth > q.depth ? 1 : -1) <= 0) {
 								e = p1;
 								p1 = p1.next;
 								--psize;
@@ -22866,7 +22909,7 @@ h3d_scene_Renderer.prototype = {
 								e1 = q1;
 								q1 = q1.next;
 								--qsize1;
-							} else if(qsize1 == 0 || q1 == null || (p2.depth > q1.depth?-1:1) <= 0) {
+							} else if(qsize1 == 0 || q1 == null || (p2.depth > q1.depth ? -1 : 1) <= 0) {
 								e1 = p2;
 								p2 = p2.next;
 								--psize1;
@@ -22927,7 +22970,7 @@ h3d_scene_Renderer.prototype = {
 	}
 	,get: function(name) {
 		var _this = this.passGroups;
-		var p = __map_reserved[name] != null?_this.getReserved(name):_this.h[name];
+		var p = __map_reserved[name] != null ? _this.getReserved(name) : _this.h[name];
 		if(p == null) {
 			return null;
 		}
@@ -22951,13 +22994,13 @@ h3d_scene_Renderer.prototype = {
 			++_g;
 			var key = p.name;
 			var _this = this.passGroups;
-			var pdata = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+			var pdata = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 			if(pdata != null && pdata.rendered) {
 				continue;
 			}
 			if(pdata != null || p.p.forceProcessing) {
 				p.p.setContext(this.ctx);
-				var passes = pdata == null?null:pdata.passes;
+				var passes = pdata == null ? null : pdata.passes;
 				if(p.name == "alpha") {
 					passes = this.depthSort(passes);
 				}
@@ -23233,7 +23276,7 @@ h3d_scene_Scene.prototype = $extend(h3d_scene_Object.prototype,{
 		return null;
 	}
 	,clone: function(o) {
-		var s = o == null?new h3d_scene_Scene():o;
+		var s = o == null ? new h3d_scene_Scene() : o;
 		s.camera = this.camera.clone();
 		h3d_scene_Object.prototype.clone.call(this,s);
 		return s;
@@ -23508,7 +23551,7 @@ h3d_scene_Skin.__name__ = ["h3d","scene","Skin"];
 h3d_scene_Skin.__super__ = h3d_scene_MultiMaterial;
 h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 	clone: function(o) {
-		var s = o == null?new h3d_scene_Skin(null,this.materials.slice()):o;
+		var s = o == null ? new h3d_scene_Skin(null,this.materials.slice()) : o;
 		h3d_scene_MultiMaterial.prototype.clone.call(this,s);
 		s.setSkinData(this.skinData);
 		s.currentRelPose = this.currentRelPose.slice();
@@ -23573,7 +23616,7 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 		}
 		if(this.skinData != null) {
 			var _this = this.skinData.namedJoints;
-			var j = __map_reserved[name] != null?_this.getReserved(name):_this.h[name];
+			var j = __map_reserved[name] != null ? _this.getReserved(name) : _this.h[name];
 			if(j != null) {
 				return new h3d_scene_Joint(this,j);
 			}
@@ -23845,8 +23888,8 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 				var j = _g11[_g2];
 				++_g2;
 				var m1 = this.currentAbsPose[j.index];
-				var mp = j.parent == null?this.absPos:this.currentAbsPose[j.parent.index];
-				g.lineStyle(1,j.parent == null?-16776961:-256);
+				var mp = j.parent == null ? this.absPos : this.currentAbsPose[j.parent.index];
+				g.lineStyle(1,j.parent == null ? -16776961 : -256);
 				g.moveTo(mp._41,mp._42,mp._43);
 				g.lineTo(m1._41,m1._42,m1._43);
 			}
@@ -25013,8 +25056,9 @@ h3d_shader_Manager.prototype = {
 		}
 	}
 	,compileShaders: function(shaders) {
+		var _g_last;
 		var _g_l = shaders;
-		var _g_last = null;
+		_g_last = null;
 		while(_g_l != _g_last) {
 			var s = _g_l.s;
 			_g_l = _g_l.next;
@@ -25832,7 +25876,7 @@ haxe_Unserializer.prototype = {
 			var i1 = this.pos;
 			var rest = len & 3;
 			var max = i1 + (len - rest);
-			var bytes = new haxe_io_Bytes(new ArrayBuffer((len >> 2) * 3 + (rest >= 2?rest - 1:0)));
+			var bytes = new haxe_io_Bytes(new ArrayBuffer((len >> 2) * 3 + (rest >= 2 ? rest - 1 : 0)));
 			var bpos = 0;
 			while(i1 < max) {
 				var c11 = codes[buf.charCodeAt(i1++)];
@@ -26520,7 +26564,7 @@ haxe_ds_BalancedTree.prototype = {
 		}
 		var c = this.compare(k,node.key);
 		if(c == 0) {
-			return new haxe_ds_TreeNode(node.left,k,v,node.right,node == null?0:node._height);
+			return new haxe_ds_TreeNode(node.left,k,v,node.right,node == null ? 0 : node._height);
 		} else if(c < 0) {
 			return this.balance(this.setLoop(k,v,node.left),node.key,node.value,node.right);
 		} else {
@@ -26575,12 +26619,12 @@ haxe_ds_BalancedTree.prototype = {
 		}
 	}
 	,balance: function(l,k,v,r) {
-		var hl = l == null?0:l._height;
-		var hr = r == null?0:r._height;
+		var hl = l == null ? 0 : l._height;
+		var hr = r == null ? 0 : r._height;
 		if(hl > hr + 2) {
 			var _this = l.left;
 			var _this1 = l.right;
-			if((_this == null?0:_this._height) >= (_this1 == null?0:_this1._height)) {
+			if((_this == null ? 0 : _this._height) >= (_this1 == null ? 0 : _this1._height)) {
 				return new haxe_ds_TreeNode(l.left,l.key,l.value,new haxe_ds_TreeNode(l.right,k,v,r));
 			} else {
 				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l.left,l.key,l.value,l.right.left),l.right.key,l.right.value,new haxe_ds_TreeNode(l.right.right,k,v,r));
@@ -26588,13 +26632,13 @@ haxe_ds_BalancedTree.prototype = {
 		} else if(hr > hl + 2) {
 			var _this2 = r.right;
 			var _this3 = r.left;
-			if((_this2 == null?0:_this2._height) > (_this3 == null?0:_this3._height)) {
+			if((_this2 == null ? 0 : _this2._height) > (_this3 == null ? 0 : _this3._height)) {
 				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l,k,v,r.left),r.key,r.value,r.right);
 			} else {
 				return new haxe_ds_TreeNode(new haxe_ds_TreeNode(l,k,v,r.left.left),r.left.key,r.left.value,new haxe_ds_TreeNode(r.left.right,r.key,r.value,r.right));
 			}
 		} else {
-			return new haxe_ds_TreeNode(l,k,v,r,(hl > hr?hl:hr) + 1);
+			return new haxe_ds_TreeNode(l,k,v,r,(hl > hr ? hl : hr) + 1);
 		}
 	}
 	,compare: function(k1,k2) {
@@ -26614,7 +26658,7 @@ var haxe_ds_TreeNode = function(l,k,v,r,h) {
 		var tmp;
 		var _this = this.left;
 		var _this1 = this.right;
-		if((_this == null?0:_this._height) > (_this1 == null?0:_this1._height)) {
+		if((_this == null ? 0 : _this._height) > (_this1 == null ? 0 : _this1._height)) {
 			var _this2 = this.left;
 			if(_this2 == null) {
 				tmp = 0;
@@ -26723,22 +26767,6 @@ haxe_ds_IntMap.prototype = {
 			var i = this.it.next();
 			return this.ref[i];
 		}};
-	}
-	,toString: function() {
-		var s_b = "";
-		s_b = "{";
-		var it = this.keys();
-		while(it.hasNext()) {
-			var i = it.next();
-			s_b += i == null?"null":"" + i;
-			s_b += " => ";
-			s_b += Std.string(Std.string(this.h[i]));
-			if(it.hasNext()) {
-				s_b += ", ";
-			}
-		}
-		s_b += "}";
-		return s_b;
 	}
 	,__class__: haxe_ds_IntMap
 };
@@ -26995,7 +27023,7 @@ haxe_io_Input.prototype = {
 	,readInt16: function() {
 		var ch1 = this.readByte();
 		var ch2 = this.readByte();
-		var n = this.bigEndian?ch2 | ch1 << 8:ch1 | ch2 << 8;
+		var n = this.bigEndian ? ch2 | ch1 << 8 : ch1 | ch2 << 8;
 		if((n & 32768) != 0) {
 			return n - 65536;
 		}
@@ -27203,7 +27231,7 @@ haxe_io_FPHelper.floatToI32 = function(f) {
 	if(f == 0) {
 		return 0;
 	}
-	var af = f < 0?-f:f;
+	var af = f < 0 ? -f : f;
 	var exp = Math.floor(Math.log(af) / 0.6931471805599453);
 	if(exp < -127) {
 		exp = -127;
@@ -27215,7 +27243,7 @@ haxe_io_FPHelper.floatToI32 = function(f) {
 		sig = 0;
 		++exp;
 	}
-	return (f < 0?-2147483648:0) | exp + 127 << 23 | sig;
+	return (f < 0 ? -2147483648 : 0) | exp + 127 << 23 | sig;
 };
 haxe_io_FPHelper.i64ToDouble = function(low,high) {
 	var exp = (high >> 20 & 2047) - 1023;
@@ -27239,11 +27267,11 @@ haxe_io_FPHelper.doubleToI64 = function(v) {
 			i64.high = -1048576;
 		}
 	} else {
-		var av = v < 0?-v:v;
+		var av = v < 0 ? -v : v;
 		var exp = Math.floor(Math.log(av) / 0.6931471805599453);
 		var sig = Math.round((av / Math.pow(2,exp) - 1) * 4503599627370496.);
 		i64.low = sig | 0;
-		i64.high = (v < 0?-2147483648:0) | exp + 1023 << 20 | (sig / 4294967296.0 | 0);
+		i64.high = (v < 0 ? -2147483648 : 0) | exp + 1023 << 20 | (sig / 4294967296.0 | 0);
 	}
 	return i64;
 };
@@ -27697,7 +27725,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 			switch(c) {
 			case 38:
 				var len = p - start;
-				buf.b += len == null?HxOverrides.substr(str,start,null):HxOverrides.substr(str,start,len);
+				buf.b += len == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len);
 				state = 18;
 				escapeNext = 8;
 				start = p + 1;
@@ -27707,7 +27735,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 					throw new js__$Boot_HaxeError(new haxe_xml_XmlParserException("Invalid unescaped " + String.fromCharCode(c) + " in attribute value",str,p));
 				} else if(c == attrValQuote) {
 					var len1 = p - start;
-					buf.b += len1 == null?HxOverrides.substr(str,start,null):HxOverrides.substr(str,start,len1);
+					buf.b += len1 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len1);
 					var val = buf.b;
 					buf = new StringBuf();
 					xml.set(aname,val);
@@ -27718,7 +27746,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 			default:
 				if(c == attrValQuote) {
 					var len2 = p - start;
-					buf.b += len2 == null?HxOverrides.substr(str,start,null):HxOverrides.substr(str,start,len2);
+					buf.b += len2 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len2);
 					var val1 = buf.b;
 					buf = new StringBuf();
 					xml.set(aname,val1);
@@ -27772,7 +27800,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 		case 13:
 			if(c == 60) {
 				var len3 = p - start;
-				buf.b += len3 == null?HxOverrides.substr(str,start,null):HxOverrides.substr(str,start,len3);
+				buf.b += len3 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len3);
 				var child = Xml.createPCData(buf.b);
 				buf = new StringBuf();
 				parent.addChild(child);
@@ -27781,7 +27809,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 				next = 2;
 			} else if(c == 38) {
 				var len4 = p - start;
-				buf.b += len4 == null?HxOverrides.substr(str,start,null):HxOverrides.substr(str,start,len4);
+				buf.b += len4 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len4);
 				state = 18;
 				escapeNext = 13;
 				start = p + 1;
@@ -27826,18 +27854,18 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 			if(c == 59) {
 				var s = HxOverrides.substr(str,start,p - start);
 				if(s.charCodeAt(0) == 35) {
-					var c1 = s.charCodeAt(1) == 120?Std.parseInt("0" + HxOverrides.substr(s,1,s.length - 1)):Std.parseInt(HxOverrides.substr(s,1,s.length - 1));
+					var c1 = s.charCodeAt(1) == 120 ? Std.parseInt("0" + HxOverrides.substr(s,1,s.length - 1)) : Std.parseInt(HxOverrides.substr(s,1,s.length - 1));
 					buf.b += String.fromCharCode(c1);
 				} else {
 					var _this = haxe_xml_Parser.escapes;
-					if(!(__map_reserved[s] != null?_this.existsReserved(s):_this.h.hasOwnProperty(s))) {
+					if(!(__map_reserved[s] != null ? _this.existsReserved(s) : _this.h.hasOwnProperty(s))) {
 						if(strict) {
 							throw new js__$Boot_HaxeError(new haxe_xml_XmlParserException("Undefined entity: " + s,str,p));
 						}
 						buf.b += Std.string("&" + s + ";");
 					} else {
 						var _this1 = haxe_xml_Parser.escapes;
-						buf.b += Std.string(__map_reserved[s] != null?_this1.getReserved(s):_this1.h[s]);
+						buf.b += Std.string(__map_reserved[s] != null ? _this1.getReserved(s) : _this1.h[s]);
 					}
 				}
 				start = p + 1;
@@ -27848,7 +27876,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 				}
 				buf.b += "&";
 				var len5 = p - start;
-				buf.b += len5 == null?HxOverrides.substr(str,start,null):HxOverrides.substr(str,start,len5);
+				buf.b += len5 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len5);
 				start = p--;
 				state = escapeNext;
 			}
@@ -27863,7 +27891,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 	if(state == 13) {
 		if(p != start || nsubs == 0) {
 			var len6 = p - start;
-			buf.b += len6 == null?HxOverrides.substr(str,start,null):HxOverrides.substr(str,start,len6);
+			buf.b += len6 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len6);
 			parent.addChild(Xml.createPCData(buf.b));
 		}
 		return p;
@@ -27871,7 +27899,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 	if(!strict && state == 18 && escapeNext == 13) {
 		buf.b += "&";
 		var len7 = p - start;
-		buf.b += len7 == null?HxOverrides.substr(str,start,null):HxOverrides.substr(str,start,len7);
+		buf.b += len7 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len7);
 		parent.addChild(Xml.createPCData(buf.b));
 		return p;
 	}
@@ -27900,7 +27928,7 @@ haxe_zip_HuffTools.prototype = {
 		case 1:
 			var da = this.treeDepth(t[2]);
 			var db = this.treeDepth(t[3]);
-			return 1 + (da < db?da:db);
+			return 1 + (da < db ? da : db);
 		case 2:
 			throw new js__$Boot_HaxeError("assert");
 			break;
@@ -28081,7 +28109,7 @@ var haxe_zip_InflateImpl = function(i,header,crc) {
 	this.huffdist = null;
 	this.len = 0;
 	this.dist = 0;
-	this.state = header?haxe_zip__$InflateImpl_State.Head:haxe_zip__$InflateImpl_State.Block;
+	this.state = header ? haxe_zip__$InflateImpl_State.Head : haxe_zip__$InflateImpl_State.Block;
 	this.input = i;
 	this.bits = 0;
 	this.nbits = 0;
@@ -28128,7 +28156,7 @@ haxe_zip_InflateImpl.prototype = {
 		var _g = 0;
 		while(_g < 288) {
 			var n = _g++;
-			a.push(n <= 143?8:n <= 255?9:n <= 279?7:8);
+			a.push(n <= 143 ? 8 : n <= 255 ? 9 : n <= 279 ? 7 : 8);
 		}
 		haxe_zip_InflateImpl.FIXED_HUFFMAN = this.htools.make(a,0,288,10);
 		return haxe_zip_InflateImpl.FIXED_HUFFMAN;
@@ -28204,7 +28232,7 @@ haxe_zip_InflateImpl.prototype = {
 		case 0:
 			return h[2];
 		case 1:
-			return this.applyHuffman(this.getBit()?h[3]:h[2]);
+			return this.applyHuffman(this.getBit() ? h[3] : h[2]);
 		case 2:
 			return this.applyHuffman(h[3][this.getBits(h[2])]);
 		}
@@ -28311,7 +28339,7 @@ haxe_zip_InflateImpl.prototype = {
 				this.addByte(n);
 				return this.needed > 0;
 			} else if(n == 256) {
-				this.state = this["final"]?haxe_zip__$InflateImpl_State.Crc:haxe_zip__$InflateImpl_State.Block;
+				this.state = this["final"] ? haxe_zip__$InflateImpl_State.Crc : haxe_zip__$InflateImpl_State.Block;
 				return true;
 			} else {
 				n -= 257;
@@ -28320,7 +28348,7 @@ haxe_zip_InflateImpl.prototype = {
 					throw new js__$Boot_HaxeError("Invalid data");
 				}
 				this.len = haxe_zip_InflateImpl.LEN_BASE_VAL_TBL[n] + this.getBits(extra_bits);
-				var dist_code = this.huffdist == null?this.getRevBits(5):this.applyHuffman(this.huffdist);
+				var dist_code = this.huffdist == null ? this.getRevBits(5) : this.applyHuffman(this.huffdist);
 				extra_bits = haxe_zip_InflateImpl.DIST_EXTRA_BITS_TBL[dist_code];
 				if(extra_bits == -1) {
 					throw new js__$Boot_HaxeError("Invalid data");
@@ -28329,17 +28357,17 @@ haxe_zip_InflateImpl.prototype = {
 				if(this.dist > this.window.available()) {
 					throw new js__$Boot_HaxeError("Invalid data");
 				}
-				this.state = this.dist == 1?haxe_zip__$InflateImpl_State.DistOne:haxe_zip__$InflateImpl_State.Dist;
+				this.state = this.dist == 1 ? haxe_zip__$InflateImpl_State.DistOne : haxe_zip__$InflateImpl_State.Dist;
 				return true;
 			}
 			break;
 		case 3:
-			var rlen = this.len < this.needed?this.len:this.needed;
+			var rlen = this.len < this.needed ? this.len : this.needed;
 			var bytes = this.input.read(rlen);
 			this.len -= rlen;
 			this.addBytes(bytes,0,rlen);
 			if(this.len == 0) {
-				this.state = this["final"]?haxe_zip__$InflateImpl_State.Crc:haxe_zip__$InflateImpl_State.Block;
+				this.state = this["final"] ? haxe_zip__$InflateImpl_State.Crc : haxe_zip__$InflateImpl_State.Block;
 			}
 			return this.needed > 0;
 		case 4:
@@ -28355,8 +28383,8 @@ haxe_zip_InflateImpl.prototype = {
 			return true;
 		case 5:
 			while(this.len > 0 && this.needed > 0) {
-				var rdist = this.len < this.dist?this.len:this.dist;
-				var rlen1 = this.needed < rdist?this.needed:rdist;
+				var rdist = this.len < this.dist ? this.len : this.dist;
+				var rlen1 = this.needed < rdist ? this.needed : rdist;
 				this.addDist(this.dist,rlen1);
 				this.len -= rlen1;
 			}
@@ -28365,7 +28393,7 @@ haxe_zip_InflateImpl.prototype = {
 			}
 			return this.needed > 0;
 		case 6:
-			var rlen2 = this.len < this.needed?this.len:this.needed;
+			var rlen2 = this.len < this.needed ? this.len : this.needed;
 			this.addDistOne(rlen2);
 			this.len -= rlen2;
 			if(this.len == 0) {
@@ -28850,7 +28878,7 @@ hxd_Key.onEvent = function(e) {
 		}
 		break;
 	case 5:
-		hxd_Key.keyPressed[e.wheelDelta > 0?3:2] = h3d_Engine.CURRENT.frameCount + 1;
+		hxd_Key.keyPressed[e.wheelDelta > 0 ? 3 : 2] = h3d_Engine.CURRENT.frameCount + 1;
 		break;
 	case 8:
 		if(!hxd_Key.ALLOW_KEY_REPEAT && hxd_Key.keyPressed[e.keyCode] > 0) {
@@ -29028,37 +29056,37 @@ hxd_Math.colorLerp = function(c1,c2,k) {
 	return ((c1 >>> 24) * (1 - k) + (c2 >>> 24) * k | 0) << 24 | ((c1 >> 16 & 255) * (1 - k) + (c2 >> 16 & 255) * k | 0) << 16 | ((c1 >> 8 & 255) * (1 - k) + (c2 >> 8 & 255) * k | 0) << 8 | ((c1 & 255) * (1 - k) + (c2 & 255) * k | 0);
 };
 hxd_Math.angle = function(da) {
-	da %= 6.28318530717958623;
+	da %= 6.2831853071795862;
 	if(da > 3.14159265358979323) {
-		da -= 6.28318530717958623;
-	} else if(da <= -3.14159265358979312) {
-		da += 6.28318530717958623;
+		da -= 6.2831853071795862;
+	} else if(da <= -3.1415926535897931) {
+		da += 6.2831853071795862;
 	}
 	return da;
 };
 hxd_Math.angleLerp = function(a,b,k) {
 	var da = b - a;
-	da %= 6.28318530717958623;
+	da %= 6.2831853071795862;
 	if(da > 3.14159265358979323) {
-		da -= 6.28318530717958623;
-	} else if(da <= -3.14159265358979312) {
-		da += 6.28318530717958623;
+		da -= 6.2831853071795862;
+	} else if(da <= -3.1415926535897931) {
+		da += 6.2831853071795862;
 	}
 	return a + da * k;
 };
 hxd_Math.angleMove = function(a,b,max) {
 	var da = b - a;
-	da %= 6.28318530717958623;
+	da %= 6.2831853071795862;
 	if(da > 3.14159265358979323) {
-		da -= 6.28318530717958623;
-	} else if(da <= -3.14159265358979312) {
-		da += 6.28318530717958623;
+		da -= 6.2831853071795862;
+	} else if(da <= -3.1415926535897931) {
+		da += 6.2831853071795862;
 	}
 	var da1 = da;
 	if(da1 > -max && da1 < max) {
 		return b;
 	} else {
-		return a + (da1 < 0?-max:max);
+		return a + (da1 < 0 ? -max : max);
 	}
 };
 hxd_Math.shuffle = function(a) {
@@ -29089,7 +29117,7 @@ hxd_Math.b2f = function(v) {
 	return (v & 255) * 0.0039215686274509803921568627451;
 };
 hxd_Math.f2b = function(v) {
-	return (v < 0.?0.:v > 1.?1.:v) * 255.0 | 0;
+	return (v < 0. ? 0. : v > 1. ? 1. : v) * 255.0 | 0;
 };
 hxd_Math.umod = function(value,modulo) {
 	var r = value % modulo;
@@ -29219,7 +29247,7 @@ hxd_Pixels.prototype = {
 		var _g1 = 0;
 		while(_g1 < height) {
 			var y1 = y + _g1++;
-			out.blit(outP,this.bytes,(x + ((this.flags & 4) != 0?this.height - 1 - y1:y1) * this.width) * this.bpp + this.offset,stride);
+			out.blit(outP,this.bytes,(x + ((this.flags & 4) != 0 ? this.height - 1 - y1 : y1) * this.width) * this.bpp + this.offset,stride);
 			outP += stride;
 		}
 		return new hxd_Pixels(width,height,out,this.innerFormat);
@@ -29248,7 +29276,7 @@ hxd_Pixels.prototype = {
 			var dy = _g1++;
 			var y1 = dy + srcY;
 			var y2 = dy + y;
-			this.bytes.blit((x + ((this.flags & 4) != 0?this.height - 1 - y2:y2) * this.width) * this.bpp + this.offset,src.bytes,(srcX + ((src.flags & 4) != 0?src.height - 1 - y1:y1) * src.width) * this.bpp + src.offset,stride);
+			this.bytes.blit((x + ((this.flags & 4) != 0 ? this.height - 1 - y2 : y2) * this.width) * this.bpp + this.offset,src.bytes,(srcX + ((src.flags & 4) != 0 ? src.height - 1 - y1 : y1) * src.width) * this.bpp + src.offset,stride);
 		}
 	}
 	,clear: function(color) {
@@ -29346,8 +29374,8 @@ hxd_Pixels.prototype = {
 	,makeSquare: function(copy) {
 		var w = this.width;
 		var h = this.height;
-		var tw = w == 0?0:1;
-		var th = h == 0?0:1;
+		var tw = w == 0 ? 0 : 1;
+		var th = h == 0 ? 0 : 1;
 		while(tw < w) tw <<= 1;
 		while(th < h) th <<= 1;
 		if(w == tw && h == th) {
@@ -29551,7 +29579,7 @@ hxd_Pixels.prototype = {
 		this.set_innerFormat(target);
 	}
 	,getPixel: function(x,y) {
-		var p = (x + ((this.flags & 4) != 0?this.height - 1 - y:y) * this.width) * this.bpp + this.offset;
+		var p = (x + ((this.flags & 4) != 0 ? this.height - 1 - y : y) * this.width) * this.bpp + this.offset;
 		switch(this.innerFormat[1]) {
 		case 0:
 			var v = this.bytes.getInt32(p);
@@ -29567,7 +29595,7 @@ hxd_Pixels.prototype = {
 		}
 	}
 	,setPixel: function(x,y,color) {
-		var p = (x + ((this.flags & 4) != 0?this.height - 1 - y:y) * this.width) * this.bpp + this.offset;
+		var p = (x + ((this.flags & 4) != 0 ? this.height - 1 - y : y) * this.width) * this.bpp + this.offset;
 		if((this.flags & 1) != 0) {
 			this.copyInner();
 		}
@@ -29889,7 +29917,7 @@ hxd_SceneEvents.prototype = {
 		if(this.currentDrag != null && this.currentDrag.onCancel != null) {
 			this.currentDrag.onCancel();
 		}
-		this.currentDrag = { f : f, ref : refEvent == null?null:refEvent.touchId, onCancel : onCancel};
+		this.currentDrag = { f : f, ref : refEvent == null ? null : refEvent.touchId, onCancel : onCancel};
 	}
 	,stopDrag: function() {
 		this.currentDrag = null;
@@ -30235,7 +30263,7 @@ $hxClasses["hxd.earcut.Earcut"] = hxd_earcut_Earcut;
 hxd_earcut_Earcut.__name__ = ["hxd","earcut","Earcut"];
 hxd_earcut_Earcut.prototype = {
 	triangulate_h2d__Graphics_GPoint: function(points,holes) {
-		var outerLen = holes != null && holes.length > 0?holes[0]:points.length;
+		var outerLen = holes != null && holes.length > 0 ? holes[0] : points.length;
 		if(outerLen < 3) {
 			return [];
 		}
@@ -30251,7 +30279,7 @@ hxd_earcut_Earcut.prototype = {
 		var _g = holes.length;
 		while(_g1 < _g) {
 			var i = _g1++;
-			var node = this.setLinkedList_eliminateHoles_T(points,holes[i],i == holes.length - 1?points.length:holes[i + 1],false);
+			var node = this.setLinkedList_eliminateHoles_T(points,holes[i],i == holes.length - 1 ? points.length : holes[i + 1],false);
 			if(node == node.next) {
 				node.steiner = true;
 			}
@@ -30471,7 +30499,7 @@ hxd_earcut_Earcut.prototype = {
 			}
 			var a = maxX - this.minX;
 			var b = maxY - this.minY;
-			this.size = a < b?b:a;
+			this.size = a < b ? b : a;
 			this.hasSize = true;
 		} else {
 			this.hasSize = false;
@@ -30531,10 +30559,10 @@ hxd_earcut_Earcut.prototype = {
 		while(p != stop) {
 			var tmp;
 			if(hx >= p.x && p.x >= m.x) {
-				var ax = hy < m.y?hx:qx;
+				var ax = hy < m.y ? hx : qx;
 				var bx = m.x;
 				var by = m.y;
-				var cx = hy < m.y?qx:hx;
+				var cx = hy < m.y ? qx : hx;
 				var px = p.x;
 				var py = p.y;
 				if((cx - px) * (hy - py) - (ax - px) * (hy - py) >= 0 && (ax - px) * (by - py) - (bx - px) * (hy - py) >= 0) {
@@ -30547,7 +30575,7 @@ hxd_earcut_Earcut.prototype = {
 			}
 			if(tmp) {
 				var f = hy - p.y;
-				tan = (f < 0?-f:f) / (hx - p.x);
+				tan = (f < 0 ? -f : f) / (hx - p.x);
 				var tmp1;
 				if(tan < tanMin || tan == tanMin && p.x > m.x) {
 					var p1 = p.prev;
@@ -30737,7 +30765,7 @@ hxd_earcut_Earcut.prototype = {
 		while(ear.prev != ear.next) {
 			prev = ear.prev;
 			next = ear.next;
-			if(this.hasSize?this.isEarHashed(ear):this.isEar(ear)) {
+			if(this.hasSize ? this.isEarHashed(ear) : this.isEar(ear)) {
 				this.triangles.push(prev.i);
 				this.triangles.push(ear.i);
 				this.triangles.push(next.i);
@@ -30808,8 +30836,8 @@ hxd_earcut_Earcut.prototype = {
 		if((ear.y - a.y) * (c.x - ear.x) - (ear.x - a.x) * (c.y - ear.y) >= 0) {
 			return false;
 		}
-		var x = 32767 * ((a.x < ear.x?a.x < c.x?a.x:c.x:ear.x < c.x?ear.x:c.x) - this.minX) / this.size | 0;
-		var y = 32767 * ((a.y < ear.y?a.y < c.y?a.y:c.y:ear.y < c.y?ear.y:c.y) - this.minY) / this.size | 0;
+		var x = 32767 * ((a.x < ear.x ? a.x < c.x ? a.x : c.x : ear.x < c.x ? ear.x : c.x) - this.minX) / this.size | 0;
+		var y = 32767 * ((a.y < ear.y ? a.y < c.y ? a.y : c.y : ear.y < c.y ? ear.y : c.y) - this.minY) / this.size | 0;
 		x = (x | x << 8) & 16711935;
 		x = (x | x << 4) & 252645135;
 		x = (x | x << 2) & 858993459;
@@ -30819,8 +30847,8 @@ hxd_earcut_Earcut.prototype = {
 		y = (y | y << 2) & 858993459;
 		y = (y | y << 1) & 1431655765;
 		var minZ = x | y << 1;
-		var x1 = 32767 * ((a.x > ear.x?a.x > c.x?a.x:c.x:ear.x > c.x?ear.x:c.x) - this.minX) / this.size | 0;
-		var y1 = 32767 * ((a.y > ear.y?a.y > c.y?a.y:c.y:ear.y > c.y?ear.y:c.y) - this.minY) / this.size | 0;
+		var x1 = 32767 * ((a.x > ear.x ? a.x > c.x ? a.x : c.x : ear.x > c.x ? ear.x : c.x) - this.minX) / this.size | 0;
+		var y1 = 32767 * ((a.y > ear.y ? a.y > c.y ? a.y : c.y : ear.y > c.y ? ear.y : c.y) - this.minY) / this.size | 0;
 		x1 = (x1 | x1 << 8) & 16711935;
 		x1 = (x1 | x1 << 4) & 252645135;
 		x1 = (x1 | x1 << 2) & 858993459;
@@ -31822,11 +31850,13 @@ hxd_fmt_hmd_Library.prototype = {
 		}
 		var vtmp_z;
 		var vtmp_y;
-		var vtmp_x = 0.;
+		var vtmp_x;
+		var vtmp_w;
+		vtmp_x = 0.;
 		vtmp_y = 0.;
 		vtmp_z = 0.;
-		var vtmp_w = 1.;
-		var models = modelIndex < 0?this.header.models:[this.header.models[modelIndex]];
+		vtmp_w = 1.;
+		var models = modelIndex < 0 ? this.header.models : [this.header.models[modelIndex]];
 		var outVertex = new Array(0);
 		var outIndex = new Array(0);
 		var stride = 0;
@@ -31923,7 +31953,7 @@ hxd_fmt_hmd_Library.prototype = {
 			if(found) {
 				map = new hxd_fmt_hmd__$Library_FormatMap(size,offset,null,map);
 			} else {
-				var def = defaults == null?null:defaults[i];
+				var def = defaults == null ? null : defaults[i];
 				if(def == null) {
 					throw new js__$Boot_HaxeError("Missing required " + f.name);
 				}
@@ -32103,7 +32133,7 @@ hxd_fmt_hmd_Library.prototype = {
 	,makeSkin: function(skin) {
 		var key = skin.name;
 		var _this = this.cachedSkin;
-		var s = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+		var s = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 		if(s != null) {
 			return s;
 		}
@@ -32256,8 +32286,8 @@ hxd_fmt_hmd_Library.prototype = {
 	}
 	,loadAnimation: function(name) {
 		var _this = this.cachedAnimations;
-		var key = name == null?"":name;
-		var a = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+		var key = name == null ? "" : name;
+		var a = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 		if(a != null) {
 			return a;
 		}
@@ -32323,7 +32353,7 @@ hxd_fmt_hmd_Library.prototype = {
 					frameCount = 1;
 				}
 				var fl = new Array(frameCount);
-				var size = ((pos?3:0) + (rot?3:0) + (scale?3:0)) * 4 * frameCount;
+				var size = ((pos ? 3 : 0) + (rot ? 3 : 0) + (scale ? 3 : 0)) * 4 * frameCount;
 				var data = hxd_impl_Tmp.getBytes(size);
 				this.entry.read(data,0,size);
 				var p = 0;
@@ -32352,7 +32382,7 @@ hxd_fmt_hmd_Library.prototype = {
 						f.qz = data.getFloat(p);
 						p += 4;
 						var qw = 1 - (f.qx * f.qx + f.qy * f.qy + f.qz * f.qz);
-						f.qw = qw < 0?-Math.sqrt(-qw):Math.sqrt(qw);
+						f.qw = qw < 0 ? -Math.sqrt(-qw) : Math.sqrt(qw);
 					} else {
 						f.qx = 0;
 						f.qy = 0;
@@ -32953,10 +32983,10 @@ hxd_fs__$EmbedFileSystem_EmbedEntry.prototype = $extend(hxd_fs_FileEntry.prototy
 		}
 	}
 	,exists: function(name) {
-		return this.fs.exists(this.relPath == "."?name:this.relPath + "/" + name);
+		return this.fs.exists(this.relPath == "." ? name : this.relPath + "/" + name);
 	}
 	,get: function(name) {
-		return this.fs.get(this.relPath == "."?name:this.relPath + "/" + name);
+		return this.fs.get(this.relPath == "." ? name : this.relPath + "/" + name);
 	}
 	,get_size: function() {
 		this.open();
@@ -33006,7 +33036,7 @@ hxd_fs_EmbedFileSystem.prototype = {
 		while(_g11 < fields.length) {
 			var name = fields[_g11];
 			++_g11;
-			_g2.push(this.get(path == "."?name:path + "/" + name));
+			_g2.push(this.get(path == "." ? name : path + "/" + name));
 		}
 		return _g2;
 	}
@@ -33485,7 +33515,7 @@ hxd_res_Atlas.prototype = $extend(hxd_res_Resource.prototype,{
 	}
 	,get: function(name,horizontalAlign,verticalAlign) {
 		var _this = this.getContents();
-		var c = __map_reserved[name] != null?_this.getReserved(name):_this.h[name];
+		var c = __map_reserved[name] != null ? _this.getReserved(name) : _this.h[name];
 		if(c == null) {
 			return null;
 		}
@@ -33504,7 +33534,7 @@ hxd_res_Atlas.prototype = $extend(hxd_res_Resource.prototype,{
 			}
 		}
 		var _this = this.getContents();
-		var c = __map_reserved[name] != null?_this.getReserved(name):_this.h[name];
+		var c = __map_reserved[name] != null ? _this.getReserved(name) : _this.h[name];
 		if(c == null) {
 			return null;
 		}
@@ -33513,7 +33543,7 @@ hxd_res_Atlas.prototype = $extend(hxd_res_Resource.prototype,{
 		while(_g1 < c.length) {
 			var t = c[_g1];
 			++_g1;
-			_g.push(t == null?null:this.tileAlign(t.t,horizontalAlign,verticalAlign,t.width,t.height));
+			_g.push(t == null ? null : this.tileAlign(t.t,horizontalAlign,verticalAlign,t.width,t.height));
 		}
 		return _g;
 	}
@@ -33599,7 +33629,7 @@ hxd_res_Atlas.prototype = $extend(hxd_res_Resource.prototype,{
 				tileDY = origH - (tileH + tileDY);
 				var t = file.sub(tileX,tileY,tileW,tileH,tileDX,tileDY);
 				var _this = this.contents;
-				var tl = __map_reserved[line1] != null?_this.getReserved(line1):_this.h[line1];
+				var tl = __map_reserved[line1] != null ? _this.getReserved(line1) : _this.h[line1];
 				if(tl == null) {
 					tl = [];
 					var _this1 = this.contents;
@@ -33701,7 +33731,7 @@ hxd_res_Font.prototype = $extend(hxd_res_Resource.prototype,{
 });
 var hxd_res_FontBuilder = function(name,size,opt) {
 	this.font = new h2d_Font(name,size);
-	this.options = opt == null?{ }:opt;
+	this.options = opt == null ? { } : opt;
 	if(this.options.antiAliasing == null) {
 		this.options.antiAliasing = true;
 	}
@@ -33714,7 +33744,7 @@ hxd_res_FontBuilder.__name__ = ["hxd","res","FontBuilder"];
 hxd_res_FontBuilder.getFont = function(name,size,options) {
 	var key = name + "#" + size;
 	var _this = hxd_res_FontBuilder.FONTS;
-	var f = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+	var f = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 	if(f != null && f.tile.innerTex != null) {
 		return f;
 	}
@@ -33844,7 +33874,7 @@ hxd_res_Gradients.createTexture = function(grads,twid) {
 	if((twid & twid - 1) != 0) {
 		throw new js__$Boot_HaxeError("gradient resolution should be a power of two");
 	}
-	var ghei = grads.length > 1?3:1;
+	var ghei = grads.length > 1 ? 3 : 1;
 	var v = ghei * grads.length;
 	--v;
 	v |= v >> 1;
@@ -33943,7 +33973,7 @@ hxd_res_Gradients.appendPixels = function(pixels,dat,wid,hei,yoff) {
 				var f1 = tmpCol_x;
 				var f2 = tmpCol_y;
 				var f3 = tmpCol_z;
-				pixels.setPixel(px,yoff + _g11++,((f < 0.?0.:f > 1.?1.:f) * 255 + 0.499 | 0) << 24 | ((f1 < 0.?0.:f1 > 1.?1.:f1) * 255 + 0.499 | 0) << 16 | ((f2 < 0.?0.:f2 > 1.?1.:f2) * 255 + 0.499 | 0) << 8 | ((f3 < 0.?0.:f3 > 1.?1.:f3) * 255 + 0.499 | 0));
+				pixels.setPixel(px,yoff + _g11++,((f < 0. ? 0. : f > 1. ? 1. : f) * 255 + 0.499 | 0) << 24 | ((f1 < 0. ? 0. : f1 > 1. ? 1. : f1) * 255 + 0.499 | 0) << 16 | ((f2 < 0. ? 0. : f2 > 1. ? 1. : f2) * 255 + 0.499 | 0) << 8 | ((f3 < 0. ? 0. : f3 > 1. ? 1. : f3) * 255 + 0.499 | 0));
 			}
 			++px;
 		}
@@ -33987,7 +34017,7 @@ hxd_res_Gradients.prototype = $extend(hxd_res_Resource.prototype,{
 			resolution = 256;
 		}
 		var data = this.getData();
-		return hxd_res_Gradients.createTexture([__map_reserved[name] != null?data.getReserved(name):data.h[name]],resolution);
+		return hxd_res_Gradients.createTexture([__map_reserved[name] != null ? data.getReserved(name) : data.h[name]],resolution);
 	}
 	,toTextureMap: function(resolution) {
 		if(resolution == null) {
@@ -34268,7 +34298,7 @@ hxd_res_Loader.prototype = {
 	}
 	,loadModel: function(path) {
 		var _this = this.cache;
-		var m = __map_reserved[path] != null?_this.getReserved(path):_this.h[path];
+		var m = __map_reserved[path] != null ? _this.getReserved(path) : _this.h[path];
 		if(m == null) {
 			m = new hxd_res_Model(this.fs.get(path));
 			var _this1 = this.cache;
@@ -34282,7 +34312,7 @@ hxd_res_Loader.prototype = {
 	}
 	,loadImage: function(path) {
 		var _this = this.cache;
-		var i = __map_reserved[path] != null?_this.getReserved(path):_this.h[path];
+		var i = __map_reserved[path] != null ? _this.getReserved(path) : _this.h[path];
 		if(i == null) {
 			i = new hxd_res_Image(this.fs.get(path));
 			var _this1 = this.cache;
@@ -34296,7 +34326,7 @@ hxd_res_Loader.prototype = {
 	}
 	,loadSound: function(path) {
 		var _this = this.cache;
-		var s = __map_reserved[path] != null?_this.getReserved(path):_this.h[path];
+		var s = __map_reserved[path] != null ? _this.getReserved(path) : _this.h[path];
 		if(s == null) {
 			s = new hxd_res_Sound(this.fs.get(path));
 			var _this1 = this.cache;
@@ -34313,7 +34343,7 @@ hxd_res_Loader.prototype = {
 	}
 	,loadBitmapFont: function(path) {
 		var _this = this.cache;
-		var f = __map_reserved[path] != null?_this.getReserved(path):_this.h[path];
+		var f = __map_reserved[path] != null ? _this.getReserved(path) : _this.h[path];
 		if(f == null) {
 			f = new hxd_res_BitmapFont(this,this.fs.get(path));
 			var _this1 = this.cache;
@@ -34336,7 +34366,7 @@ hxd_res_Loader.prototype = {
 	}
 	,loadGradients: function(path) {
 		var _this = this.cache;
-		var g = __map_reserved[path] != null?_this.getReserved(path):_this.h[path];
+		var g = __map_reserved[path] != null ? _this.getReserved(path) : _this.h[path];
 		if(g == null) {
 			g = new hxd_res_Gradients(this.fs.get(path));
 			var _this1 = this.cache;
@@ -34446,7 +34476,7 @@ hxd_res_NanoJpeg.prototype = {
 	,njInit: function(bytes,pos,size,filter) {
 		this.bytes = bytes;
 		this.pos = pos;
-		this.filter = filter == null?hxd_res_Filter.Chromatic:filter;
+		this.filter = filter == null ? hxd_res_Filter.Chromatic : filter;
 		if(size < 0) {
 			size = bytes.length - pos;
 		}
@@ -34856,28 +34886,28 @@ hxd_res_NanoJpeg.prototype = {
 		x2 = 181 * (x4 + x5) + 128 >> 8;
 		x4 = 181 * (x4 - x5) + 128 >> 8;
 		var x9 = (x7 + x1 >> 14) + 128;
-		out.b[po] = (x9 < 0?0:x9 > 255?255:x9) & 255;
+		out.b[po] = (x9 < 0 ? 0 : x9 > 255 ? 255 : x9) & 255;
 		po += stride;
 		var x10 = (x3 + x2 >> 14) + 128;
-		out.b[po] = (x10 < 0?0:x10 > 255?255:x10) & 255;
+		out.b[po] = (x10 < 0 ? 0 : x10 > 255 ? 255 : x10) & 255;
 		po += stride;
 		var x11 = (x0 + x4 >> 14) + 128;
-		out.b[po] = (x11 < 0?0:x11 > 255?255:x11) & 255;
+		out.b[po] = (x11 < 0 ? 0 : x11 > 255 ? 255 : x11) & 255;
 		po += stride;
 		var x12 = (x8 + x6 >> 14) + 128;
-		out.b[po] = (x12 < 0?0:x12 > 255?255:x12) & 255;
+		out.b[po] = (x12 < 0 ? 0 : x12 > 255 ? 255 : x12) & 255;
 		po += stride;
 		var x13 = (x8 - x6 >> 14) + 128;
-		out.b[po] = (x13 < 0?0:x13 > 255?255:x13) & 255;
+		out.b[po] = (x13 < 0 ? 0 : x13 > 255 ? 255 : x13) & 255;
 		po += stride;
 		var x14 = (x0 - x4 >> 14) + 128;
-		out.b[po] = (x14 < 0?0:x14 > 255?255:x14) & 255;
+		out.b[po] = (x14 < 0 ? 0 : x14 > 255 ? 255 : x14) & 255;
 		po += stride;
 		var x15 = (x3 - x2 >> 14) + 128;
-		out.b[po] = (x15 < 0?0:x15 > 255?255:x15) & 255;
+		out.b[po] = (x15 < 0 ? 0 : x15 > 255 ? 255 : x15) & 255;
 		po += stride;
 		var x16 = (x7 - x1 >> 14) + 128;
-		out.b[po] = (x16 < 0?0:x16 > 255?255:x16) & 255;
+		out.b[po] = (x16 < 0 ? 0 : x16 > 255 ? 255 : x16) & 255;
 	}
 	,njDecodeBlock: function(c,po) {
 		var out = c.pixels;
@@ -35063,28 +35093,28 @@ hxd_res_NanoJpeg.prototype = {
 				x21 = 181 * (x41 + x51) + 128 >> 8;
 				x41 = 181 * (x41 - x51) + 128 >> 8;
 				var x9 = (x71 + x11 >> 14) + 128;
-				out.b[po1] = (x9 < 0?0:x9 > 255?255:x9) & 255;
+				out.b[po1] = (x9 < 0 ? 0 : x9 > 255 ? 255 : x9) & 255;
 				po1 += stride;
 				var x10 = (x31 + x21 >> 14) + 128;
-				out.b[po1] = (x10 < 0?0:x10 > 255?255:x10) & 255;
+				out.b[po1] = (x10 < 0 ? 0 : x10 > 255 ? 255 : x10) & 255;
 				po1 += stride;
 				var x12 = (x01 + x41 >> 14) + 128;
-				out.b[po1] = (x12 < 0?0:x12 > 255?255:x12) & 255;
+				out.b[po1] = (x12 < 0 ? 0 : x12 > 255 ? 255 : x12) & 255;
 				po1 += stride;
 				var x13 = (x81 + x61 >> 14) + 128;
-				out.b[po1] = (x13 < 0?0:x13 > 255?255:x13) & 255;
+				out.b[po1] = (x13 < 0 ? 0 : x13 > 255 ? 255 : x13) & 255;
 				po1 += stride;
 				var x14 = (x81 - x61 >> 14) + 128;
-				out.b[po1] = (x14 < 0?0:x14 > 255?255:x14) & 255;
+				out.b[po1] = (x14 < 0 ? 0 : x14 > 255 ? 255 : x14) & 255;
 				po1 += stride;
 				var x15 = (x01 - x41 >> 14) + 128;
-				out.b[po1] = (x15 < 0?0:x15 > 255?255:x15) & 255;
+				out.b[po1] = (x15 < 0 ? 0 : x15 > 255 ? 255 : x15) & 255;
 				po1 += stride;
 				var x16 = (x31 - x21 >> 14) + 128;
-				out.b[po1] = (x16 < 0?0:x16 > 255?255:x16) & 255;
+				out.b[po1] = (x16 < 0 ? 0 : x16 > 255 ? 255 : x16) & 255;
 				po1 += stride;
 				var x17 = (x71 - x11 >> 14) + 128;
-				out.b[po1] = (x17 < 0?0:x17 > 255?255:x17) & 255;
+				out.b[po1] = (x17 < 0 ? 0 : x17 > 255 ? 255 : x17) & 255;
 			}
 		}
 	}
@@ -35168,27 +35198,27 @@ hxd_res_NanoJpeg.prototype = {
 		while(_g1 < _g) {
 			++_g1;
 			var x = 139 * lin.b[pi] + -11 * lin.b[pi + 1] + 64 >> 7;
-			lout.b[po] = (x < 0?0:x > 255?255:x) & 255;
+			lout.b[po] = (x < 0 ? 0 : x > 255 ? 255 : x) & 255;
 			var x1 = 104 * lin.b[pi] + 27 * lin.b[pi + 1] + -3 * lin.b[pi + 2] + 64 >> 7;
-			lout.b[po + 1] = (x1 < 0?0:x1 > 255?255:x1) & 255;
+			lout.b[po + 1] = (x1 < 0 ? 0 : x1 > 255 ? 255 : x1) & 255;
 			var x2 = 28 * lin.b[pi] + 109 * lin.b[pi + 1] + -9 * lin.b[pi + 2] + 64 >> 7;
-			lout.b[po + 2] = (x2 < 0?0:x2 > 255?255:x2) & 255;
+			lout.b[po + 2] = (x2 < 0 ? 0 : x2 > 255 ? 255 : x2) & 255;
 			var _g3 = 0;
 			while(_g3 < xmax) {
 				var x3 = _g3++;
 				var x4 = -9 * lin.b[pi + x3] + 111 * lin.b[pi + x3 + 1] + 29 * lin.b[pi + x3 + 2] + -3 * lin.b[pi + x3 + 3] + 64 >> 7;
-				lout.b[po + (x3 << 1) + 3] = (x4 < 0?0:x4 > 255?255:x4) & 255;
+				lout.b[po + (x3 << 1) + 3] = (x4 < 0 ? 0 : x4 > 255 ? 255 : x4) & 255;
 				var x5 = -3 * lin.b[pi + x3] + 29 * lin.b[pi + x3 + 1] + 111 * lin.b[pi + x3 + 2] + -9 * lin.b[pi + x3 + 3] + 64 >> 7;
-				lout.b[po + (x3 << 1) + 4] = (x5 < 0?0:x5 > 255?255:x5) & 255;
+				lout.b[po + (x3 << 1) + 4] = (x5 < 0 ? 0 : x5 > 255 ? 255 : x5) & 255;
 			}
 			pi += c.stride;
 			po += c.width << 1;
 			var x6 = 28 * lin.b[pi - 1] + 109 * lin.b[pi - 2] + -9 * lin.b[pi - 3] + 64 >> 7;
-			lout.b[po - 3] = (x6 < 0?0:x6 > 255?255:x6) & 255;
+			lout.b[po - 3] = (x6 < 0 ? 0 : x6 > 255 ? 255 : x6) & 255;
 			var x7 = 104 * lin.b[pi - 1] + 27 * lin.b[pi - 2] + -3 * lin.b[pi - 3] + 64 >> 7;
-			lout.b[po - 2] = (x7 < 0?0:x7 > 255?255:x7) & 255;
+			lout.b[po - 2] = (x7 < 0 ? 0 : x7 > 255 ? 255 : x7) & 255;
 			var x8 = 139 * lin.b[pi - 1] + -11 * lin.b[pi - 2] + 64 >> 7;
-			lout.b[po - 1] = (x8 < 0?0:x8 > 255?255:x8) & 255;
+			lout.b[po - 1] = (x8 < 0 ? 0 : x8 > 255 ? 255 : x8) & 255;
 		}
 		c.width <<= 1;
 		c.stride = c.width;
@@ -35210,13 +35240,13 @@ hxd_res_NanoJpeg.prototype = {
 			po = x;
 			pi = x;
 			var x1 = 139 * cin.b[pi] + -11 * cin.b[pi + s1] + 64 >> 7;
-			cout.b[x] = (x1 < 0?0:x1 > 255?255:x1) & 255;
+			cout.b[x] = (x1 < 0 ? 0 : x1 > 255 ? 255 : x1) & 255;
 			po = x + w;
 			var x2 = 104 * cin.b[pi] + 27 * cin.b[pi + s1] + -3 * cin.b[pi + s2] + 64 >> 7;
-			cout.b[po] = (x2 < 0?0:x2 > 255?255:x2) & 255;
+			cout.b[po] = (x2 < 0 ? 0 : x2 > 255 ? 255 : x2) & 255;
 			po += w;
 			var x3 = 28 * cin.b[pi] + 109 * cin.b[pi + s1] + -9 * cin.b[pi + s2] + 64 >> 7;
-			cout.b[po] = (x3 < 0?0:x3 > 255?255:x3) & 255;
+			cout.b[po] = (x3 < 0 ? 0 : x3 > 255 ? 255 : x3) & 255;
 			po += w;
 			pi += s1;
 			var _g3 = 0;
@@ -35224,22 +35254,22 @@ hxd_res_NanoJpeg.prototype = {
 			while(_g3 < _g2) {
 				++_g3;
 				var x4 = -9 * cin.b[pi - s1] + 111 * cin.b[pi] + 29 * cin.b[pi + s1] + -3 * cin.b[pi + s2] + 64 >> 7;
-				cout.b[po] = (x4 < 0?0:x4 > 255?255:x4) & 255;
+				cout.b[po] = (x4 < 0 ? 0 : x4 > 255 ? 255 : x4) & 255;
 				po += w;
 				var x5 = -3 * cin.b[pi - s1] + 29 * cin.b[pi] + 111 * cin.b[pi + s1] + -9 * cin.b[pi + s2] + 64 >> 7;
-				cout.b[po] = (x5 < 0?0:x5 > 255?255:x5) & 255;
+				cout.b[po] = (x5 < 0 ? 0 : x5 > 255 ? 255 : x5) & 255;
 				po += w;
 				pi += s1;
 			}
 			pi += s1;
 			var x6 = 28 * cin.b[pi] + 109 * cin.b[pi - s1] + -9 * cin.b[pi - s2] + 64 >> 7;
-			cout.b[po] = (x6 < 0?0:x6 > 255?255:x6) & 255;
+			cout.b[po] = (x6 < 0 ? 0 : x6 > 255 ? 255 : x6) & 255;
 			po += w;
 			var x7 = 104 * cin.b[pi] + 27 * cin.b[pi - s1] + -3 * cin.b[pi - s2] + 64 >> 7;
-			cout.b[po] = (x7 < 0?0:x7 > 255?255:x7) & 255;
+			cout.b[po] = (x7 < 0 ? 0 : x7 > 255 ? 255 : x7) & 255;
 			po += w;
 			var x8 = 139 * cin.b[pi] + -11 * cin.b[pi - s1] + 64 >> 7;
-			cout.b[po] = (x8 < 0?0:x8 > 255?255:x8) & 255;
+			cout.b[po] = (x8 < 0 ? 0 : x8 > 255 ? 255 : x8) & 255;
 		}
 		c.height <<= 1;
 		c.stride = c.width;
@@ -35323,9 +35353,9 @@ hxd_res_NanoJpeg.prototype = {
 					var x = y + 359 * cr + 128 >> 8;
 					var x1 = y - 88 * cb - 183 * cr + 128 >> 8;
 					var x2 = y + 454 * cb + 128 >> 8;
-					pix.b[out++] = (x2 < 0?0:x2 > 255?255:x2) & 255;
-					pix.b[out++] = (x1 < 0?0:x1 > 255?255:x1) & 255;
-					pix.b[out++] = (x < 0?0:x > 255?255:x) & 255;
+					pix.b[out++] = (x2 < 0 ? 0 : x2 > 255 ? 255 : x2) & 255;
+					pix.b[out++] = (x1 < 0 ? 0 : x1 > 255 ? 255 : x1) & 255;
+					pix.b[out++] = (x < 0 ? 0 : x > 255 ? 255 : x) & 255;
 					pix.b[out++] = 255;
 				}
 				k1 += this.comps[0].stride - this.width;
@@ -35524,7 +35554,7 @@ hxd_res_TiledMap.prototype = $extend(hxd_res_Resource.prototype,{
 				++_g1;
 				data2.push(input.readInt32());
 			}
-			layers.push({ name : val.att.resolve("name"), opacity : val.has.resolve("opacity")?parseFloat(val.att.resolve("opacity")):1., objects : [], data : data2});
+			layers.push({ name : val.att.resolve("name"), opacity : val.has.resolve("opacity") ? parseFloat(val.att.resolve("opacity")) : 1., objects : [], data : data2});
 		}
 		var _g_head1 = x.nodes.resolve("objectgroup").h;
 		while(_g_head1 != null) {
@@ -35536,7 +35566,7 @@ hxd_res_TiledMap.prototype = $extend(hxd_res_Resource.prototype,{
 				var val2 = _g_head2.item;
 				_g_head2 = _g_head2.next;
 				if(val2.has.resolve("name")) {
-					objs.push({ name : val2.att.resolve("name"), type : val2.has.resolve("type")?val2.att.resolve("type"):null, x : Std.parseInt(val2.att.resolve("x")), y : Std.parseInt(val2.att.resolve("y"))});
+					objs.push({ name : val2.att.resolve("name"), type : val2.has.resolve("type") ? val2.att.resolve("type") : null, x : Std.parseInt(val2.att.resolve("x")), y : Std.parseInt(val2.att.resolve("y"))});
 				}
 			}
 			layers.push({ name : val1.att.resolve("name"), opacity : 1., objects : objs, data : null});
@@ -35687,7 +35717,7 @@ hxd_snd_ALSource.ofInt = function(i) {
 };
 hxd_snd_ALSource.prototype = {
 	updateDuration: function() {
-		this.frequency = this.buffers.length == 0?1:this.buffers[0].frequency;
+		this.frequency = this.buffers.length == 0 ? 1 : this.buffers[0].frequency;
 		this.duration = 0.;
 		var _g = 0;
 		var _g1 = this.buffers;
@@ -35861,7 +35891,7 @@ hxd_snd_ALEmulator.sourcef = function(source,param,value) {
 		source.volume = value;
 		break;
 	case 4132:
-		source.currentSample = source.buffers.length == 0?0:value * source.frequency | 0;
+		source.currentSample = source.buffers.length == 0 ? 0 : value * source.frequency | 0;
 		if(source.chan != null) {
 			source.stop(true);
 			source.play();
@@ -35884,7 +35914,7 @@ hxd_snd_ALEmulator.sourcei = function(source,param,value) {
 		break;
 	case 4105:
 		var b = hxd_snd_ALBuffer.all.get(value);
-		source.buffers = b == null?[]:[b];
+		source.buffers = b == null ? [] : [b];
 		source.updateDuration();
 		source.currentSample = 0;
 		break;
@@ -36056,7 +36086,7 @@ hxd_snd_ALEmulator.bufferData = function(buffer,format,data,size,freq) {
 		while(_g11 < _g) {
 			var i1 = _g11++;
 			var v1 = data.getUInt16(i1 << 1);
-			var v2 = ((v1 & 32768) == 0?v1:v1 | -65536) / 32768;
+			var v2 = ((v1 & 32768) == 0 ? v1 : v1 | -65536) / 32768;
 			bdata1[i1 << 1] = v2;
 			bdata1[i1 << 1 | 1] = v2;
 		}
@@ -36076,7 +36106,7 @@ hxd_snd_ALEmulator.bufferData = function(buffer,format,data,size,freq) {
 		while(_g13 < _g2) {
 			var i3 = _g13++;
 			var v3 = data.getUInt16(i3 << 1);
-			bdata3[i3] = ((v3 & 32768) == 0?v3:v3 | -65536) / 32768;
+			bdata3[i3] = ((v3 & 32768) == 0 ? v3 : v3 | -65536) / 32768;
 		}
 		break;
 	case 4368:
@@ -36215,7 +36245,7 @@ hxd_snd_ChannelBase.prototype = {
 		while(_g < _g1.length) {
 			var e = _g1[_g];
 			++_g;
-			var e1 = (e instanceof etype)?e:null;
+			var e1 = (e instanceof etype) ? e : null;
 			if(e1 != null) {
 				return e1;
 			}
@@ -36378,7 +36408,7 @@ hxd_snd_Data.prototype = {
 		var newSamples = Math.ceil(samples * (rate / this.samplingRate));
 		var resample = samples != newSamples;
 		var srcChannels = this.channels;
-		var commonChannels = channels < srcChannels?channels:srcChannels;
+		var commonChannels = channels < srcChannels ? channels : srcChannels;
 		var extraChannels = channels - commonChannels;
 		var sval = 0.;
 		var ival = 0;
@@ -36407,10 +36437,10 @@ hxd_snd_Data.prototype = {
 					break;
 				case 1:
 					var v = input.getUInt16(srcPos);
-					sval1 = ((v & 32768) == 0?v:v | -65536) / 32768;
+					sval1 = ((v & 32768) == 0 ? v : v | -65536) / 32768;
 					if(resample) {
 						var v1 = input.getUInt16(srcPos + bpp);
-						sval2 = ((v1 & 32768) == 0?v1:v1 | -65536) / 32768;
+						sval2 = ((v1 & 32768) == 0 ? v1 : v1 | -65536) / 32768;
 					}
 					srcPos += 2;
 					break;
@@ -36883,7 +36913,7 @@ hxd_snd_Driver.prototype = {
 		var loopFlag = c.loop && c.queue.length == 0 && !c.streaming;
 		if(s.loop != loopFlag) {
 			s.loop = loopFlag;
-			hxd_snd_ALEmulator.sourcei(s.inst,4103,loopFlag?1:0);
+			hxd_snd_ALEmulator.sourcei(s.inst,4103,loopFlag ? 1 : 0);
 		}
 		var v = c.volume * c.channelGroup.volume * c.soundGroup.volume;
 		if(s.volume != v) {
@@ -37024,19 +37054,19 @@ hxd_snd_Driver.prototype = {
 		}
 		this.targetRate = dat.samplingRate;
 		this.targetRate = hxd_snd_ALEmulator.NATIVE_FREQ;
-		this.targetChannels = forceMono || dat.channels == 1?1:2;
+		this.targetChannels = forceMono || dat.channels == 1 ? 1 : 2;
 		var tmp;
 		switch(dat.sampleFormat[1]) {
 		case 0:
-			this.alFormat = this.targetChannels == 1?4352:4354;
+			this.alFormat = this.targetChannels == 1 ? 4352 : 4354;
 			tmp = hxd_snd_SampleFormat.UI8;
 			break;
 		case 1:
-			this.alFormat = this.targetChannels == 1?4353:4355;
+			this.alFormat = this.targetChannels == 1 ? 4353 : 4355;
 			tmp = hxd_snd_SampleFormat.I16;
 			break;
 		case 2:
-			this.alFormat = this.targetChannels == 1?4368:4369;
+			this.alFormat = this.targetChannels == 1 ? 4368 : 4369;
 			tmp = hxd_snd_SampleFormat.F32;
 			break;
 		}
@@ -37067,7 +37097,7 @@ hxd_snd_Driver.prototype = {
 					s.streamSample -= s.streamData.samples;
 				}
 			} else {
-				var count = samples < avail?samples:avail;
+				var count = samples < avail ? samples : avail;
 				if(outPos == 0) {
 					s.streamPositionNext = s.streamSample / s.streamData.samplingRate;
 				}
@@ -37279,7 +37309,7 @@ var hxd_snd_Mp3Data = function(bytes) {
 	var header = mp.frames[0].header;
 	this.sampleFormat = hxd_snd_SampleFormat.F32;
 	this.samplingRate = format_mp3_MPEG.srEnum2Num(header.samplingRate);
-	this.channels = header.channelMode == format_mp3_ChannelMode.Mono?1:2;
+	this.channels = header.channelMode == format_mp3_ChannelMode.Mono ? 1 : 2;
 	var ctx = hxd_snd_NativeChannel.getContext();
 	ctx.decodeAudioData(bytes.b.bufferValue,$bind(this,this.processBuffer));
 	var decodedRate = ctx.sampleRate | 0;
@@ -37304,7 +37334,7 @@ hxd_snd_Mp3Data.prototype = $extend(hxd_snd_Data.prototype,{
 			this.buffer = haxe_io_Bytes.ofData(left.buffer);
 			return;
 		}
-		var right = buf.numberOfChannels < 2?left:buf.getChannelData(1);
+		var right = buf.numberOfChannels < 2 ? left : buf.getChannelData(1);
 		var join = new Float32Array(left.length * 2);
 		var w = 0;
 		var _g1 = 0;
@@ -38168,7 +38198,7 @@ hxsl_Tools.map = function(e,f) {
 		break;
 	case 7:
 		var init = _g[3];
-		ed = hxsl_TExprDef.TVarDecl(_g[2],init != null?f(init):null);
+		ed = hxsl_TExprDef.TVarDecl(_g[2],init != null ? f(init) : null);
 		break;
 	case 8:
 		var args = _g[3];
@@ -38187,11 +38217,11 @@ hxsl_Tools.map = function(e,f) {
 		break;
 	case 10:
 		var eelse = _g[4];
-		ed = hxsl_TExprDef.TIf(f(_g[2]),f(_g[3]),eelse != null?f(eelse):null);
+		ed = hxsl_TExprDef.TIf(f(_g[2]),f(_g[3]),eelse != null ? f(eelse) : null);
 		break;
 	case 12:
 		var e2 = _g[2];
-		ed = hxsl_TExprDef.TReturn(e2 != null?f(e2):null);
+		ed = hxsl_TExprDef.TReturn(e2 != null ? f(e2) : null);
 		break;
 	case 13:
 		ed = hxsl_TExprDef.TFor(_g[2],f(_g[3]),f(_g[4]));
@@ -38232,7 +38262,7 @@ hxsl_Tools.map = function(e,f) {
 			}
 			_g4.push({ values : _g21, expr : f(c.expr)});
 		}
-		ed = hxsl_TExprDef.TSwitch(ed2,_g4,def == null?null:f(def));
+		ed = hxsl_TExprDef.TSwitch(ed2,_g4,def == null ? null : f(def));
 		break;
 	case 19:
 		ed = hxsl_TExprDef.TWhile(f(_g[2]),f(_g[3]),_g[4]);
@@ -38331,7 +38361,7 @@ hxsl_Cache.prototype = {
 	allocOutputVars: function(vars) {
 		var key = vars.join(",");
 		var _this = this.outVarsMap;
-		var id = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+		var id = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 		if(id != null) {
 			return id;
 		}
@@ -38369,8 +38399,9 @@ hxsl_Cache.prototype = {
 			c = new hxsl_SearchMap();
 			this.linkCache.h[outVars] = c;
 		}
+		var _g_last;
 		var _g_l = shaders;
-		var _g_last = null;
+		_g_last = null;
 		while(_g_l != _g_last) {
 			var s = _g_l.s;
 			_g_l = _g_l.next;
@@ -38393,8 +38424,9 @@ hxsl_Cache.prototype = {
 	,compileRuntimeShader: function(shaders,outVars) {
 		var shaderDatas = [];
 		var index = 0;
+		var _g_last;
 		var _g_l = shaders;
-		var _g_last = null;
+		_g_last = null;
 		while(_g_l != _g_last) {
 			var s = _g_l.s;
 			_g_l = _g_l.next;
@@ -38439,7 +38471,7 @@ hxsl_Cache.prototype = {
 		r.signature = haxe_crypto_Md5.encode(hxsl_Printer.shaderToString(r.vertex.data) + hxsl_Printer.shaderToString(r.fragment.data));
 		var key = r.signature;
 		var _this = this.byID;
-		var r2 = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+		var r2 = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 		if(r2 != null) {
 			r.id = r2.id;
 		} else {
@@ -39103,7 +39135,7 @@ hxsl_Dce.prototype = {
 			var eelse = _g[4];
 			var e13 = this.mapExpr(_g[2],true);
 			var econd = this.mapExpr(_g[3],isVar);
-			var eelse1 = eelse == null?null:this.mapExpr(eelse,isVar);
+			var eelse1 = eelse == null ? null : this.mapExpr(eelse,isVar);
 			if(!isVar && !hxsl_Tools.hasSideEffect(econd) && (eelse1 == null || !hxsl_Tools.hasSideEffect(eelse1))) {
 				return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e13.t, p : e13.p};
 			}
@@ -39297,7 +39329,7 @@ hxsl_Eval.prototype = {
 					}
 				}
 			} catch( e ) { if( e != "__break__" ) throw e; }
-			return { e : hxsl_TExprDef.TBlock(out), t : $final?out[out.length - 1].t:e.t, p : e.p};
+			return { e : hxsl_TExprDef.TBlock(out), t : $final ? out[out.length - 1].t : e.t, p : e.p};
 		case 10:
 			var eelse = _g[4];
 			if(eelse != null && $final) {
@@ -39571,7 +39603,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g15[2][2] == _g7[2][2]?0:1) == 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g15[2][2] == _g7[2][2] ? 0 : 1) == 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39605,7 +39637,7 @@ hxsl_Eval.prototype = {
 							case 3:
 								var a = _g15[2][2];
 								var b = _g7[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a > b?1:a == b?0:-1) == 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a > b ? 1 : a == b ? 0 : -1) == 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39623,7 +39655,7 @@ hxsl_Eval.prototype = {
 							case 4:
 								var a1 = _g15[2][2];
 								var b1 = _g7[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a1 > b1?1:a1 == b1?0:-1) == 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a1 > b1 ? 1 : a1 == b1 ? 0 : -1) == 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39660,7 +39692,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g16[2][2] == _g8[2][2]?0:1) != 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g16[2][2] == _g8[2][2] ? 0 : 1) != 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39694,7 +39726,7 @@ hxsl_Eval.prototype = {
 							case 3:
 								var a2 = _g16[2][2];
 								var b2 = _g8[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a2 > b2?1:a2 == b2?0:-1) != 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a2 > b2 ? 1 : a2 == b2 ? 0 : -1) != 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39712,7 +39744,7 @@ hxsl_Eval.prototype = {
 							case 4:
 								var a3 = _g16[2][2];
 								var b3 = _g8[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a3 > b3?1:a3 == b3?0:-1) != 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a3 > b3 ? 1 : a3 == b3 ? 0 : -1) != 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39749,7 +39781,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g17[2][2] == _g9[2][2]?0:1) > 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g17[2][2] == _g9[2][2] ? 0 : 1) > 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39783,7 +39815,7 @@ hxsl_Eval.prototype = {
 							case 3:
 								var a4 = _g17[2][2];
 								var b4 = _g9[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a4 > b4?1:a4 == b4?0:-1) > 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a4 > b4 ? 1 : a4 == b4 ? 0 : -1) > 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39801,7 +39833,7 @@ hxsl_Eval.prototype = {
 							case 4:
 								var a5 = _g17[2][2];
 								var b5 = _g9[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a5 > b5?1:a5 == b5?0:-1) > 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a5 > b5 ? 1 : a5 == b5 ? 0 : -1) > 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39838,7 +39870,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g18[2][2] == _g10[2][2]?0:1) >= 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g18[2][2] == _g10[2][2] ? 0 : 1) >= 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39872,7 +39904,7 @@ hxsl_Eval.prototype = {
 							case 3:
 								var a6 = _g18[2][2];
 								var b6 = _g10[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a6 > b6?1:a6 == b6?0:-1) >= 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a6 > b6 ? 1 : a6 == b6 ? 0 : -1) >= 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39890,7 +39922,7 @@ hxsl_Eval.prototype = {
 							case 4:
 								var a7 = _g18[2][2];
 								var b7 = _g10[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a7 > b7?1:a7 == b7?0:-1) >= 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a7 > b7 ? 1 : a7 == b7 ? 0 : -1) >= 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39927,7 +39959,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g110[2][2] == _g19[2][2]?0:1) < 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g110[2][2] == _g19[2][2] ? 0 : 1) < 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39961,7 +39993,7 @@ hxsl_Eval.prototype = {
 							case 3:
 								var a8 = _g110[2][2];
 								var b8 = _g19[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a8 > b8?1:a8 == b8?0:-1) < 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a8 > b8 ? 1 : a8 == b8 ? 0 : -1) < 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -39979,7 +40011,7 @@ hxsl_Eval.prototype = {
 							case 4:
 								var a9 = _g110[2][2];
 								var b9 = _g19[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a9 > b9?1:a9 == b9?0:-1) < 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a9 > b9 ? 1 : a9 == b9 ? 0 : -1) < 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -40016,7 +40048,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g111[2][2] == _g20[2][2]?0:1) <= 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g111[2][2] == _g20[2][2] ? 0 : 1) <= 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -40050,7 +40082,7 @@ hxsl_Eval.prototype = {
 							case 3:
 								var a10 = _g111[2][2];
 								var b10 = _g20[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a10 > b10?1:a10 == b10?0:-1) <= 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a10 > b10 ? 1 : a10 == b10 ? 0 : -1) <= 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -40068,7 +40100,7 @@ hxsl_Eval.prototype = {
 							case 4:
 								var a11 = _g111[2][2];
 								var b11 = _g20[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a11 > b11?1:a11 == b11?0:-1) <= 0));
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a11 > b11 ? 1 : a11 == b11 ? 0 : -1) <= 0));
 								break;
 							default:
 								d = hxsl_TExprDef.TBinop(op,e11,e21);
@@ -40391,7 +40423,7 @@ hxsl_Eval.prototype = {
 			break;
 		case 7:
 			var init = _g[3];
-			d = hxsl_TExprDef.TVarDecl(this.mapVar(_g[2]),init == null?null:this.evalExpr(init));
+			d = hxsl_TExprDef.TVarDecl(this.mapVar(_g[2]),init == null ? null : this.evalExpr(init));
 			break;
 		case 8:
 			var args = _g[3];
@@ -40543,12 +40575,12 @@ hxsl_Eval.prototype = {
 				} else if(isVal && eelse != null && this.eliminateConditionals) {
 					d = hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.Mix), t : e.t, p : e.p},[this.evalExpr(eelse,true),this.evalExpr(eif,true),{ e : hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.ToFloat), t : hxsl_Type.TFun([]), p : econd.p},[econd]), t : hxsl_Type.TFloat, p : e.p}]);
 				} else {
-					d = hxsl_TExprDef.TIf(econd,this.evalExpr(eif,isVal),eelse == null?null:this.evalExpr(eelse,isVal));
+					d = hxsl_TExprDef.TIf(econd,this.evalExpr(eif,isVal),eelse == null ? null : this.evalExpr(eelse,isVal));
 				}
 			} else if(isVal && eelse != null && this.eliminateConditionals) {
 				d = hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.Mix), t : e.t, p : e.p},[this.evalExpr(eelse,true),this.evalExpr(eif,true),{ e : hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.ToFloat), t : hxsl_Type.TFun([]), p : econd.p},[econd]), t : hxsl_Type.TFloat, p : e.p}]);
 			} else {
-				d = hxsl_TExprDef.TIf(econd,this.evalExpr(eif,isVal),eelse == null?null:this.evalExpr(eelse,isVal));
+				d = hxsl_TExprDef.TIf(econd,this.evalExpr(eif,isVal),eelse == null ? null : this.evalExpr(eelse,isVal));
 			}
 			break;
 		case 11:
@@ -40556,7 +40588,7 @@ hxsl_Eval.prototype = {
 			break;
 		case 12:
 			var e7 = _g[2];
-			d = hxsl_TExprDef.TReturn(e7 == null?null:this.evalExpr(e7));
+			d = hxsl_TExprDef.TReturn(e7 == null ? null : this.evalExpr(e7));
 			break;
 		case 13:
 			var loop = _g[4];
@@ -40666,7 +40698,7 @@ hxsl_Eval.prototype = {
 				}
 				_g37.push({ values : _g211, expr : this.evalExpr(c3.expr,isVal)});
 			}
-			var def1 = def == null?null:this.evalExpr(def,isVal);
+			var def1 = def == null ? null : this.evalExpr(def,isVal);
 			var hasCase = false;
 			var _g131 = e10.e;
 			if(_g131[1] == 0) {
@@ -40868,7 +40900,7 @@ hxsl_Flatten.prototype = {
 							stride >>= 2;
 							eindex = this.mapExpr(eindex);
 							var toInt = { e : hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.ToInt), t : hxsl_Type.TFun([]), p : vp},[eindex]), t : hxsl_Type.TInt, p : vp};
-							e = this.access(a1,t,vp,hxsl_ARead.AOffset(a1,stride,stride == 1?toInt:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpMult,toInt,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(stride)), t : hxsl_Type.TInt, p : vp}), t : hxsl_Type.TInt, p : vp}));
+							e = this.access(a1,t,vp,hxsl_ARead.AOffset(a1,stride,stride == 1 ? toInt : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpMult,toInt,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(stride)), t : hxsl_Type.TInt, p : vp}), t : hxsl_Type.TInt, p : vp}));
 						} else {
 							throw new js__$Boot_HaxeError("assert");
 						}
@@ -40921,7 +40953,7 @@ hxsl_Flatten.prototype = {
 				this.allocConsts([0.00392156862745098,0.00392156862745098,0.00392156862745098,0],e.p);
 				break;
 			case 53:
-				this.allocConsts([1,0.00392156862745098,1.53787004998077679e-05,6.03086294110108446e-08],e.p);
+				this.allocConsts([1,0.00392156862745098,1.5378700499807768e-005,6.0308629411010845e-008],e.p);
 				break;
 			case 54:
 				this.allocConst(1,e.p);
@@ -41099,7 +41131,7 @@ hxsl_Flatten.prototype = {
 	}
 	,readOffset: function(a,stride,delta,index,pos) {
 		var index1 = (a.pos >> 2) + index;
-		return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a.g), t : a.g.type, p : pos},index1 == 0?delta:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index1)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a.t), p : pos};
+		return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a.g), t : a.g.type, p : pos},index1 == 0 ? delta : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index1)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a.t), p : pos};
 	}
 	,access: function(a,t,pos,acc) {
 		switch(t[1]) {
@@ -41119,7 +41151,7 @@ hxsl_Flatten.prototype = {
 				var delta = acc[4];
 				var a2 = acc[2];
 				var index = a2.pos >> 2;
-				tmp3 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a2.g), t : a2.g.type, p : pos},index == 0?delta:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a2.t), p : pos};
+				tmp3 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a2.g), t : a2.g.type, p : pos},index == 0 ? delta : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a2.t), p : pos};
 				break;
 			}
 			var tmp4;
@@ -41132,7 +41164,7 @@ hxsl_Flatten.prototype = {
 				var delta1 = acc[4];
 				var a4 = acc[2];
 				var index1 = (a4.pos >> 2) + 1;
-				tmp4 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a4.g), t : a4.g.type, p : pos},index1 == 0?delta1:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta1,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index1)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a4.t), p : pos};
+				tmp4 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a4.g), t : a4.g.type, p : pos},index1 == 0 ? delta1 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta1,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index1)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a4.t), p : pos};
 				break;
 			}
 			var tmp5;
@@ -41145,7 +41177,7 @@ hxsl_Flatten.prototype = {
 				var delta2 = acc[4];
 				var a6 = acc[2];
 				var index2 = (a6.pos >> 2) + 2;
-				tmp5 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a6.g), t : a6.g.type, p : pos},index2 == 0?delta2:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta2,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index2)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a6.t), p : pos};
+				tmp5 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a6.g), t : a6.g.type, p : pos},index2 == 0 ? delta2 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta2,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index2)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a6.t), p : pos};
 				break;
 			}
 			var tmp6;
@@ -41158,7 +41190,7 @@ hxsl_Flatten.prototype = {
 				var delta3 = acc[4];
 				var a8 = acc[2];
 				var index3 = (a8.pos >> 2) + 3;
-				tmp6 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a8.g), t : a8.g.type, p : pos},index3 == 0?delta3:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta3,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index3)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a8.t), p : pos};
+				tmp6 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a8.g), t : a8.g.type, p : pos},index3 == 0 ? delta3 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta3,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index3)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a8.t), p : pos};
 				break;
 			}
 			return { e : hxsl_TExprDef.TCall({ e : tmp1, t : tmp2, p : pos},[tmp3,tmp4,tmp5,tmp6]), t : hxsl_Type.TMat4, p : pos};
@@ -41175,7 +41207,7 @@ hxsl_Flatten.prototype = {
 				var delta4 = acc[4];
 				var a10 = acc[2];
 				var index4 = a10.pos >> 2;
-				tmp9 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a10.g), t : a10.g.type, p : pos},index4 == 0?delta4:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta4,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index4)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a10.t), p : pos};
+				tmp9 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a10.g), t : a10.g.type, p : pos},index4 == 0 ? delta4 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta4,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index4)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a10.t), p : pos};
 				break;
 			}
 			var tmp10;
@@ -41188,7 +41220,7 @@ hxsl_Flatten.prototype = {
 				var delta5 = acc[4];
 				var a12 = acc[2];
 				var index5 = (a12.pos >> 2) + 1;
-				tmp10 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a12.g), t : a12.g.type, p : pos},index5 == 0?delta5:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta5,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index5)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a12.t), p : pos};
+				tmp10 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a12.g), t : a12.g.type, p : pos},index5 == 0 ? delta5 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta5,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index5)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a12.t), p : pos};
 				break;
 			}
 			var tmp11;
@@ -41201,7 +41233,7 @@ hxsl_Flatten.prototype = {
 				var delta6 = acc[4];
 				var a14 = acc[2];
 				var index6 = (a14.pos >> 2) + 2;
-				tmp11 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a14.g), t : a14.g.type, p : pos},index6 == 0?delta6:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta6,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index6)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a14.t), p : pos};
+				tmp11 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a14.g), t : a14.g.type, p : pos},index6 == 0 ? delta6 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta6,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index6)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a14.t), p : pos};
 				break;
 			}
 			return { e : hxsl_TExprDef.TCall({ e : tmp7, t : tmp8, p : pos},[tmp9,tmp10,tmp11]), t : hxsl_Type.TMat3x4, p : pos};
@@ -41214,7 +41246,7 @@ hxsl_Flatten.prototype = {
 				var delta7 = acc[4];
 				var a16 = acc[2];
 				var index7 = a16.pos >> 2;
-				return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a16.g), t : a16.g.type, p : pos},index7 == 0?delta7:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta7,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index7)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a16.t), p : pos};
+				return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a16.g), t : a16.g.type, p : pos},index7 == 0 ? delta7 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta7,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index7)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a16.t), p : pos};
 			}
 			break;
 		case 14:
@@ -41242,7 +41274,7 @@ hxsl_Flatten.prototype = {
 						var delta8 = acc[4];
 						var a19 = acc[2];
 						var index8 = a19.pos >> 2;
-						k = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a19.g), t : a19.g.type, p : pos},index8 == 0?delta8:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta8,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index8)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a19.t), p : pos};
+						k = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a19.g), t : a19.g.type, p : pos},index8 == 0 ? delta8 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta8,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index8)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a19.t), p : pos};
 						break;
 					}
 					if(size == 4) {
@@ -41273,7 +41305,7 @@ hxsl_Flatten.prototype = {
 					var delta9 = acc[4];
 					var a21 = acc[2];
 					var index9 = a21.pos >> 2;
-					k1 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a21.g), t : a21.g.type, p : pos},index9 == 0?delta9:{ e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta9,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index9)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a21.t), p : pos};
+					k1 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a21.g), t : a21.g.type, p : pos},index9 == 0 ? delta9 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta9,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index9)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a21.t), p : pos};
 					break;
 				}
 				if(size1 == 4) {
@@ -41521,7 +41553,7 @@ hxsl_Globals.allocID = function(path) {
 		hxsl_Globals.ALL = [];
 	}
 	var _this = hxsl_Globals.MAP;
-	var id = __map_reserved[path] != null?_this.getReserved(path):_this.h[path];
+	var id = __map_reserved[path] != null ? _this.getReserved(path) : _this.h[path];
 	if(id == null) {
 		id = hxsl_Globals.ALL.length;
 		hxsl_Globals.ALL.push(path);
@@ -41560,7 +41592,7 @@ js_Boot.__unhtml = function(s) {
 	return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;");
 };
 js_Boot.__trace = function(v,i) {
-	var msg = i != null?i.fileName + ":" + i.lineNumber + ": ":"";
+	var msg = i != null ? i.fileName + ":" + i.lineNumber + ": " : "";
 	msg += js_Boot.__string_rec(v,"");
 	if(i != null && i.customParams != null) {
 		var _g = 0;
@@ -41642,7 +41674,7 @@ js_Boot.__string_rec = function(o,s) {
 			var _g2 = l;
 			while(_g11 < _g2) {
 				var i2 = _g11++;
-				str1 += (i2 > 0?",":"") + js_Boot.__string_rec(o[i2],s);
+				str1 += (i2 > 0 ? "," : "") + js_Boot.__string_rec(o[i2],s);
 			}
 			str1 += "]";
 			return str1;
@@ -41748,10 +41780,10 @@ js_Boot.__instanceof = function(o,cl) {
 		} else {
 			return false;
 		}
-		if(cl == Class?o.__name__ != null:false) {
+		if(cl == Class ? o.__name__ != null : false) {
 			return true;
 		}
-		if(cl == Enum?o.__ename__ != null:false) {
+		if(cl == Enum ? o.__ename__ != null : false) {
 			return true;
 		}
 		return o.__enum__ == cl;
@@ -41997,7 +42029,7 @@ hxsl_GlslOut.prototype = {
 			var g = _g[2];
 			switch(g[1]) {
 			case 33:
-				this.decl("vec4 _texture2D( sampler2D t, vec2 v ) { return " + (this.glES?"texture2D":"texture") + "(t,vec2(v.x," + (this.flipY?"0.999999-v.y":"v.y") + ")); }");
+				this.decl("vec4 _texture2D( sampler2D t, vec2 v ) { return " + (this.glES ? "texture2D" : "texture") + "(t,vec2(v.x," + (this.flipY ? "0.999999-v.y" : "v.y") + ")); }");
 				break;
 			case 34:
 				if(!this.glES) {
@@ -42811,17 +42843,17 @@ hxsl_GlslOut.prototype = {
 		}
 		n = v.name;
 		var _this = hxsl_GlslOut.KWDS;
-		if(__map_reserved[n] != null?_this.existsReserved(n):_this.h.hasOwnProperty(n)) {
+		if(__map_reserved[n] != null ? _this.existsReserved(n) : _this.h.hasOwnProperty(n)) {
 			n = "_" + n;
 		}
 		var _this1 = this.allNames;
-		if(__map_reserved[n] != null?_this1.existsReserved(n):_this1.h.hasOwnProperty(n)) {
+		if(__map_reserved[n] != null ? _this1.existsReserved(n) : _this1.h.hasOwnProperty(n)) {
 			var k = 2;
 			n += "_";
 			while(true) {
 				var _this2 = this.allNames;
 				var key = n + k;
-				if(!(__map_reserved[key] != null?_this2.existsReserved(key):_this2.h.hasOwnProperty(key))) {
+				if(!(__map_reserved[key] != null ? _this2.existsReserved(key) : _this2.h.hasOwnProperty(key))) {
 					break;
 				}
 				++k;
@@ -42886,10 +42918,10 @@ hxsl_GlslOut.prototype = {
 				this.buf.b += "uniform ";
 				break;
 			case 1:
-				this.buf.b += Std.string(this.glES?"attribute ":"in ");
+				this.buf.b += Std.string(this.glES ? "attribute " : "in ");
 				break;
 			case 3:
-				this.buf.b += Std.string(this.glES?"varying ":this.isVertex?"out ":"in ");
+				this.buf.b += Std.string(this.glES ? "varying " : this.isVertex ? "out " : "in ");
 				break;
 			case 4:
 				break;
@@ -43067,7 +43099,7 @@ hxsl_Linker.prototype = {
 				p1 = p1.parent;
 			}
 		}
-		var key = path == null?v.name:path + "." + v.name;
+		var key = path == null ? v.name : path + "." + v.name;
 		if(v.qualifiers != null) {
 			var _g = 0;
 			var _g1 = v.qualifiers;
@@ -43080,7 +43112,7 @@ hxsl_Linker.prototype = {
 			}
 		}
 		var _this = this.varMap;
-		var v2 = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+		var v2 = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 		var vname = v.name;
 		if(v2 != null) {
 			var _g2 = 0;
@@ -43122,7 +43154,7 @@ hxsl_Linker.prototype = {
 				while(true) {
 					var _this1 = this.varMap;
 					var key1 = key + k;
-					var a = __map_reserved[key1] != null?_this1.getReserved(key1):_this1.h[key1];
+					var a = __map_reserved[key1] != null ? _this1.getReserved(key1) : _this1.h[key1];
 					if(a == null) {
 						break;
 					}
@@ -43147,7 +43179,7 @@ hxsl_Linker.prototype = {
 			}
 		}
 		var vid = this.allVars.length + 1;
-		var v21 = { id : vid, name : vname, type : v.type, kind : v.kind == hxsl_VarKind.Output?hxsl_VarKind.Local:v.kind, qualifiers : v.qualifiers, parent : parent == null?null:parent.v};
+		var v21 = { id : vid, name : vname, type : v.type, kind : v.kind == hxsl_VarKind.Output ? hxsl_VarKind.Local : v.kind, qualifiers : v.qualifiers, parent : parent == null ? null : parent.v};
 		var a1 = new hxsl__$Linker_AllocatedVar();
 		a1.v = v21;
 		a1.merged = [v];
@@ -43411,11 +43443,11 @@ hxsl_Linker.prototype = {
 		case 7:
 			var v = _g[2];
 			var key = v.name;
-			if(__map_reserved[key] != null?locals.existsReserved(key):locals.h.hasOwnProperty(key)) {
+			if(__map_reserved[key] != null ? locals.existsReserved(key) : locals.h.hasOwnProperty(key)) {
 				var k2 = 2;
 				while(true) {
 					var key1 = v.name + k2;
-					if(!(__map_reserved[key1] != null?locals.existsReserved(key1):locals.h.hasOwnProperty(key1))) {
+					if(!(__map_reserved[key1] != null ? locals.existsReserved(key1) : locals.h.hasOwnProperty(key1))) {
 						break;
 					}
 					++k2;
@@ -43494,7 +43526,7 @@ hxsl_Linker.prototype = {
 				}
 				switch(v1.kind[1]) {
 				case 0:case 1:
-					this.addShader(s3.name + "." + (v1.kind == hxsl_FunctionKind.Vertex?"vertex":"fragment"),v1.kind == hxsl_FunctionKind.Vertex,f1.expr,priority);
+					this.addShader(s3.name + "." + (v1.kind == hxsl_FunctionKind.Vertex ? "vertex" : "fragment"),v1.kind == hxsl_FunctionKind.Vertex,f1.expr,priority);
 					break;
 				case 2:
 					var status;
@@ -43538,7 +43570,7 @@ hxsl_Linker.prototype = {
 			var outVar = outVars[_g13];
 			++_g13;
 			var _this = this.varMap;
-			var v2 = __map_reserved[outVar] != null?_this.getReserved(outVar):_this.h[outVar];
+			var v2 = __map_reserved[outVar] != null ? _this.getReserved(outVar) : _this.h[outVar];
 			if(v2 == null) {
 				throw new js__$Boot_HaxeError("Variable not found " + outVar);
 			}
@@ -43674,7 +43706,7 @@ hxsl_Linker.prototype = {
 					exprs.push(s9.body);
 				}
 			}
-			var expr = { e : hxsl_TExprDef.TBlock(exprs), t : hxsl_Type.TVoid, p : exprs.length == 0?null:exprs[0].p};
+			var expr = { e : hxsl_TExprDef.TBlock(exprs), t : hxsl_Type.TVoid, p : exprs.length == 0 ? null : exprs[0].p};
 			_gthis.uniqueLocals(expr,new haxe_ds_StringMap());
 			return { kind : kind, ref : v10, ret : hxsl_Type.TVoid, args : [], expr : expr};
 		};
@@ -43943,7 +43975,7 @@ hxsl_Printer.prototype = {
 				switch(q[1]) {
 				case 0:
 					var max = q[2];
-					v1 = "const" + (max == null?"":"(" + max + ")");
+					v1 = "const" + (max == null ? "" : "(" + max + ")");
 					break;
 				case 1:
 					v1 = "private";
@@ -44000,7 +44032,7 @@ hxsl_Printer.prototype = {
 		}
 		this.buffer.b += "var ";
 		if(v.parent == parent) {
-			this.buffer.b += Std.string(v.name + (this.varId?"@" + v.id:""));
+			this.buffer.b += Std.string(v.name + (this.varId ? "@" + v.id : ""));
 		} else {
 			this.addVarName(v);
 		}
@@ -44382,7 +44414,7 @@ $hxClasses["hxsl.ShaderList"] = hxsl_ShaderList;
 hxsl_ShaderList.__name__ = ["hxsl","ShaderList"];
 hxsl_ShaderList.prototype = {
 	clone: function() {
-		return new hxsl_ShaderList(this.s.clone(),this.next == null?null:this.next.clone());
+		return new hxsl_ShaderList(this.s.clone(),this.next == null ? null : this.next.clone());
 	}
 	,iterator: function() {
 		return new hxsl__$ShaderList_ShaderIterator(this,null);
@@ -44552,7 +44584,7 @@ hxsl_SharedShader.prototype = {
 			}
 			var bits = hxsl_Tools.getConstBits(v);
 			if(bits > 0) {
-				var c = new hxsl_ShaderConst(v,this.consts == null?0:this.consts.pos + this.consts.bits,bits);
+				var c = new hxsl_ShaderConst(v,this.consts == null ? 0 : this.consts.pos + this.consts.bits,bits);
 				c.globalId = globalId;
 				c.next = this.consts;
 				this.consts = c;
@@ -44611,7 +44643,7 @@ hxsl_Splitter.prototype = {
 			var v = inf.v;
 			switch(v.kind[1]) {
 			case 3:case 4:
-				v.kind = fvars.h.hasOwnProperty(v.id)?hxsl_VarKind.Var:hxsl_VarKind.Local;
+				v.kind = fvars.h.hasOwnProperty(v.id) ? hxsl_VarKind.Var : hxsl_VarKind.Local;
 				break;
 			default:
 			}
@@ -44788,13 +44820,13 @@ hxsl_Splitter.prototype = {
 		v.parent = null;
 		var key = v.name;
 		var _this = this.varNames;
-		var n = __map_reserved[key] != null?_this.getReserved(key):_this.h[key];
+		var n = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 		if(n != null && n != v) {
 			var k = 2;
 			while(true) {
 				var key1 = v.name + k;
 				var _this1 = this.varNames;
-				if(!(__map_reserved[key1] != null?_this1.existsReserved(key1):_this1.h.hasOwnProperty(key1))) {
+				if(!(__map_reserved[key1] != null ? _this1.existsReserved(key1) : _this1.h.hasOwnProperty(key1))) {
 					break;
 				}
 				++k;
@@ -44948,7 +44980,7 @@ var js_html_compat_ArrayBuffer = function(a) {
 $hxClasses["js.html.compat.ArrayBuffer"] = js_html_compat_ArrayBuffer;
 js_html_compat_ArrayBuffer.__name__ = ["js","html","compat","ArrayBuffer"];
 js_html_compat_ArrayBuffer.sliceImpl = function(begin,end) {
-	var u = new Uint8Array(this,begin,end == null?null:end - begin);
+	var u = new Uint8Array(this,begin,end == null ? null : end - begin);
 	var result = new ArrayBuffer(u.byteLength);
 	new Uint8Array(result).set(u);
 	return result;
@@ -44961,8 +44993,8 @@ js_html_compat_ArrayBuffer.prototype = {
 };
 var js_html_compat_DataView = function(buffer,byteOffset,byteLength) {
 	this.buf = buffer;
-	this.offset = byteOffset == null?0:byteOffset;
-	this.length = byteLength == null?buffer.byteLength - this.offset:byteLength;
+	this.offset = byteOffset == null ? 0 : byteOffset;
+	this.length = byteLength == null ? buffer.byteLength - this.offset : byteLength;
 	if(this.offset < 0 || this.length < 0 || this.offset + this.length > buffer.byteLength) {
 		throw new js__$Boot_HaxeError(haxe_io_Error.OutsideBounds);
 	}
@@ -45025,16 +45057,16 @@ js_html_compat_DataView.prototype = {
 	,getFloat64: function(byteOffset,littleEndian) {
 		var a = this.getInt32(byteOffset,littleEndian);
 		var b = this.getInt32(byteOffset + 4,littleEndian);
-		return haxe_io_FPHelper.i64ToDouble(littleEndian?a:b,littleEndian?b:a);
+		return haxe_io_FPHelper.i64ToDouble(littleEndian ? a : b,littleEndian ? b : a);
 	}
 	,setInt8: function(byteOffset,value) {
-		this.buf.a[byteOffset + this.offset] = value < 0?value + 128 & 255:value & 255;
+		this.buf.a[byteOffset + this.offset] = value < 0 ? value + 128 & 255 : value & 255;
 	}
 	,setUint8: function(byteOffset,value) {
 		this.buf.a[byteOffset + this.offset] = value & 255;
 	}
 	,setInt16: function(byteOffset,value,littleEndian) {
-		this.setUint16(byteOffset,value < 0?value + 65536:value,littleEndian);
+		this.setUint16(byteOffset,value < 0 ? value + 65536 : value,littleEndian);
 	}
 	,setUint16: function(byteOffset,value,littleEndian) {
 		var p = byteOffset + this.offset;
@@ -45278,6 +45310,7 @@ if(ArrayBuffer.prototype.slice == null) {
 var DataView = $global.DataView || js_html_compat_DataView;
 var Float32Array = $global.Float32Array || js_html_compat_Float32Array._new;
 var Uint8Array = $global.Uint8Array || js_html_compat_Uint8Array._new;
+Ghost.SPEED = 2;
 Level.SIZE = 32;
 Player.SPEED = 5;
 Xml.Element = 0;
@@ -45410,11 +45443,11 @@ h3d_mat_Texture.nativeFlip = false;
 h3d_mat_Texture.COLOR_CACHE = new haxe_ds_IntMap();
 h3d_mat_Texture.noiseTextures = new haxe_ds_IntMap();
 h3d_pass_Blur.__meta__ = { obj : { ignore : ["shader"]}, fields : { quality : { range : [1,4,1], inspect : null}, sigma : { range : [0,2], inspect : null}, passes : { range : [0,5,1], inspect : null}}};
-h3d_pass__$Border_BorderShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-246ghR16i-244gR16i-245gy1:poy4:filey67:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fpass%2FBorder.hxy3:maxi295y3:mini280gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i302R21i298gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29hR16i-242gR16i-243gR17oR18R19R20i317R21i303gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i320R21i319gR22jR11:3:0goR3jR4:0:1jR25:3:1i1R17oR18R19R20i323R21i322gR22r41ghR17oR18R19R20i324R21i298gR22jR11:5:2i4r11gR17oR18R19R20i324R21i280gR22r12ghR17oR18R19R20i330R21i274gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr53ghR16i-247gR29r53goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r15R17oR18R19R20i374R21i362gR22r16goR3jR4:1:1oR6jR7:2:0R8R15R10jR11:5:2i4r11R16i-241gR17oR18R19R20i382R21i377gR22r72gR17oR18R19R20i382R21i362gR22r16ghR17oR18R19R20i388R21i356gR22r53gR6jR26:1:0R27oR6r56R8y8:fragmentR10jR11:13:1aoR1ahR29r53ghR16i-248gR29r53ghR8y29:h3d.pass._Border.BorderShadery4:varsar55r80r13r32r70hg";
-h3d_shader_ScreenShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-239ghR16i-237gR16i-238gy1:poy4:filey75:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-236ghR16i-234gR16i-235gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-240gR30r55ghR8y23:h3d.shader.ScreenShadery4:varsar57r13r32hg";
-h3d_pass__$Copy_CopyShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-295ghR16i-293gR16i-294gy1:poy4:filey75:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-292ghR16i-290gR16i-291gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-299gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6jR7:4:0R8y12:calculatedUVR10jR11:5:2i2r11R16i-298gR17oR18y65:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fpass%2FCopy.hxR20i237R21i225gR22r71goR3jR4:1:1r34R17oR18R32R20i248R21i240gR22r35gR17oR18R32R20i248R21i225gR22r71ghR17oR18R32R20i254R21i219gR22r55gR6jR27:2:0R28oR6r58R8y8:__init__R10jR11:13:1aoR1ahR30r55ghR16i-300gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6r70R8y10:pixelColorR10jR11:5:2i4r11R16i-297gR17oR18R32R20i304R21i294gR22r94goR3jR4:8:2oR3jR4:2:1jR23:33:0R17oR18R32R20i314R21i307gR22jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8R25R10jR11:5:2i2r11ghR30jR11:5:2i4r11ghgaoR3jR4:1:1oR6jR7:2:0R8y7:textureR10r106R16i-296gR17oR18R32R20i314R21i307gR22r106goR3jR4:1:1r69R17oR18R32R20i331R21i319gR22r71ghR17oR18R32R20i332R21i307gR22r109gR17oR18R32R20i332R21i294gR22r94ghR17oR18R32R20i338R21i288gR22r55gR6r81R28oR6r58R8y16:__init__fragmentR10jR11:13:1aoR1ahR30r55ghR16i-301gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r15R17oR18R32R20i382R21i370gR22r16goR3jR4:1:1r93R17oR18R32R20i395R21i385gR22r94gR17oR18R32R20i395R21i370gR22r16ghR17oR18R32R20i401R21i364gR22r55gR6jR27:1:0R28oR6r58R8y8:fragmentR10jR11:13:1aoR1ahR30r55ghR16i-302gR30r55ghR8y25:h3d.pass._Copy.CopyShadery4:varsar69r57r82r147r113r126r13r32r93hg";
+h3d_pass__$Border_BorderShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-246ghR16i-244gR16i-245gy1:poy4:filey70:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fpass%2FBorder.hxy3:maxi295y3:mini280gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i302R21i298gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29hR16i-242gR16i-243gR17oR18R19R20i317R21i303gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i320R21i319gR22jR11:3:0goR3jR4:0:1jR25:3:1i1R17oR18R19R20i323R21i322gR22r41ghR17oR18R19R20i324R21i298gR22jR11:5:2i4r11gR17oR18R19R20i324R21i280gR22r12ghR17oR18R19R20i330R21i274gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr53ghR16i-247gR29r53goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r15R17oR18R19R20i374R21i362gR22r16goR3jR4:1:1oR6jR7:2:0R8R15R10jR11:5:2i4r11R16i-241gR17oR18R19R20i382R21i377gR22r72gR17oR18R19R20i382R21i362gR22r16ghR17oR18R19R20i388R21i356gR22r53gR6jR26:1:0R27oR6r56R8y8:fragmentR10jR11:13:1aoR1ahR29r53ghR16i-248gR29r53ghR8y29:h3d.pass._Border.BorderShadery4:varsar55r80r13r32r70hg";
+h3d_shader_ScreenShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-239ghR16i-237gR16i-238gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-236ghR16i-234gR16i-235gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-240gR30r55ghR8y23:h3d.shader.ScreenShadery4:varsar57r13r32hg";
+h3d_pass__$Copy_CopyShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-295ghR16i-293gR16i-294gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-292ghR16i-290gR16i-291gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-299gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6jR7:4:0R8y12:calculatedUVR10jR11:5:2i2r11R16i-298gR17oR18y68:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fpass%2FCopy.hxR20i237R21i225gR22r71goR3jR4:1:1r34R17oR18R32R20i248R21i240gR22r35gR17oR18R32R20i248R21i225gR22r71ghR17oR18R32R20i254R21i219gR22r55gR6jR27:2:0R28oR6r58R8y8:__init__R10jR11:13:1aoR1ahR30r55ghR16i-300gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6r70R8y10:pixelColorR10jR11:5:2i4r11R16i-297gR17oR18R32R20i304R21i294gR22r94goR3jR4:8:2oR3jR4:2:1jR23:33:0R17oR18R32R20i314R21i307gR22jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8R25R10jR11:5:2i2r11ghR30jR11:5:2i4r11ghgaoR3jR4:1:1oR6jR7:2:0R8y7:textureR10r106R16i-296gR17oR18R32R20i314R21i307gR22r106goR3jR4:1:1r69R17oR18R32R20i331R21i319gR22r71ghR17oR18R32R20i332R21i307gR22r109gR17oR18R32R20i332R21i294gR22r94ghR17oR18R32R20i338R21i288gR22r55gR6r81R28oR6r58R8y16:__init__fragmentR10jR11:13:1aoR1ahR30r55ghR16i-301gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r15R17oR18R32R20i382R21i370gR22r16goR3jR4:1:1r93R17oR18R32R20i395R21i385gR22r94gR17oR18R32R20i395R21i370gR22r16ghR17oR18R32R20i401R21i364gR22r55gR6jR27:1:0R28oR6r58R8y8:fragmentR10jR11:13:1aoR1ahR30r55ghR16i-302gR30r55ghR8y25:h3d.pass._Copy.CopyShadery4:varsar69r57r82r147r113r126r13r32r93hg";
 h3d_pass_Default.__meta__ = { fields : { cameraView : { global : ["camera.view"]}, cameraNear : { global : ["camera.zNear"]}, cameraFar : { global : ["camera.zFar"]}, cameraProj : { global : ["camera.proj"]}, cameraPos : { global : ["camera.position"]}, cameraProjDiag : { global : ["camera.projDiag"]}, cameraViewProj : { global : ["camera.viewProj"]}, cameraInverseViewProj : { global : ["camera.inverseViewProj"]}, globalTime : { global : ["global.time"]}, pixelSize : { global : ["global.pixelSize"]}, globalModelView : { global : ["global.modelView"]}, globalModelViewInverse : { global : ["global.modelViewInverse"]}}};
-h3d_pass__$HardwarePick_FixedColor.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey12:pickPositiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1aoR6r10R8y8:positionR10jR11:5:2i4r11R13r13y2:idi-36gr9oR6r10R8y7:colorIDR10jR11:5:2i4r11R13r13R16i-38ghR16i-35gR16i-37gy1:poy4:filey73:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fpass%2FHardwarePick.hxy3:maxi274y3:mini255gy1:tr12goR3jR4:5:3jR5:1:0oR3jR4:3:1oR3jR4:5:3jR5:0:0oR3jR4:1:1r15R18oR19R20R21i293R22i278gR23r16goR3jR4:5:3r23oR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R18oR19R20R21i300R22i296gR23jR11:13:1ahgaoR3jR4:9:2oR3jR4:1:1oR6jR7:2:0R8y8:viewportR10jR11:5:2i4r11R16i-34gR18oR19R20R21i309R22i301gR23r43gajy14:hxsl.Component:0:0jR26:1:0hR18oR19R20R21i312R22i301gR23jR11:5:2i2r11goR3jR4:0:1jy10:hxsl.Const:3:1d0R18oR19R20R21i316R22i314gR23jR11:3:0goR3jR4:0:1jR27:3:1d0R18oR19R20R21i320R22i318gR23r56ghR18oR19R20R21i321R22i296gR23jR11:5:2i4r11goR3jR4:9:2oR3jR4:1:1r15R18oR19R20R21i339R22i324gR23r16gajR26:3:0hR18oR19R20R21i341R22i324gR23r56gR18oR19R20R21i341R22i296gR23r63gR18oR19R20R21i341R22i278gR23jR11:5:2i4r11gR18oR19R20R21i342R22i277gR23r76goR3jR4:8:2oR3jR4:2:1r33R18oR19R20R21i349R22i345gR23r37gaoR3jR4:9:2oR3jR4:1:1r41R18oR19R20R21i358R22i350gR23r43gajR26:2:0r69hR18oR19R20R21i361R22i350gR23jR11:5:2i2r11goR3jR4:0:1jR27:3:1d1R18oR19R20R21i365R22i363gR23r56goR3jR4:0:1jR27:3:1d1R18oR19R20R21i369R22i367gR23r56ghR18oR19R20R21i370R22i345gR23jR11:5:2i4r11gR18oR19R20R21i370R22i277gR23jR11:5:2i4r11gR18oR19R20R21i370R22i255gR23r12ghR18oR19R20R21i375R22i250gR23jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr111ghR16i-39gR31r111goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r17R18oR19R20R21i417R22i403gR23r18goR3jR4:1:1oR6r42R8R17R10jR11:5:2i4r11R16i-33gR18oR19R20R21i427R22i420gR23r129gR18oR19R20R21i427R22i403gR23r18ghR18oR19R20R21i432R22i398gR23r111gR6jR28:1:0R29oR6r114R8y8:fragmentR10jR11:13:1aoR1ahR31r111ghR16i-40gR31r111ghR8y33:h3d.pass._HardwarePick.FixedColory4:varsar113r137r128r13r41hg";
+h3d_pass__$HardwarePick_FixedColor.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey12:pickPositiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1aoR6r10R8y8:positionR10jR11:5:2i4r11R13r13y2:idi-36gr9oR6r10R8y7:colorIDR10jR11:5:2i4r11R13r13R16i-38ghR16i-35gR16i-37gy1:poy4:filey76:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fpass%2FHardwarePick.hxy3:maxi287y3:mini268gy1:tr12goR3jR4:5:3jR5:1:0oR3jR4:3:1oR3jR4:5:3jR5:0:0oR3jR4:1:1r15R18oR19R20R21i306R22i291gR23r16goR3jR4:5:3r23oR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R18oR19R20R21i313R22i309gR23jR11:13:1ahgaoR3jR4:9:2oR3jR4:1:1oR6jR7:2:0R8y8:viewportR10jR11:5:2i4r11R16i-34gR18oR19R20R21i322R22i314gR23r43gajy14:hxsl.Component:0:0jR26:1:0hR18oR19R20R21i325R22i314gR23jR11:5:2i2r11goR3jR4:0:1jy10:hxsl.Const:3:1d0R18oR19R20R21i329R22i327gR23jR11:3:0goR3jR4:0:1jR27:3:1d0R18oR19R20R21i333R22i331gR23r56ghR18oR19R20R21i334R22i309gR23jR11:5:2i4r11goR3jR4:9:2oR3jR4:1:1r15R18oR19R20R21i352R22i337gR23r16gajR26:3:0hR18oR19R20R21i354R22i337gR23r56gR18oR19R20R21i354R22i309gR23r63gR18oR19R20R21i354R22i291gR23jR11:5:2i4r11gR18oR19R20R21i355R22i290gR23r76goR3jR4:8:2oR3jR4:2:1r33R18oR19R20R21i362R22i358gR23r37gaoR3jR4:9:2oR3jR4:1:1r41R18oR19R20R21i371R22i363gR23r43gajR26:2:0r69hR18oR19R20R21i374R22i363gR23jR11:5:2i2r11goR3jR4:0:1jR27:3:1d1R18oR19R20R21i378R22i376gR23r56goR3jR4:0:1jR27:3:1d1R18oR19R20R21i382R22i380gR23r56ghR18oR19R20R21i383R22i358gR23jR11:5:2i4r11gR18oR19R20R21i383R22i290gR23jR11:5:2i4r11gR18oR19R20R21i383R22i268gR23r12ghR18oR19R20R21i389R22i262gR23jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr111ghR16i-39gR31r111goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r17R18oR19R20R21i433R22i419gR23r18goR3jR4:1:1oR6r42R8R17R10jR11:5:2i4r11R16i-33gR18oR19R20R21i443R22i436gR23r129gR18oR19R20R21i443R22i419gR23r18ghR18oR19R20R21i449R22i413gR23r111gR6jR28:1:0R29oR6r114R8y8:fragmentR10jR11:13:1aoR1ahR31r111ghR16i-40gR31r111ghR8y33:h3d.pass._HardwarePick.FixedColory4:varsar113r137r128r13r41hg";
 h3d_pass_ShadowMap.__meta__ = { fields : { border : { ignore : null}}};
 h3d_scene_Object.ROT2RAD = -0.017453292519943295769236907684886;
 h3d_scene__$Object_ObjectFlags_$Impl_$.FPosChanged = 1;
@@ -45425,22 +45458,22 @@ h3d_scene__$Object_ObjectFlags_$Impl_$.FLightCameraCenter = 16;
 h3d_scene__$Object_ObjectFlags_$Impl_$.FAllocated = 32;
 h3d_scene__$Object_ObjectFlags_$Impl_$.FAlwaysSync = 64;
 h3d_scene__$Object_ObjectFlags_$Impl_$.FInheritCulled = 128;
-h3d_shader_AmbientLight.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:lightColory4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-226gy1:poy4:filey75:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FAmbientLight.hxy3:maxi349y3:mini339gy1:tr12goR3jR4:10:3oR3jR4:1:1oR6jR7:2:0R8y8:additiveR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-227gR14oR15R16R17i360R18i352gR19r19goR3jR4:1:1oR6jR7:0:0R8y12:ambientLightR10jR11:5:2i3r11y6:parentoR6r26R8y6:globalR10jR11:12:1ar25oR6r26R8y16:perPixelLightingR10r19R24r28R21ajR22:0:1nhR13i-223ghR13i-221gR13i-222gR14oR15R16R17i382R18i363gR19r27goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:39:0R14oR15R16R17i389R18i385gR19jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0R14oR15R16R17i392R18i390gR19jR11:3:0ghR14oR15R16R17i393R18i385gR19jR11:5:2i3r11gR14oR15R16R17i393R18i352gR19r27gR14oR15R16R17i393R18i339gR19r12ghR14oR15R16R17i399R18i333gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahy3:retr58ghR13i-228gR32r58goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6r10R8y15:lightPixelColorR10jR11:5:2i3r11R13i-225gR14oR15R16R17i454R18i439gR19r73goR3jR4:10:3oR3jR4:1:1r17R14oR15R16R17i465R18i457gR19r19goR3jR4:1:1r25R14oR15R16R17i487R18i468gR19r27goR3jR4:8:2oR3jR4:2:1r38R14oR15R16R17i494R18i490gR19r42gaoR3jR4:0:1jR28:3:1d0R14oR15R16R17i497R18i495gR19r48ghR14oR15R16R17i498R18i490gR19jR11:5:2i3r11gR14oR15R16R17i498R18i457gR19r27gR14oR15R16R17i498R18i439gR19r73ghR14oR15R16R17i504R18i433gR19r58gR6r59R30oR6r61R8y16:__init__fragmentR10jR11:13:1aoR1ahR32r58ghR13i-229gR32r58goR1aoR6r10R8R9R10jR11:5:2i3r11R13i-230ghR2oR3jR4:4:1aoR3jR4:12:1oR3jR4:10:3oR3jR4:1:1r17R14oR15R16R17i578R18i570gR19r19goR3jR4:1:1r108R14oR15R16R17i591R18i581gR19r109goR3jR4:3:1oR3jR4:5:3jR5:0:0oR3jR4:1:1r25R14oR15R16R17i614R18i595gR19r27goR3jR4:5:3jR5:1:0oR3jR4:8:2oR3jR4:2:1jR27:22:0R14oR15R16R17i642R18i617gR19jR11:13:1aoR1aoR8y1:_R10r27goR8y1:bR10r48ghR32jR11:5:2i3r11ghgaoR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:0:1jR28:3:1i1R14oR15R16R17i619R18i618gR19r48goR3jR4:1:1r25R14oR15R16R17i641R18i622gR19r27gR14oR15R16R17i641R18i618gR19r27gR14oR15R16R17i642R18i617gR19r27goR3jR4:0:1jR28:3:1d0R14oR15R16R17i649R18i647gR19r48ghR14oR15R16R17i650R18i617gR19r138goR3jR4:1:1r108R14oR15R16R17i663R18i653gR19r109gR14oR15R16R17i663R18i617gR19jR11:5:2i3r11gR14oR15R16R17i663R18i595gR19jR11:5:2i3r11gR14oR15R16R17i664R18i594gR19r169gR14oR15R16R17i664R18i570gR19r109gR14oR15R16R17i664R18i563gR19r58ghR14oR15R16R17i670R18i557gR19r58gR6jR29:3:0R30oR6r61R8y9:calcLightR10jR11:13:1aoR1aoR8R9R10r109ghR32jR11:5:2i3r11ghR13i-231gR32r184goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:6:2jy15:haxe.macro.Unop:2:0oR3jR4:1:1r30R14oR15R16R17i728R18i705gR19r19gR14oR15R16R17i728R18i704gR19r19goR3jR4:5:3jR5:20:1r127oR3jR4:9:2oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-224gR14oR15R16R17i741R18i731gR19r203gajy14:hxsl.Component:0:0jR40:1:0jR40:2:0hR14oR15R16R17i745R18i731gR19jR11:5:2i3r11goR3jR4:8:2oR3jR4:1:1r179R14oR15R16R17i758R18i749gR19r185gaoR3jR4:1:1r9R14oR15R16R17i769R18i759gR19r12ghR14oR15R16R17i770R18i749gR19r184gR14oR15R16R17i770R18i731gR19r212gnR14oR15R16R17i770R18i700gR19r58ghR14oR15R16R17i776R18i694gR19r58gR6jR29:0:0R30oR6r61R8y6:vertexR10jR11:13:1aoR1ahR32r58ghR13i-232gR32r58goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:1:1r30R14oR15R16R17i835R18i812gR19r19goR3jR4:5:3jR5:20:1r127oR3jR4:9:2oR3jR4:1:1r202R14oR15R16R17i848R18i838gR19r203gar207r208r209hR14oR15R16R17i852R18i838gR19jR11:5:2i3r11goR3jR4:8:2oR3jR4:1:1r179R14oR15R16R17i865R18i856gR19r185gaoR3jR4:1:1r72R14oR15R16R17i881R18i866gR19r73ghR14oR15R16R17i882R18i856gR19r184gR14oR15R16R17i882R18i838gR19r252gnR14oR15R16R17i882R18i808gR19r58ghR14oR15R16R17i888R18i802gR19r58gR6jR29:1:0R30oR6r61R8y8:fragmentR10jR11:13:1aoR1ahR32r58ghR13i-233gR32r58ghR8y23:h3d.shader.AmbientLighty4:varsar230r9r60r270r17r101r179r28r202r72hg";
-h3d_shader_Base2d.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey14:spritePositiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-11gy1:poy4:filey69:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FBase2d.hxy3:maxi983y3:mini969gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R14oR15R16R17i990R18i986gR19jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8y8:positionR10jR11:5:2i2r11y6:parentoR6r25R8y5:inputR10jR11:12:1ar24oR6r25R8y2:uvR10jR11:5:2i2r11R22r27R13i-3goR6r25R8y5:colorR10jR11:5:2i4r11R22r27R13i-4ghR13i-1gR13i-2gR14oR15R16R17i1005R18i991gR19r26goR3jR4:1:1oR6jR7:2:0R8y6:zValueR10jR11:3:0R13i-9gR14oR15R16R17i1013R18i1007gR19r39goR3jR4:0:1jy10:hxsl.Const:3:1i1R14oR15R16R17i1016R18i1015gR19r39ghR14oR15R16R17i1017R18i986gR19jR11:5:2i4r11gR14oR15R16R17i1017R18i969gR19r12goR3jR4:10:3oR3jR4:1:1oR6r38R8y10:isRelativeR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-16gR14oR15R16R17i1037R18i1027gR19r54goR3jR4:4:1aoR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1oR6r10R8y16:absolutePositionR10jR11:5:2i4r11R13i-12gR14oR15R16R17i1063R18i1047gR19r65gajy14:hxsl.Component:0:0hR14oR15R16R17i1065R18i1047gR19r39goR3jR4:8:2oR3jR4:2:1jR20:29:0R14oR15R16R17i1093R18i1068gR19jR11:13:1aoR1aoR8y1:_R10jR11:5:2i3r11goR8y1:bR10jR11:5:2i3r11ghy3:retr39ghgaoR3jR4:8:2oR3jR4:2:1jR20:39:0R14oR15R16R17i1072R18i1068gR19jR11:13:1ahgaoR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i1087R18i1073gR19r12gar69jR32:1:0hR14oR15R16R17i1090R18i1073gR19jR11:5:2i2r11goR3jR4:0:1jR27:3:1i1R14oR15R16R17i1092R18i1091gR19r39ghR14oR15R16R17i1093R18i1068gR19r81goR3jR4:1:1oR6r38R8y15:absoluteMatrixAR10jR11:5:2i3r11R13i-18gR14oR15R16R17i1113R18i1098gR19r111ghR14oR15R16R17i1114R18i1068gR19r39gR14oR15R16R17i1114R18i1047gR19r39goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1137R18i1121gR19r65gar99hR14oR15R16R17i1139R18i1121gR19r39goR3jR4:8:2oR3jR4:2:1r74R14oR15R16R17i1167R18i1142gR19jR11:13:1aoR1aoR8R33R10jR11:5:2i3r11gr82hR35r39ghgaoR3jR4:8:2oR3jR4:2:1r88R14oR15R16R17i1146R18i1142gR19r92gaoR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i1161R18i1147gR19r12gar69r99hR14oR15R16R17i1164R18i1147gR19jR11:5:2i2r11goR3jR4:0:1jR27:3:1i1R14oR15R16R17i1166R18i1165gR19r39ghR14oR15R16R17i1167R18i1142gR19r134goR3jR4:1:1oR6r38R8y15:absoluteMatrixBR10jR11:5:2i3r11R13i-19gR14oR15R16R17i1187R18i1172gR19r158ghR14oR15R16R17i1188R18i1142gR19r39gR14oR15R16R17i1188R18i1121gR19r39goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1211R18i1195gR19r65gajR32:2:0jR32:3:0hR14oR15R16R17i1214R18i1195gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i1231R18i1217gR19r12gar171r172hR14oR15R16R17i1234R18i1217gR19jR11:5:2i2r11gR14oR15R16R17i1234R18i1195gR19r175ghR14oR15R16R17i1241R18i1040gR19jR11:0:0goR3jR4:5:3r7oR3jR4:1:1r64R14oR15R16R17i1268R18i1252gR19r65goR3jR4:1:1r9R14oR15R16R17i1285R18i1271gR19r12gR14oR15R16R17i1285R18i1252gR19r65gR14oR15R16R17i1285R18i1023gR19r188goR3jR4:5:3r7oR3jR4:1:1oR6jR7:3:0R8y12:calculatedUVR10jR11:5:2i2r11R13i-15gR14oR15R16R17i1303R18i1291gR19r204goR3jR4:10:3oR3jR4:1:1oR6r38R8y8:hasUVPosR10r54R29ajR30:0:1nhR13i-22gR14oR15R16R17i1314R18i1306gR19r54goR3jR4:5:3jR5:0:0oR3jR4:5:3jR5:1:0oR3jR4:1:1r29R14oR15R16R17i1325R18i1317gR19r30goR3jR4:9:2oR3jR4:1:1oR6r38R8y5:uvPosR10jR11:5:2i4r11R13i-23gR14oR15R16R17i1333R18i1328gR19r224gar171r172hR14oR15R16R17i1336R18i1328gR19jR11:5:2i2r11gR14oR15R16R17i1336R18i1317gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r223R14oR15R16R17i1344R18i1339gR19r224gar69r99hR14oR15R16R17i1347R18i1339gR19jR11:5:2i2r11gR14oR15R16R17i1347R18i1317gR19jR11:5:2i2r11goR3jR4:1:1r29R14oR15R16R17i1358R18i1350gR19r30gR14oR15R16R17i1358R18i1306gR19r244gR14oR15R16R17i1358R18i1291gR19r204goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-13gR14oR15R16R17i1374R18i1364gR19r255goR3jR4:10:3oR3jR4:1:1r53R14oR15R16R17i1387R18i1377gR19r54goR3jR4:5:3r217oR3jR4:1:1oR6r38R8R25R10jR11:5:2i4r11R13i-17gR14oR15R16R17i1395R18i1390gR19r265goR3jR4:1:1r31R14oR15R16R17i1409R18i1398gR19r32gR14oR15R16R17i1409R18i1390gR19jR11:5:2i4r11goR3jR4:1:1r31R14oR15R16R17i1423R18i1412gR19r32gR14oR15R16R17i1423R18i1377gR19r273gR14oR15R16R17i1423R18i1364gR19r255goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y12:textureColorR10jR11:5:2i4r11R13i-14gR14oR15R16R17i1441R18i1429gR19r284goR3jR4:8:2oR3jR4:2:1jR20:33:0R14oR15R16R17i1451R18i1444gR19jR11:13:1aoR1aoR8R33R10jR11:10:0goR8R24R10jR11:5:2i2r11ghR35jR11:5:2i4r11ghgaoR3jR4:1:1oR6r38R8y7:textureR10r296R13i-10gR14oR15R16R17i1451R18i1444gR19r296goR3jR4:1:1r202R14oR15R16R17i1468R18i1456gR19r204ghR14oR15R16R17i1469R18i1444gR19r299gR14oR15R16R17i1469R18i1429gR19r284goR3jR4:5:3jR5:20:1r217oR3jR4:1:1r254R14oR15R16R17i1485R18i1475gR19r255goR3jR4:1:1r283R14oR15R16R17i1501R18i1489gR19r284gR14oR15R16R17i1501R18i1475gR19r255ghR14oR15R16R17i1507R18i963gR19r188gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahR35r188ghR13i-29gR35r188goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8y3:tmpR10jR11:5:2i3r11R13i-32goR3jR4:8:2oR3jR4:2:1r88R14oR15R16R17i1610R18i1606gR19r92gaoR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1627R18i1611gR19r65gar69r99hR14oR15R16R17i1630R18i1611gR19jR11:5:2i2r11goR3jR4:0:1jR27:3:1i1R14oR15R16R17i1633R18i1632gR19r39ghR14oR15R16R17i1634R18i1606gR19r338gR14oR15R16R17i1635R18i1596gR19r188goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y14:outputPositionR10jR11:5:2i4r11R13i-28gR14oR15R16R17i1654R18i1640gR19r363goR3jR4:8:2oR3jR4:2:1r17R14oR15R16R17i1661R18i1657gR19r21gaoR3jR4:8:2oR3jR4:2:1r74R14oR15R16R17i1671R18i1668gR19jR11:13:1aoR1aoR8R33R10r338gr82hR35r39ghgaoR3jR4:1:1r337R14oR15R16R17i1671R18i1668gR19r338goR3jR4:1:1oR6r38R8y13:filterMatrixAR10jR11:5:2i3r11R13i-20gR14oR15R16R17i1689R18i1676gR19r386ghR14oR15R16R17i1690R18i1668gR19r39goR3jR4:8:2oR3jR4:2:1r74R14oR15R16R17i1700R18i1697gR19jR11:13:1aoR1aoR8R33R10r338gr82hR35r39ghgaoR3jR4:1:1r337R14oR15R16R17i1700R18i1697gR19r338goR3jR4:1:1oR6r38R8y13:filterMatrixBR10jR11:5:2i3r11R13i-21gR14oR15R16R17i1718R18i1705gR19r406ghR14oR15R16R17i1719R18i1697gR19r39goR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1742R18i1726gR19r65gar171r172hR14oR15R16R17i1745R18i1726gR19jR11:5:2i2r11ghR14oR15R16R17i1751R18i1657gR19jR11:5:2i4r11gR14oR15R16R17i1751R18i1640gR19r363goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r362R14oR15R16R17i1800R18i1786gR19r363gar69r99hR14oR15R16R17i1803R18i1786gR19jR11:5:2i2r11goR3jR4:5:3r217oR3jR4:3:1oR3jR4:5:3r215oR3jR4:9:2oR3jR4:1:1r362R14oR15R16R17i1821R18i1807gR19r363gar69r99hR14oR15R16R17i1824R18i1807gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1oR6r38R8y8:viewportR10jR11:5:2i4r11R13i-27gR14oR15R16R17i1835R18i1827gR19r447gar69r99hR14oR15R16R17i1838R18i1827gR19jR11:5:2i2r11gR14oR15R16R17i1838R18i1807gR19jR11:5:2i2r11gR14oR15R16R17i1839R18i1806gR19r456goR3jR4:9:2oR3jR4:1:1r446R14oR15R16R17i1850R18i1842gR19r447gar171r172hR14oR15R16R17i1853R18i1842gR19jR11:5:2i2r11gR14oR15R16R17i1853R18i1806gR19jR11:5:2i2r11gR14oR15R16R17i1853R18i1786gR19r432goR3jR4:10:3oR3jR4:1:1oR6r38R8y10:pixelAlignR10r54R29ajR30:0:1nhR13i-25gR14oR15R16R17i1959R18i1949gR19r54goR3jR4:5:3jR5:20:1jR5:3:0oR3jR4:9:2oR3jR4:1:1r362R14oR15R16R17i1976R18i1962gR19r363gar69r99hR14oR15R16R17i1979R18i1962gR19jR11:5:2i2r11goR3jR4:1:1oR6r38R8y16:halfPixelInverseR10jR11:5:2i2r11R13i-26gR14oR15R16R17i1999R18i1983gR19r492gR14oR15R16R17i1999R18i1962gR19r489gnR14oR15R16R17i1999R18i1945gR19r188goR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R21R10jR11:5:2i4r11R22oR6r502R8y6:outputR10jR11:12:1ar501oR6r502R8R25R10jR11:5:2i4r11R22r504R13i-7ghR13i-5gR13i-6gR14oR15R16R17i2020R18i2005gR19r503goR3jR4:1:1r362R14oR15R16R17i2037R18i2023gR19r363gR14oR15R16R17i2037R18i2005gR19r503ghR14oR15R16R17i2043R18i1531gR19r188gR6jR44:0:0R45oR6r327R8y6:vertexR10jR11:13:1aoR1ahR35r188ghR13i-30gR35r188goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:5:3jR5:14:0oR3jR4:1:1oR6r38R8y9:killAlphaR10r54R29ajR30:0:1nhR13i-24gR14oR15R16R17i2088R18i2079gR19r54goR3jR4:5:3jR5:9:0oR3jR4:9:2oR3jR4:1:1r254R14oR15R16R17i2102R18i2092gR19r255gar172hR14oR15R16R17i2104R18i2092gR19r39goR3jR4:0:1jR27:3:1d0.001R14oR15R16R17i2112R18i2107gR19r39gR14oR15R16R17i2112R18i2092gR19r54gR14oR15R16R17i2112R18i2079gR19r54goR3jR4:11:0R14oR15R16R17i2122R18i2115gR19r188gnR14oR15R16R17i2122R18i2075gR19r188goR3jR4:5:3r7oR3jR4:1:1r506R14oR15R16R17i2140R18i2128gR19r507goR3jR4:1:1r254R14oR15R16R17i2153R18i2143gR19r255gR14oR15R16R17i2153R18i2128gR19r507ghR14oR15R16R17i2159R18i2069gR19r188gR6jR44:1:0R45oR6r327R8y8:fragmentR10jR11:13:1aoR1ahR35r188ghR13i-31gR35r188ghR8y17:h3d.shader.Base2dy4:varsar202r519r37r110r209r326r64r571r303r474r491r283r223r9r362r504r53r157r27r264r532oR6jR7:0:0R8y4:timeR10r39R13i-8gr385r254r405r446hg";
-h3d_shader_BaseMesh.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey16:relativePositiony4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-98gy1:poy4:filey71:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FBaseMesh.hxy3:maxi1268y3:mini1252gy1:tr12goR3jR4:1:1oR6jR7:1:0R8y8:positionR10jR11:5:2i3r11y6:parentoR6r17R8y5:inputR10jR11:12:1ar16oR6r17R8y6:normalR10jR11:5:2i3r11R21r19R13i-92ghR13i-90gR13i-91gR14oR15R16R17i1285R18i1271gR19r18gR14oR15R16R17i1285R18i1252gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y19:transformedPositionR10jR11:5:2i3r11R13i-99gR14oR15R16R17i1310R18i1291gR19r31goR3jR4:5:3jR5:1:0oR3jR4:1:1r9R14oR15R16R17i1329R18i1313gR19r12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:50:0R14oR15R16R17i1348R18i1332gR19jR11:13:1ahgaoR3jR4:1:1oR6jR7:0:0R8y9:modelViewR10jR11:7:0R21oR6r49R8y6:globalR10jR11:12:1aoR6r49R8y4:timeR10jR11:3:0R21r51R13i-86goR6r49R8y9:pixelSizeR10jR11:5:2i2r11R21r51R13i-87gr48oR6r49R8y16:modelViewInverseR10r50R21r51y10:qualifiersajy17:hxsl.VarQualifier:3:0hR13i-89ghR13i-85gR31ar59hR13i-88gR14oR15R16R17i1348R18i1332gR19r50ghR14oR15R16R17i1357R18i1332gR19jR11:8:0gR14oR15R16R17i1357R18i1313gR19jR11:5:2i3r11gR14oR15R16R17i1357R18i1291gR19r31goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:projectedPositionR10jR11:5:2i4r11R13i-102gR14oR15R16R17i1380R18i1363gR19r75goR3jR4:5:3r35oR3jR4:8:2oR3jR4:2:1jR25:40:0R14oR15R16R17i1387R18i1383gR19jR11:13:1ahgaoR3jR4:1:1r30R14oR15R16R17i1407R18i1388gR19r31goR3jR4:0:1jy10:hxsl.Const:3:1i1R14oR15R16R17i1410R18i1409gR19r54ghR14oR15R16R17i1411R18i1383gR19jR11:5:2i4r11goR3jR4:1:1oR6r49R8y8:viewProjR10r50R21oR6r49R8y6:cameraR10jR11:12:1aoR6r49R8y4:viewR10r50R21r99R13i-76goR6r49R8y4:projR10r50R21r99R13i-77goR6r49R8R20R10jR11:5:2i3r11R21r99R13i-78goR6r49R8y8:projDiagR10jR11:5:2i3r11R21r99R13i-79gr98oR6r49R8y15:inverseViewProjR10r50R21r99R13i-81goR6r49R8y5:zNearR10r54R21r99R13i-82goR6r49R8y4:zFarR10r54R21r99R13i-83goR6jR7:3:0R8y3:dirR10jR11:5:2i3r11R21r99R13i-84ghR13i-75gR13i-80gR14oR15R16R17i1429R18i1414gR19r50gR14oR15R16R17i1429R18i1383gR19jR11:5:2i4r11gR14oR15R16R17i1429R18i1363gR19r75goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:transformedNormalR10jR11:5:2i3r11R13i-101gR14oR15R16R17i1452R18i1435gR19r124goR3jR4:8:2oR3jR4:2:1jR25:31:0R14oR15R16R17i1495R18i1455gR19jR11:13:1aoR1aoR8y1:_R10r69ghy3:retr69ghgaoR3jR4:3:1oR3jR4:5:3r35oR3jR4:1:1r21R14oR15R16R17i1468R18i1456gR19r22goR3jR4:8:2oR3jR4:2:1jR25:48:0R14oR15R16R17i1487R18i1471gR19jR11:13:1ahgaoR3jR4:1:1r48R14oR15R16R17i1487R18i1471gR19r50ghR14oR15R16R17i1494R18i1471gR19jR11:6:0gR14oR15R16R17i1494R18i1456gR19r69gR14oR15R16R17i1495R18i1455gR19r69ghR14oR15R16R17i1507R18i1455gR19r69gR14oR15R16R17i1507R18i1435gR19r124goR3jR4:5:3r7oR3jR4:1:1r110R14oR15R16R17i1523R18i1513gR19r112goR3jR4:8:2oR3jR4:2:1r129R14oR15R16R17i1565R18i1526gR19jR11:13:1aoR1aoR8R45R10jR11:5:2i3r11ghR46r69ghgaoR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:1:1r103R14oR15R16R17i1542R18i1527gR19r104goR3jR4:1:1r30R14oR15R16R17i1564R18i1545gR19r31gR14oR15R16R17i1564R18i1527gR19r177gR14oR15R16R17i1565R18i1526gR19r177ghR14oR15R16R17i1577R18i1526gR19r69gR14oR15R16R17i1577R18i1513gR19r112goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-103gR14oR15R16R17i1593R18i1583gR19r200goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i4r11R13i-108gR14oR15R16R17i1601R18i1596gR19r206gR14oR15R16R17i1601R18i1583gR19r200goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y9:specPowerR10r54R13i-106gR14oR15R16R17i1616R18i1607gR19r54goR3jR4:1:1oR6r205R8y13:specularPowerR10r54R31ajR32:7:2d0d100hR13i-109gR14oR15R16R17i1632R18i1619gR19r54gR14oR15R16R17i1632R18i1607gR19r54goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y9:specColorR10jR11:5:2i3r11R13i-107gR14oR15R16R17i1647R18i1638gR19r227goR3jR4:5:3r35oR3jR4:1:1oR6r205R8y13:specularColorR10jR11:5:2i3r11R13i-111gR14oR15R16R17i1663R18i1650gR19r233goR3jR4:1:1oR6r205R8y14:specularAmountR10r54R31ajR32:7:2d0d10hR13i-110gR14oR15R16R17i1680R18i1666gR19r54gR14oR15R16R17i1680R18i1650gR19r233gR14oR15R16R17i1680R18i1638gR19r227goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y8:screenUVR10jR11:5:2i2r11R13i-105gR14oR15R16R17i1694R18i1686gR19r249goR3jR4:5:3jR5:0:0oR3jR4:5:3r35oR3jR4:3:1oR3jR4:5:3jR5:2:0oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1715R18i1698gR19r75gajy14:hxsl.Component:0:0jR55:1:0hR14oR15R16R17i1718R18i1698gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1738R18i1721gR19r75gajR55:3:0hR14oR15R16R17i1740R18i1721gR19r54gR14oR15R16R17i1740R18i1698gR19r267gR14oR15R16R17i1741R18i1697gR19r267goR3jR4:8:2oR3jR4:2:1jR25:38:0R14oR15R16R17i1748R18i1744gR19jR11:13:1ahgaoR3jR4:0:1jR34:3:1d0.5R14oR15R16R17i1752R18i1749gR19r54goR3jR4:0:1jR34:3:1d-0.5R14oR15R16R17i1758R18i1754gR19r54ghR14oR15R16R17i1759R18i1744gR19jR11:5:2i2r11gR14oR15R16R17i1759R18i1697gR19jR11:5:2i2r11goR3jR4:0:1jR34:3:1d0.5R14oR15R16R17i1765R18i1762gR19r54gR14oR15R16R17i1765R18i1697gR19r301gR14oR15R16R17i1765R18i1686gR19r249goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y5:depthR10r54R13i-104gR14oR15R16R17i1776R18i1771gR19r54goR3jR4:5:3r257oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1796R18i1779gR19r75gajR55:2:0hR14oR15R16R17i1798R18i1779gR19r54goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1818R18i1801gR19r75gar273hR14oR15R16R17i1820R18i1801gR19r54gR14oR15R16R17i1820R18i1779gR19r54gR14oR15R16R17i1820R18i1771gR19r54ghR14oR15R16R17i1826R18i1246gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahR46r337ghR13i-112gR46r337goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r123R14oR15R16R17i1883R18i1866gR19r124goR3jR4:8:2oR3jR4:2:1r129R14oR15R16R17i1903R18i1886gR19jR11:13:1aoR1aoR8R45R10r124ghR46r69ghgaoR3jR4:1:1r123R14oR15R16R17i1903R18i1886gR19r124ghR14oR15R16R17i1915R18i1886gR19r69gR14oR15R16R17i1915R18i1866gR19r124goR3jR4:5:3r7oR3jR4:1:1r248R14oR15R16R17i2024R18i2016gR19r249goR3jR4:5:3r253oR3jR4:5:3r35oR3jR4:3:1oR3jR4:5:3r257oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i2045R18i2028gR19r75gar263r264hR14oR15R16R17i2048R18i2028gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i2068R18i2051gR19r75gar273hR14oR15R16R17i2070R18i2051gR19r54gR14oR15R16R17i2070R18i2028gR19r385gR14oR15R16R17i2071R18i2027gR19r385goR3jR4:8:2oR3jR4:2:1r282R14oR15R16R17i2078R18i2074gR19r286gaoR3jR4:0:1jR34:3:1d0.5R14oR15R16R17i2082R18i2079gR19r54goR3jR4:0:1jR34:3:1d-0.5R14oR15R16R17i2088R18i2084gR19r54ghR14oR15R16R17i2089R18i2074gR19jR11:5:2i2r11gR14oR15R16R17i2089R18i2027gR19jR11:5:2i2r11goR3jR4:0:1jR34:3:1d0.5R14oR15R16R17i2095R18i2092gR19r54gR14oR15R16R17i2095R18i2027gR19r415gR14oR15R16R17i2095R18i2016gR19r249goR3jR4:5:3r7oR3jR4:1:1r312R14oR15R16R17i2106R18i2101gR19r54goR3jR4:5:3r257oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i2126R18i2109gR19r75gar321hR14oR15R16R17i2128R18i2109gR19r54goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i2148R18i2131gR19r75gar273hR14oR15R16R17i2150R18i2131gR19r54gR14oR15R16R17i2150R18i2109gR19r54gR14oR15R16R17i2150R18i2101gR19r54goR3jR4:5:3r7oR3jR4:1:1r213R14oR15R16R17i2243R18i2234gR19r54goR3jR4:1:1r217R14oR15R16R17i2259R18i2246gR19r54gR14oR15R16R17i2259R18i2234gR19r54goR3jR4:5:3r7oR3jR4:1:1r226R14oR15R16R17i2274R18i2265gR19r227goR3jR4:5:3r35oR3jR4:1:1r232R14oR15R16R17i2290R18i2277gR19r233goR3jR4:1:1r237R14oR15R16R17i2307R18i2293gR19r54gR14oR15R16R17i2307R18i2277gR19r233gR14oR15R16R17i2307R18i2265gR19r227ghR14oR15R16R17i2313R18i1860gR19r337gR6r338R58oR6r340R8y16:__init__fragmentR10jR11:13:1aoR1ahR46r337ghR13i-113gR46r337goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R20R10jR11:5:2i4r11R21oR6r485R8y6:outputR10jR11:12:1ar484oR6r485R8R48R10jR11:5:2i4r11R21r487R13i-95goR6r485R8R56R10jR11:5:2i4r11R21r487R13i-96goR6r485R8R23R10jR11:5:2i4r11R21r487R13i-97ghR13i-93gR13i-94gR14oR15R16R17i2358R18i2343gR19r486goR3jR4:1:1r74R14oR15R16R17i2378R18i2361gR19r75gR14oR15R16R17i2378R18i2343gR19r486goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y24:pixelTransformedPositionR10jR11:5:2i3r11R13i-100gR14oR15R16R17i2408R18i2384gR19r506goR3jR4:1:1r30R14oR15R16R17i2430R18i2411gR19r31gR14oR15R16R17i2430R18i2384gR19r506ghR14oR15R16R17i2436R18i2337gR19r337gR6jR57:0:0R58oR6r340R8y6:vertexR10jR11:13:1aoR1ahR46r337ghR13i-114gR46r337goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r489R14oR15R16R17i2480R18i2468gR19r490goR3jR4:1:1r199R14oR15R16R17i2493R18i2483gR19r200gR14oR15R16R17i2493R18i2468gR19r490goR3jR4:5:3r7oR3jR4:1:1r491R14oR15R16R17i2511R18i2499gR19r492goR3jR4:8:2oR3jR4:2:1jR25:52:0R14oR15R16R17i2518R18i2514gR19jR11:13:1aoR1aoR8y5:valueR10r54ghR46jR11:5:2i4r11ghgaoR3jR4:1:1r312R14oR15R16R17i2524R18i2519gR19r54ghR14oR15R16R17i2525R18i2514gR19r548gR14oR15R16R17i2525R18i2499gR19r492goR3jR4:5:3r7oR3jR4:1:1r493R14oR15R16R17i2544R18i2531gR19r494goR3jR4:8:2oR3jR4:2:1jR25:54:0R14oR15R16R17i2557R18i2547gR19jR11:13:1aoR1aoR8R64R10jR11:5:2i3r11ghR46jR11:5:2i4r11ghgaoR3jR4:1:1r123R14oR15R16R17i2575R18i2558gR19r124ghR14oR15R16R17i2576R18i2547gR19r572gR14oR15R16R17i2576R18i2531gR19r494ghR14oR15R16R17i2582R18i2462gR19r337gR6jR57:1:0R58oR6r340R8y8:fragmentR10jR11:13:1aoR1ahR46r337ghR13i-115gR46r337ghR8y19:h3d.shader.BaseMeshy4:varsar74r312r517r123r237r226r232r339r585r217r473r9r99r487r248r51r19r30r204r213r505r199hg";
-h3d_shader_Blur.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-254ghR16i-252gR16i-253gy1:poy4:filey75:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-251ghR16i-249gR16i-250gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-268gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:1:1oR6jR7:2:0R8y16:isDepthDependantR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR16i-265gR17oR18y67:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FBlur.hxR20i638R21i622gR22r71goR3jR4:4:1aoR3jR4:7:2oR6jR7:4:0R8y4:pcurR10jR11:5:2i3r11R16i-272goR3jR4:8:2oR3jR4:1:1oR6r58R8y11:getPositionR10jR11:13:1aoR1aoR8R25R10jR11:5:2i2r11ghR30r81ghR16i-271gR17oR18R34R20i670R21i659gR22r90gaoR3jR4:1:1r34R17oR18R34R20i679R21i671gR22r35ghR17oR18R34R20i680R21i659gR22r81gR17oR18R34R20i681R21i648gR22r55goR3jR4:7:2oR6r80R8y4:ccurR10jR11:5:2i4r11R16i-273goR3jR4:8:2oR3jR4:2:1jR23:33:0R17oR18R34R20i705R21i698gR22jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8R25R10jR11:5:2i2r11ghR30r103ghgaoR3jR4:1:1oR6r70R8y7:textureR10r113R16i-256gR17oR18R34R20i705R21i698gR22r113goR3jR4:1:1r34R17oR18R34R20i718R21i710gR22r35ghR17oR18R34R20i719R21i698gR22r103gR17oR18R34R20i720R21i687gR22r55goR3jR4:7:2oR6r80R8R15R10jR11:5:2i4r11R16i-274goR3jR4:8:2oR3jR4:2:1r22R17oR18R34R20i742R21i738gR22r26gaoR3jR4:0:1jR26:3:1zR17oR18R34R20i744R21i743gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i747R21i746gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i750R21i749gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i753R21i752gR22r43ghR17oR18R34R20i754R21i738gR22r131gR17oR18R34R20i755R21i726gR22r55goR3jR4:7:2oR6r80R8y4:ncurR10jR11:5:2i3r11R16i-275goR3jR4:8:2oR3jR4:2:1jR23:55:0R17oR18R34R20i784R21i772gR22jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r11ghR30r159ghgaoR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i798R21i785gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1oR6r70R8y13:normalTextureR10r113R16i-267gR17oR18R34R20i798R21i785gR22r113goR3jR4:1:1r34R17oR18R34R20i811R21i803gR22r35ghR17oR18R34R20i812R21i785gR22r103ghR17oR18R34R20i813R21i772gR22r159gR17oR18R34R20i814R21i761gR22r55goR3jR4:20:3y6:unrollahoR3jR4:13:3oR6r80R8y1:iR10jR11:1:0R16i-276goR3jR4:5:3jR5:21:0oR3jR4:5:3jR5:0:0oR3jR4:6:2jy15:haxe.macro.Unop:3:0oR3jR4:1:1oR6r70R8y7:QualityR10r199R32ajR33:0:1nhR16i-258gR17oR18R34R20i846R21i839gR22r199gR17oR18R34R20i846R21i838gR22r199goR3jR4:0:1jR26:2:1i1R17oR18R34R20i853R21i849gR22r199gR17oR18R34R20i853R21i838gR22r199goR3jR4:1:1r207R17oR18R34R20i860R21i853gR22r199gR17oR18R34R20i860R21i838gR22jR11:14:2r199jy13:hxsl.SizeDecl:0:1zgoR3jR4:4:1aoR3jR4:7:2oR6r80R8R25R10jR11:5:2i2r11R16i-277goR3jR4:5:3r203oR3jR4:1:1r34R17oR18R34R20i888R21i880gR22r35goR3jR4:5:3jR5:1:0oR3jR4:1:1oR6r70R8y5:pixelR10jR11:5:2i2r11R16i-261gR17oR18R34R20i896R21i891gR22r240goR3jR4:8:2oR3jR4:2:1jR23:36:0R17oR18R34R20i904R21i899gR22jR11:13:1aoR1aoR8R41R10r199ghR30r43ghgaoR3jR4:1:1r198R17oR18R34R20i906R21i905gR22r199ghR17oR18R34R20i907R21i899gR22r43gR17oR18R34R20i907R21i891gR22r240gR17oR18R34R20i907R21i880gR22r231gR17oR18R34R20i908R21i871gR22r55goR3jR4:7:2oR6r80R8y1:cR10r103R16i-278goR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i930R21i923gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1r119R17oR18R34R20i930R21i923gR22r113goR3jR4:1:1r230R17oR18R34R20i937R21i935gR22r231ghR17oR18R34R20i938R21i923gR22r103gR17oR18R34R20i939R21i915gR22r55goR3jR4:7:2oR6r80R8R17R10r81R16i-279goR3jR4:8:2oR3jR4:1:1r84R17oR18R34R20i965R21i954gR22r90gaoR3jR4:1:1r230R17oR18R34R20i968R21i966gR22r231ghR17oR18R34R20i969R21i954gR22r81gR17oR18R34R20i970R21i946gR22r55goR3jR4:7:2oR6r80R8y1:dR10r43R16i-280goR3jR4:8:2oR3jR4:2:1jR23:29:0R17oR18R34R20i995R21i985gR22jR11:13:1aoR1aoR8R38R10jR11:5:2i3r11goR8y1:bR10jR11:5:2i3r11ghR30r43ghgaoR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:1:1r288R17oR18R34R20i987R21i986gR22r81goR3jR4:1:1r79R17oR18R34R20i994R21i990gR22r81gR17oR18R34R20i994R21i986gR22r312gR17oR18R34R20i995R21i985gR22r312goR3jR4:5:3r319oR3jR4:1:1r288R17oR18R34R20i1001R21i1000gR22r81goR3jR4:1:1r79R17oR18R34R20i1008R21i1004gR22r81gR17oR18R34R20i1008R21i1000gR22jR11:5:2i3r11ghR17oR18R34R20i1009R21i985gR22r43gR17oR18R34R20i1010R21i977gR22r55goR3jR4:7:2oR6r80R8y1:nR10r159R16i-281goR3jR4:8:2oR3jR4:2:1r162R17oR18R34R20i1037R21i1025gR22r170gaoR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i1051R21i1038gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1r183R17oR18R34R20i1051R21i1038gR22r113goR3jR4:1:1r230R17oR18R34R20i1058R21i1056gR22r231ghR17oR18R34R20i1059R21i1038gR22r103ghR17oR18R34R20i1060R21i1025gR22r159gR17oR18R34R20i1061R21i1017gR22r55goR3jR4:5:3r7oR3jR4:1:1r266R17oR18R34R20i1071R21i1070gR22r103goR3jR4:8:2oR3jR4:2:1jR23:24:0R17oR18R34R20i1077R21i1074gR22jR11:13:1aoR1aoR8y1:xR10r103goR8y1:yR10r103goR8y1:aR10r43ghR30r103ghgaoR3jR4:1:1r102R17oR18R34R20i1082R21i1078gR22r103goR3jR4:1:1r266R17oR18R34R20i1085R21i1084gR22r103goR3jR4:8:2oR3jR4:2:1r305R17oR18R34R20i1091R21i1087gR22jR11:13:1aoR1aoR8R38R10r159gr313hR30r43ghgaoR3jR4:1:1r158R17oR18R34R20i1091R21i1087gR22r159goR3jR4:1:1r345R17oR18R34R20i1097R21i1096gR22r159ghR17oR18R34R20i1098R21i1087gR22r43ghR17oR18R34R20i1099R21i1074gR22r103gR17oR18R34R20i1099R21i1070gR22r103goR3jR4:5:3r7oR3jR4:1:1r266R17oR18R34R20i1108R21i1107gR22r103goR3jR4:8:2oR3jR4:2:1r379R17oR18R34R20i1114R21i1111gR22jR11:13:1ar383hgaoR3jR4:1:1r266R17oR18R34R20i1116R21i1115gR22r103goR3jR4:1:1r102R17oR18R34R20i1122R21i1118gR22r103goR3jR4:8:2oR3jR4:2:1jR23:21:0R17oR18R34R20i1154R21i1124gR22jR11:13:1aoR1aoR8R38R10r43goR8R51R10r43ghR30r43ghgaoR3jR4:3:1oR3jR4:5:3r237oR3jR4:8:2oR3jR4:2:1jR23:22:0R17oR18R34R20i1136R21i1125gR22jR11:13:1aoR1aoR8R38R10r43gr444hR30r43ghgaoR3jR4:3:1oR3jR4:5:3r319oR3jR4:1:1r302R17oR18R34R20i1127R21i1126gR22r43goR3jR4:0:1jR26:3:1d0.001R17oR18R34R20i1135R21i1130gR22r43gR17oR18R34R20i1135R21i1126gR22r43gR17oR18R34R20i1136R21i1125gR22r43goR3jR4:0:1jR26:3:1d0R17oR18R34R20i1143R21i1141gR22r43ghR17oR18R34R20i1144R21i1125gR22r43goR3jR4:0:1jR26:3:1i100000R17oR18R34R20i1153R21i1147gR22r43gR17oR18R34R20i1153R21i1125gR22r43gR17oR18R34R20i1154R21i1124gR22r43goR3jR4:0:1jR26:3:1d1R17oR18R34R20i1161R21i1159gR22r43ghR17oR18R34R20i1162R21i1124gR22r43ghR17oR18R34R20i1163R21i1111gR22r103gR17oR18R34R20i1163R21i1107gR22r103goR3jR4:5:3jR5:20:1r203oR3jR4:1:1r130R17oR18R34R20i1176R21i1171gR22r131goR3jR4:5:3r237oR3jR4:1:1r266R17oR18R34R20i1181R21i1180gR22r103goR3jR4:16:2oR3jR4:1:1oR6r70R8y6:valuesR10jR11:14:2r43jR47:1:1r207R16i-260gR17oR18R34R20i1190R21i1184gR22r510goR3jR4:10:3oR3jR4:5:3jR5:9:0oR3jR4:1:1r198R17oR18R34R20i1192R21i1191gR22r199goR3jR4:0:1jR26:2:1zR17oR18R34R20i1196R21i1195gR22r199gR17oR18R34R20i1196R21i1191gR22r71goR3jR4:6:2r205oR3jR4:1:1r198R17oR18R34R20i1201R21i1200gR22r199gR17oR18R34R20i1201R21i1199gR22r199goR3jR4:1:1r198R17oR18R34R20i1205R21i1204gR22r199gR17oR18R34R20i1205R21i1191gR22r199gR17oR18R34R20i1206R21i1184gR22r43gR17oR18R34R20i1206R21i1180gR22r103gR17oR18R34R20i1206R21i1171gR22r131ghR17oR18R34R20i1214R21i863gR22r55gR17oR18R34R20i1214R21i828gR22r55gR17oR18R34R20i1214R21i821gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i1232R21i1220gR22r16goR3jR4:1:1r130R17oR18R34R20i1240R21i1235gR22r131gR17oR18R34R20i1240R21i1220gR22r16ghR17oR18R34R20i1247R21i641gR22r55goR3jR4:10:3oR3jR4:1:1oR6r70R8y7:isDepthR10r71R32ajR33:0:1nhR16i-259gR17oR18R34R20i1268R21i1261gR22r71goR3jR4:4:1aoR3jR4:7:2oR6r80R8y3:valR10r43R16i-282goR3jR4:0:1jR26:3:1d0R17oR18R34R20i1290R21i1288gR22r43gR17oR18R34R20i1291R21i1278gR22r55goR3jR4:20:3R43ahoR3jR4:13:3oR6r80R8R44R10r199R16i-283goR3jR4:5:3r201oR3jR4:5:3r203oR3jR4:6:2r205oR3jR4:1:1r207R17oR18R34R20i1323R21i1316gR22r199gR17oR18R34R20i1323R21i1315gR22r199goR3jR4:0:1jR26:2:1i1R17oR18R34R20i1330R21i1326gR22r199gR17oR18R34R20i1330R21i1315gR22r199goR3jR4:1:1r207R17oR18R34R20i1337R21i1330gR22r199gR17oR18R34R20i1337R21i1315gR22jR11:14:2r199jR47:0:1zgoR3jR4:5:3jR5:20:1r203oR3jR4:1:1r569R17oR18R34R20i1349R21i1346gR22r43goR3jR4:5:3r237oR3jR4:8:2oR3jR4:2:1jR23:53:0R17oR18R34R20i1359R21i1353gR22jR11:13:1aoR1aoR8R41R10jR11:5:2i4r11ghR30r43ghgaoR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i1367R21i1360gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1r119R17oR18R34R20i1367R21i1360gR22r113goR3jR4:5:3r203oR3jR4:1:1r34R17oR18R34R20i1380R21i1372gR22r35goR3jR4:5:3r237oR3jR4:1:1r239R17oR18R34R20i1388R21i1383gR22r240goR3jR4:8:2oR3jR4:2:1r245R17oR18R34R20i1396R21i1391gR22jR11:13:1ar249hgaoR3jR4:1:1r579R17oR18R34R20i1398R21i1397gR22r199ghR17oR18R34R20i1399R21i1391gR22r43gR17oR18R34R20i1399R21i1383gR22r240gR17oR18R34R20i1399R21i1372gR22jR11:5:2i2r11ghR17oR18R34R20i1400R21i1360gR22r103ghR17oR18R34R20i1401R21i1353gR22r43goR3jR4:16:2oR3jR4:1:1r508R17oR18R34R20i1410R21i1404gR22r510goR3jR4:10:3oR3jR4:5:3r515oR3jR4:1:1r579R17oR18R34R20i1412R21i1411gR22r199goR3jR4:0:1jR26:2:1zR17oR18R34R20i1416R21i1415gR22r199gR17oR18R34R20i1416R21i1411gR22r71goR3jR4:6:2r205oR3jR4:1:1r579R17oR18R34R20i1421R21i1420gR22r199gR17oR18R34R20i1421R21i1419gR22r199goR3jR4:1:1r579R17oR18R34R20i1425R21i1424gR22r199gR17oR18R34R20i1425R21i1411gR22r199gR17oR18R34R20i1426R21i1404gR22r43gR17oR18R34R20i1426R21i1353gR22r43gR17oR18R34R20i1426R21i1346gR22r43gR17oR18R34R20i1426R21i1305gR22r55gR17oR18R34R20i1426R21i1298gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i1445R21i1433gR22r16goR3jR4:8:2oR3jR4:2:1jR23:52:0R17oR18R34R20i1452R21i1448gR22jR11:13:1aoR1aoR8R41R10r43ghR30jR11:5:2i4r11ghgaoR3jR4:8:2oR3jR4:2:1r437R17oR18R34R20i1456R21i1453gR22jR11:13:1aoR1aoR8R38R10r43gr444hR30r43ghgaoR3jR4:1:1r569R17oR18R34R20i1456R21i1453gR22r43goR3jR4:0:1jR26:3:1d0.9999999R17oR18R34R20i1470R21i1461gR22r43ghR17oR18R34R20i1471R21i1453gR22r43ghR17oR18R34R20i1472R21i1448gR22r710gR17oR18R34R20i1472R21i1433gR22r16ghR17oR18R34R20i1479R21i1271gR22r55goR3jR4:4:1aoR3jR4:7:2oR6r80R8R15R10jR11:5:2i4r11R16i-284goR3jR4:8:2oR3jR4:2:1r22R17oR18R34R20i1508R21i1504gR22r26gaoR3jR4:0:1jR26:3:1zR17oR18R34R20i1510R21i1509gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i1513R21i1512gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i1516R21i1515gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i1519R21i1518gR22r43ghR17oR18R34R20i1520R21i1504gR22r742gR17oR18R34R20i1521R21i1492gR22r55goR3jR4:20:3R43ahoR3jR4:13:3oR6r80R8R44R10r199R16i-285goR3jR4:5:3r201oR3jR4:5:3r203oR3jR4:6:2r205oR3jR4:1:1r207R17oR18R34R20i1553R21i1546gR22r199gR17oR18R34R20i1553R21i1545gR22r199goR3jR4:0:1jR26:2:1i1R17oR18R34R20i1560R21i1556gR22r199gR17oR18R34R20i1560R21i1545gR22r199goR3jR4:1:1r207R17oR18R34R20i1567R21i1560gR22r199gR17oR18R34R20i1567R21i1545gR22jR11:14:2r199jR47:0:1zgoR3jR4:5:3jR5:20:1r203oR3jR4:1:1r741R17oR18R34R20i1581R21i1576gR22r742goR3jR4:5:3r237oR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i1592R21i1585gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1r119R17oR18R34R20i1592R21i1585gR22r113goR3jR4:5:3r203oR3jR4:1:1r34R17oR18R34R20i1605R21i1597gR22r35goR3jR4:5:3r237oR3jR4:1:1r239R17oR18R34R20i1613R21i1608gR22r240goR3jR4:8:2oR3jR4:2:1r245R17oR18R34R20i1621R21i1616gR22jR11:13:1ar249hgaoR3jR4:1:1r771R17oR18R34R20i1623R21i1622gR22r199ghR17oR18R34R20i1624R21i1616gR22r43gR17oR18R34R20i1624R21i1608gR22r240gR17oR18R34R20i1624R21i1597gR22jR11:5:2i2r11ghR17oR18R34R20i1625R21i1585gR22r103goR3jR4:16:2oR3jR4:1:1r508R17oR18R34R20i1634R21i1628gR22r510goR3jR4:10:3oR3jR4:5:3r515oR3jR4:1:1r771R17oR18R34R20i1636R21i1635gR22r199goR3jR4:0:1jR26:2:1zR17oR18R34R20i1640R21i1639gR22r199gR17oR18R34R20i1640R21i1635gR22r71goR3jR4:6:2r205oR3jR4:1:1r771R17oR18R34R20i1645R21i1644gR22r199gR17oR18R34R20i1645R21i1643gR22r199goR3jR4:1:1r771R17oR18R34R20i1649R21i1648gR22r199gR17oR18R34R20i1649R21i1635gR22r199gR17oR18R34R20i1650R21i1628gR22r43gR17oR18R34R20i1650R21i1585gR22r103gR17oR18R34R20i1650R21i1576gR22r742gR17oR18R34R20i1650R21i1535gR22r55gR17oR18R34R20i1650R21i1528gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i1669R21i1657gR22r16goR3jR4:1:1r741R17oR18R34R20i1677R21i1672gR22r742gR17oR18R34R20i1677R21i1657gR22r16ghR17oR18R34R20i1684R21i1485gR22r55gR17oR18R34R20i1684R21i1257gR22r55gR17oR18R34R20i1684R21i618gR22r55goR3jR4:10:3oR3jR4:1:1oR6r70R8y13:hasFixedColorR10r71R32ajR33:0:1nhR16i-262gR17oR18R34R20i1706R21i1693gR22r71goR3jR4:4:1aoR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i1728R21i1716gR22r16gajy14:hxsl.Component:0:0jR60:1:0jR60:2:0hR17oR18R34R20i1732R21i1716gR22jR11:5:2i3r11goR3jR4:9:2oR3jR4:1:1oR6r70R8y10:fixedColorR10jR11:5:2i4r11R16i-264gR17oR18R34R20i1745R21i1735gR22r914gar905r906r907hR17oR18R34R20i1749R21i1735gR22jR11:5:2i3r11gR17oR18R34R20i1749R21i1716gR22r910goR3jR4:10:3oR3jR4:1:1oR6r70R8y16:smoothFixedColorR10r71R32ajR33:0:1nhR16i-263gR17oR18R34R20i1776R21i1760gR22r71goR3jR4:5:3jR5:20:1r237oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i1797R21i1785gR22r16gajR60:3:0hR17oR18R34R20i1799R21i1785gR22r43goR3jR4:9:2oR3jR4:1:1r913R17oR18R34R20i1813R21i1803gR22r914gar937hR17oR18R34R20i1815R21i1803gR22r43gR17oR18R34R20i1815R21i1785gR22r43goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i1845R21i1833gR22r16gar937hR17oR18R34R20i1847R21i1833gR22r43goR3jR4:5:3r237oR3jR4:9:2oR3jR4:1:1r913R17oR18R34R20i1860R21i1850gR22r914gar937hR17oR18R34R20i1862R21i1850gR22r43goR3jR4:8:2oR3jR4:2:1r245R17oR18R34R20i1870R21i1865gR22jR11:13:1aoR1aoR8R41R10r71ghR30r43ghgaoR3jR4:5:3jR5:7:0oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i1883R21i1871gR22r16gar937hR17oR18R34R20i1885R21i1871gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i1889R21i1888gR22r43gR17oR18R34R20i1889R21i1871gR22r71ghR17oR18R34R20i1890R21i1865gR22r43gR17oR18R34R20i1890R21i1850gR22r43gR17oR18R34R20i1890R21i1833gR22r43gR17oR18R34R20i1890R21i1756gR22r55ghR17oR18R34R20i1897R21i1709gR22r55gnR17oR18R34R20i1897R21i1689gR22r55ghR17oR18R34R20i1902R21i612gR22r55gR6jR27:1:0R28oR6r58R8y8:fragmentR10jR11:13:1aoR1ahR30r55ghR16i-269gR30r55goR1aoR6r80R8R25R10r89R16i-270ghR2oR3jR4:4:1aoR3jR4:7:2oR6r80R8y5:depthR10r43R16i-286goR3jR4:8:2oR3jR4:2:1r609R17oR18R34R20i1973R21i1967gR22r617gaoR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i1986R21i1974gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1oR6r70R8y12:depthTextureR10r113R16i-257gR17oR18R34R20i1986R21i1974gR22r113goR3jR4:1:1r1012R17oR18R34R20i1993R21i1991gR22r89ghR17oR18R34R20i1994R21i1974gR22r103ghR17oR18R34R20i1995R21i1967gR22r43gR17oR18R34R20i1996R21i1955gR22r55goR3jR4:7:2oR6r80R8y3:uv2R10jR11:5:2i2r11R16i-287goR3jR4:5:3r237oR3jR4:3:1oR3jR4:5:3r319oR3jR4:1:1r1012R17oR18R34R20i2014R21i2012gR22r89goR3jR4:0:1jR26:3:1d0.5R17oR18R34R20i2020R21i2017gR22r43gR17oR18R34R20i2020R21i2012gR22r89gR17oR18R34R20i2021R21i2011gR22r89goR3jR4:8:2oR3jR4:2:1jR23:38:0R17oR18R34R20i2028R21i2024gR22jR11:13:1ahgaoR3jR4:0:1jR26:3:1i2R17oR18R34R20i2030R21i2029gR22r43goR3jR4:0:1jR26:3:1i-2R17oR18R34R20i2034R21i2032gR22r43ghR17oR18R34R20i2035R21i2024gR22jR11:5:2i2r11gR17oR18R34R20i2035R21i2011gR22r1047gR17oR18R34R20i2036R21i2001gR22r55goR3jR4:7:2oR6r80R8y4:tempR10r103R16i-288goR3jR4:5:3r237oR3jR4:8:2oR3jR4:2:1r22R17oR18R34R20i2056R21i2052gR22r26gaoR3jR4:1:1r1046R17oR18R34R20i2060R21i2057gR22r1047goR3jR4:1:1r1016R17oR18R34R20i2067R21i2062gR22r43goR3jR4:0:1jR26:3:1i1R17oR18R34R20i2070R21i2069gR22r43ghR17oR18R34R20i2071R21i2052gR22jR11:5:2i4r11goR3jR4:1:1oR6r70R8y21:cameraInverseViewProjR10jR11:7:0R16i-255gR17oR18R34R20i2095R21i2074gR22r1108gR17oR18R34R20i2095R21i2052gR22r103gR17oR18R34R20i2096R21i2041gR22r55goR3jR4:7:2oR6r80R8y8:originWSR10jR11:5:2i3r11R16i-289goR3jR4:5:3jR5:2:0oR3jR4:9:2oR3jR4:1:1r1086R17oR18R34R20i2120R21i2116gR22r103gar905r906r907hR17oR18R34R20i2124R21i2116gR22r1117goR3jR4:9:2oR3jR4:1:1r1086R17oR18R34R20i2131R21i2127gR22r103gar937hR17oR18R34R20i2133R21i2127gR22r43gR17oR18R34R20i2133R21i2116gR22r1117gR17oR18R34R20i2134R21i2101gR22r55goR3jR4:12:1oR3jR4:1:1r1116R17oR18R34R20i2154R21i2146gR22r1117gR17oR18R34R20i2154R21i2139gR22r55ghR17oR18R34R20i2160R21i1949gR22r55gR6jR27:3:0R28r84R30r81ghR8y15:h3d.shader.Blury4:varsar57r207r239r892r913r508r1005r84r119r561r183r69r13r32oR6r70R8y9:hasNormalR10r71R32ajR33:0:1nhR16i-266gr1107r1033r925hg";
-h3d_shader_ColorAdd.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:0:0oR3jR4:9:2oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-303gy1:poy4:filey71:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FColorAdd.hxy3:maxi180y3:mini170gy1:tr14gajy14:hxsl.Component:0:0jR20:1:0jR20:2:0hR14oR15R16R17i184R18i170gR19jR11:5:2i3r13goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i3r13R13i-304gR14oR15R16R17i193R18i188gR19r27gR14oR15R16R17i193R18i170gR19r23ghR14oR15R16R17i199R18i164gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahy3:retr34ghR13i-305gR25r34ghR8y19:h3d.shader.ColorAddy4:varsar36r25r11hg";
-h3d_shader_ColorKey.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey5:cdiffy4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-309goR3jR4:5:3jy16:haxe.macro.Binop:3:0oR3jR4:1:1oR5r8R7y12:textureColorR9jR10:5:2i4r9R12i-307gy1:poy4:filey71:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FColorKey.hxy3:maxi197y3:mini185gy1:tr15goR3jR4:1:1oR5jR6:2:0R7y8:colorKeyR9jR10:5:2i4r9R12i-306gR15oR16R17R18i208R19i200gR20r21gR15oR16R17R18i208R19i185gR20r10gR15oR16R17R18i209R19i173gR20jR10:0:0goR3jR4:10:3oR3jR4:5:3jR13:9:0oR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:29:0R15oR16R17R18i223R19i218gR20jR10:13:1aoR1aoR7y1:_R9r10goR7y1:bR9jR10:5:2i4r9ghy3:retjR10:3:0ghgaoR3jR4:1:1r7R15oR16R17R18i223R19i218gR20r10goR3jR4:1:1r7R15oR16R17R18i233R19i228gR20r10ghR15oR16R17R18i234R19i218gR20r43goR3jR4:0:1jy10:hxsl.Const:3:1d1e-05R15oR16R17R18i244R19i237gR20r43gR15oR16R17R18i244R19i218gR20jR10:2:0goR3jR4:11:0R15oR16R17R18i254R19i247gR20r28gnR15oR16R17R18i254R19i214gR20r28ghR15oR16R17R18i260R19i167gR20r28gR5jy17:hxsl.FunctionKind:1:0y3:refoR5jR6:6:0R7y8:fragmentR9jR10:13:1aoR1ahR25r28ghR12i-308gR25r28ghR7y19:h3d.shader.ColorKeyy4:varsar69r19r14hg";
-h3d_shader_ColorMatrix.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-310gy1:poy4:filey74:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FColorMatrix.hxy3:maxi184y3:mini174gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R14oR15R16R17i191R18i187gR19jR11:13:1ahgaoR3jR4:9:2oR3jR4:3:1oR3jR4:5:3jR5:1:0oR3jR4:8:2oR3jR4:2:1r17R14oR15R16R17i198R18i194gR19r21gaoR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i209R18i199gR19r12gajy14:hxsl.Component:0:0jR21:1:0jR21:2:0hR14oR15R16R17i213R18i199gR19jR11:5:2i3r11goR3jR4:0:1jy10:hxsl.Const:3:1d1R14oR15R16R17i216R18i214gR19jR11:3:0ghR14oR15R16R17i217R18i194gR19jR11:5:2i4r11goR3jR4:1:1oR6jR7:2:0R8y6:matrixR10jR11:7:0R13i-311gR14oR15R16R17i226R18i220gR19r54gR14oR15R16R17i226R18i194gR19jR11:5:2i4r11gR14oR15R16R17i227R18i193gR19r59gar37r38r39hR14oR15R16R17i231R18i193gR19jR11:5:2i3r11goR3jR4:9:2oR3jR4:3:1oR3jR4:5:3r26oR3jR4:1:1r9R14oR15R16R17i244R18i234gR19r12goR3jR4:1:1r52R14oR15R16R17i253R18i247gR19r54gR14oR15R16R17i253R18i234gR19r59gR14oR15R16R17i254R18i233gR19r59gajR21:3:0hR14oR15R16R17i256R18i233gR19r47ghR14oR15R16R17i257R18i187gR19jR11:5:2i4r11gR14oR15R16R17i257R18i174gR19r12ghR14oR15R16R17i263R18i168gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahy3:retr90ghR13i-312gR27r90ghR8y22:h3d.shader.ColorMatrixy4:varsar92r52r9hg";
-h3d_shader_DirLight.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey4:diffy4:typejy9:hxsl.Type:3:0y2:idi-55goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:22:0y1:poy4:filey71:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FDirLight.hxy3:maxi501y3:mini468gy1:tjR10:13:1aoR1aoR7y1:_R9r9goR7y1:bR9r9ghy3:retr9ghgaoR3jR4:8:2oR3jR4:2:1jR12:29:0R13oR14R15R16i485R17i468gR18jR10:13:1aoR1aoR7R19R9jR10:5:2i3jy12:hxsl.VecType:1:0goR7R20R9jR10:5:2i3r31ghR21r9ghgaoR3jR4:1:1oR5r8R7y17:transformedNormalR9r32R11i-48gR13oR14R15R16i485R17i468gR18r32goR3jR4:6:2jy15:haxe.macro.Unop:3:0oR3jR4:1:1oR5jR6:2:0R7y9:directionR9jR10:5:2i3r31R11i-42gR13oR14R15R16i500R17i491gR18r46gR13oR14R15R16i500R17i490gR18r46ghR13oR14R15R16i501R17i468gR18r9goR3jR4:0:1jy10:hxsl.Const:3:1d0R13oR14R15R16i508R17i506gR18r9ghR13oR14R15R16i509R17i468gR18r9gR13oR14R15R16i510R17i457gR18jR10:0:0goR3jR4:10:3oR3jR4:6:2jR24:2:0oR3jR4:1:1oR5r45R7y14:enableSpecularR9jR10:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR11i-43gR13oR14R15R16i534R17i520gR18r67gR13oR14R15R16i534R17i519gR18r67goR3jR4:12:1oR3jR4:5:3jy16:haxe.macro.Binop:1:0oR3jR4:1:1oR5r45R7y5:colorR9jR10:5:2i3r31R11i-41gR13oR14R15R16i554R17i549gR18r79goR3jR4:1:1r7R13oR14R15R16i561R17i557gR18r9gR13oR14R15R16i561R17i549gR18r79gR13oR14R15R16i561R17i542gR18r61gnR13oR14R15R16i561R17i515gR18r61goR3jR4:7:2oR5r8R7y1:rR9r34R11i-56goR3jR4:8:2oR3jR4:2:1jR12:31:0R13oR14R15R16i612R17i575gR18jR10:13:1aoR1aoR7R19R9r34ghR21r34ghgaoR3jR4:8:2oR3jR4:2:1jR12:32:0R13oR14R15R16i582R17i575gR18jR10:13:1aoR1aoR7y1:aR9r34goR7R20R9r34ghR21r34ghgaoR3jR4:1:1r44R13oR14R15R16i592R17i583gR18r46goR3jR4:1:1r38R13oR14R15R16i611R17i594gR18r32ghR13oR14R15R16i612R17i575gR18r34ghR13oR14R15R16i624R17i575gR18r34gR13oR14R15R16i625R17i567gR18r61goR3jR4:7:2oR5r8R7y9:specValueR9r9R11i-57goR3jR4:8:2oR3jR4:2:1r12R13oR14R15R16i704R17i646gR18jR10:13:1aoR1aoR7R19R9r9gr19hR21r9ghgaoR3jR4:8:2oR3jR4:2:1r24R13oR14R15R16i647R17i646gR18jR10:13:1aoR1aoR7R19R9r34gr33hR21r9ghgaoR3jR4:1:1r92R13oR14R15R16i647R17i646gR18r34goR3jR4:8:2oR3jR4:2:1r95R13oR14R15R16i691R17i652gR18jR10:13:1aoR1aoR7R19R9jR10:5:2i3r31ghR21r34ghgaoR3jR4:3:1oR3jR4:5:3jR30:3:0oR3jR4:1:1oR5jR6:0:0R7y8:positionR9jR10:5:2i3r31y6:parentoR5r169R7y6:cameraR9jR10:12:1ar168hR11i-44gR11i-45gR13oR14R15R16i668R17i653gR18r170goR3jR4:1:1oR5r8R7y19:transformedPositionR9jR10:5:2i3r31R11i-49gR13oR14R15R16i690R17i671gR18r178gR13oR14R15R16i690R17i653gR18r161gR13oR14R15R16i691R17i652gR18r161ghR13oR14R15R16i703R17i652gR18r34ghR13oR14R15R16i704R17i646gR18r9goR3jR4:0:1jR26:3:1d0R13oR14R15R16i711R17i709gR18r9ghR13oR14R15R16i712R17i646gR18r9gR13oR14R15R16i713R17i630gR18r61goR3jR4:12:1oR3jR4:5:3r76oR3jR4:1:1r78R13oR14R15R16i730R17i725gR18r79goR3jR4:3:1oR3jR4:5:3jR30:0:0oR3jR4:1:1r7R13oR14R15R16i738R17i734gR18r9goR3jR4:5:3r76oR3jR4:1:1oR5r8R7y9:specColorR9jR10:5:2i3r31R11i-51gR13oR14R15R16i750R17i741gR18r211goR3jR4:8:2oR3jR4:2:1jR12:8:0R13oR14R15R16i756R17i753gR18jR10:13:1aoR1aoR7R33R9r9gr19hR21r9ghgaoR3jR4:1:1r129R13oR14R15R16i766R17i757gR18r9goR3jR4:1:1oR5r8R7y9:specPowerR9r9R11i-50gR13oR14R15R16i777R17i768gR18r9ghR13oR14R15R16i778R17i753gR18r9gR13oR14R15R16i778R17i741gR18r211gR13oR14R15R16i778R17i734gR18r211gR13oR14R15R16i779R17i733gR18r211gR13oR14R15R16i779R17i725gR18jR10:5:2i3r31gR13oR14R15R16i779R17i718gR18r61ghR13oR14R15R16i785R17i451gR18r61gR5jy17:hxsl.FunctionKind:3:0y3:refoR5jR6:6:0R7y12:calcLightingR9jR10:13:1aoR1ahR21jR10:5:2i3r31ghR11i-52gR21r253goR1ahR2oR3jR4:4:1aoR3jR4:5:3jR30:20:1r204oR3jR4:9:2oR3jR4:1:1oR5r8R7y10:lightColorR9jR10:5:2i3r31R11i-46gR13oR14R15R16i825R17i815gR18r264gajy14:hxsl.Component:0:0jR45:1:0jR45:2:0hR13oR14R15R16i829R17i815gR18jR10:5:2i3r31goR3jR4:8:2oR3jR4:1:1r248R13oR14R15R16i845R17i833gR18r254gahR13oR14R15R16i847R17i833gR18r253gR13oR14R15R16i847R17i815gR18r273ghR13oR14R15R16i853R17i809gR18r61gR5jR41:0:0R42oR5r249R7y6:vertexR9jR10:13:1aoR1ahR21r61ghR11i-53gR21r61goR1ahR2oR3jR4:4:1aoR3jR4:5:3jR30:20:1r204oR3jR4:9:2oR3jR4:1:1oR5r8R7y15:lightPixelColorR9jR10:5:2i3r31R11i-47gR13oR14R15R16i900R17i885gR18r300gar268r269r270hR13oR14R15R16i904R17i885gR18jR10:5:2i3r31goR3jR4:8:2oR3jR4:1:1r248R13oR14R15R16i920R17i908gR18r254gahR13oR14R15R16i922R17i908gR18r253gR13oR14R15R16i922R17i885gR18r306ghR13oR14R15R16i928R17i879gR18r61gR5jR41:1:0R42oR5r249R7y8:fragmentR9jR10:13:1aoR1ahR21r61ghR11i-54gR21r61ghR7y19:h3d.shader.DirLighty4:varsar286r66r38r263r210r319r248r171r78r177r44r229r299hg";
-h3d_shader_LineShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey3:diry4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-137goR3jR4:5:3jy16:haxe.macro.Binop:1:0oR3jR4:1:1oR5jR6:1:0R7y6:normalR9jR10:5:2i3r11y6:parentoR5r17R7y5:inputR9jR10:12:1aoR5r17R7y8:positionR9jR10:5:2i3r11R15r19R12i-124gr16oR5r17R7y2:uvR9jR10:5:2i2r11R15r19R12i-126ghR12i-123gR12i-125gy1:poy4:filey73:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FLineShader.hxy3:maxi683y3:mini671gy1:tr18goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:48:0R19oR20R21R22i702R23i686gR24jR10:13:1ahgaoR3jR4:1:1oR5jR6:0:0R7y9:modelViewR9jR10:7:0R15oR5r38R7y6:globalR9jR10:12:1aoR5r38R7y9:pixelSizeR9jR10:5:2i2r11R15r40R12i-121gr37hR12i-120gy10:qualifiersajy17:hxsl.VarQualifier:3:0hR12i-122gR19oR20R21R22i702R23i686gR24r39ghR19oR20R21R22i709R23i686gR24jR10:6:0gR19oR20R21R22i709R23i671gR24r12gR19oR20R21R22i710R23i661gR24jR10:0:0goR3jR4:5:3jR13:4:0oR3jR4:1:1oR5r10R7y4:pdirR9jR10:5:2i4r11R12i-134gR19oR20R21R22i734R23i730gR24r61goR3jR4:5:3r14oR3jR4:8:2oR3jR4:2:1jR25:40:0R19oR20R21R22i741R23i737gR24jR10:13:1ahgaoR3jR4:5:3r14oR3jR4:1:1r9R19oR20R21R22i745R23i742gR24r12goR3jR4:8:2oR3jR4:2:1r30R19oR20R21R22i752R23i748gR24jR10:13:1ahgaoR3jR4:1:1oR5r38R7y4:viewR9r39R15oR5r38R7y6:cameraR9jR10:12:1ar85oR5r38R7y4:projR9r39R15r86R12i-118goR5r38R7y8:viewProjR9r39R15r86R12i-119ghR12i-116gR12i-117gR19oR20R21R22i764R23i753gR24r39ghR19oR20R21R22i765R23i748gR24r51gR19oR20R21R22i765R23i742gR24r12goR3jR4:0:1jy10:hxsl.Const:3:1i1R19oR20R21R22i768R23i767gR24jR10:3:0ghR19oR20R21R22i769R23i737gR24jR10:5:2i4r11goR3jR4:1:1r88R19oR20R21R22i783R23i772gR24r39gR19oR20R21R22i783R23i737gR24jR10:5:2i4r11gR19oR20R21R22i783R23i730gR24r61goR3jR4:5:3jR13:20:1r14oR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i794R23i790gR24r61gajy14:hxsl.Component:0:0jR37:1:0hR19oR20R21R22i797R23i790gR24jR10:5:2i2r11goR3jR4:5:3jR13:2:0oR3jR4:0:1jR36:3:1i1R19oR20R21R22i802R23i801gR24r101goR3jR4:8:2oR3jR4:2:1jR25:13:0R19oR20R21R22i809R23i805gR24jR10:13:1aoR1aoR7y5:valueR9r101ghy3:retr101ghgaoR3jR4:5:3jR13:0:0oR3jR4:5:3r14oR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i814R23i810gR24r61gar120hR19oR20R21R22i816R23i810gR24r101goR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i823R23i819gR24r61gar120hR19oR20R21R22i825R23i819gR24r101gR19oR20R21R22i825R23i810gR24r101goR3jR4:5:3r14oR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i832R23i828gR24r61gar121hR19oR20R21R22i834R23i828gR24r101goR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i841R23i837gR24r61gar121hR19oR20R21R22i843R23i837gR24r101gR19oR20R21R22i843R23i828gR24r101gR19oR20R21R22i843R23i810gR24r101ghR19oR20R21R22i844R23i805gR24r101gR19oR20R21R22i844R23i801gR24r101gR19oR20R21R22i844R23i790gR24r124goR3jR4:5:3jR13:20:1r143oR3jR4:1:1oR5r10R7y19:transformedPositionR9jR10:5:2i3r11R12i-130gR19oR20R21R22i870R23i851gR24r190goR3jR4:5:3r14oR3jR4:5:3r14oR3jR4:1:1r9R19oR20R21R22i877R23i874gR24r12goR3jR4:9:2oR3jR4:1:1r23R19oR20R21R22i888R23i880gR24r24gar120hR19oR20R21R22i890R23i880gR24r101gR19oR20R21R22i890R23i874gR24r12goR3jR4:1:1oR5jR6:2:0R7y11:lengthScaleR9r101R12i-132gR19oR20R21R22i904R23i893gR24r101gR19oR20R21R22i904R23i874gR24r12gR19oR20R21R22i904R23i851gR24r190goR3jR4:5:3r58oR3jR4:1:1oR5r10R7y17:transformedNormalR9jR10:5:2i3r11R12i-129gR19oR20R21R22i928R23i911gR24r219goR3jR4:8:2oR3jR4:2:1jR25:31:0R19oR20R21R22i934R23i931gR24jR10:13:1aoR1aoR7y1:_R9r12ghR39r12ghgaoR3jR4:1:1r9R19oR20R21R22i934R23i931gR24r12ghR19oR20R21R22i946R23i931gR24r12gR19oR20R21R22i946R23i911gR24r219ghR19oR20R21R22i953R23i654gR24r56ghR19oR20R21R22i958R23i648gR24r56gR5jy17:hxsl.FunctionKind:2:0y3:refoR5jR6:6:0R7y8:__init__R9jR10:13:1aoR1ahR39r56ghR12i-135gR39r56goR1ahR2oR3jR4:4:1aoR3jR4:5:3jR13:20:1r143oR3jR4:9:2oR3jR4:1:1oR5r10R7y17:projectedPositionR9jR10:5:2i4r11R12i-131gR19oR20R21R22i1005R23i988gR24r260gar120r121hR19oR20R21R22i1008R23i988gR24jR10:5:2i2r11goR3jR4:5:3r14oR3jR4:5:3r14oR3jR4:5:3r14oR3jR4:5:3r14oR3jR4:3:1oR3jR4:5:3r14oR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i1017R23i1013gR24r61gar121r120hR19oR20R21R22i1020R23i1013gR24jR10:5:2i2r11goR3jR4:8:2oR3jR4:2:1jR25:38:0R19oR20R21R22i1027R23i1023gR24jR10:13:1ahgaoR3jR4:0:1jR36:3:1i1R19oR20R21R22i1029R23i1028gR24r101goR3jR4:0:1jR36:3:1i-1R19oR20R21R22i1032R23i1030gR24r101ghR19oR20R21R22i1033R23i1023gR24jR10:5:2i2r11gR19oR20R21R22i1033R23i1013gR24jR10:5:2i2r11gR19oR20R21R22i1034R23i1012gR24r302goR3jR4:3:1oR3jR4:5:3jR13:3:0oR3jR4:9:2oR3jR4:1:1r23R19oR20R21R22i1046R23i1038gR24r24gar121hR19oR20R21R22i1048R23i1038gR24r101goR3jR4:0:1jR36:3:1d0.5R19oR20R21R22i1054R23i1051gR24r101gR19oR20R21R22i1054R23i1038gR24r101gR19oR20R21R22i1055R23i1037gR24r101gR19oR20R21R22i1055R23i1012gR24r302goR3jR4:9:2oR3jR4:1:1r259R19oR20R21R22i1075R23i1058gR24r260gajR37:2:0hR19oR20R21R22i1077R23i1058gR24r101gR19oR20R21R22i1077R23i1012gR24r302goR3jR4:1:1r42R19oR20R21R22i1096R23i1080gR24r43gR19oR20R21R22i1096R23i1012gR24jR10:5:2i2r11goR3jR4:1:1oR5r209R7y5:widthR9r101R12i-133gR19oR20R21R22i1104R23i1099gR24r101gR19oR20R21R22i1104R23i1012gR24r340gR19oR20R21R22i1104R23i988gR24r266ghR19oR20R21R22i1110R23i982gR24r56gR5jR44:0:0R45oR5r246R7y6:vertexR9jR10:13:1aoR1ahR39r56ghR12i-136gR39r56ghR7y21:h3d.shader.LineShadery4:varsar259r352r218r245r208r60r86oR5jR6:5:0R7y6:outputR9jR10:12:1aoR5r359R7R17R9jR10:5:2i4r11R15r358R12i-128ghR12i-127gr40r19r189r342hg";
-h3d_shader_Shadow.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:10:3oR3jR4:6:2jy15:haxe.macro.Unop:2:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:2:0y4:namey8:perPixely4:typejy9:hxsl.Type:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhy2:idi-159gy1:poy4:filey69:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FShadow.hxy3:maxi416y3:mini408gy1:tr12gR15oR16R17R18i416R19i407gR20r12goR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oR6jR7:3:0R8y9:shadowPosR10jR11:5:2i3jy12:hxsl.VecType:1:0R12ajR13:1:0hR14i-158gR15oR16R17R18i428R19i419gR20r25goR3jR4:5:3jR21:0:0oR3jR4:5:3jR21:1:0oR3jR4:5:3r33oR3jR4:1:1oR6jR7:4:0R8y19:transformedPositionR10jR11:5:2i3r24R14i-156gR15oR16R17R18i450R19i431gR20r38goR3jR4:1:1oR6jR7:0:0R8y4:projR10jR11:8:0y6:parentoR6r43R8y6:shadowR10jR11:12:1aoR6r43R8y3:mapR10jR11:10:0R26r45R14i-150gr42oR6r43R8y5:colorR10jR11:5:2i3r24R26r45R14i-152goR6r43R8y5:powerR10jR11:3:0R26r45R14i-153goR6r43R8y4:biasR10r52R26r45R14i-154ghR14i-149gR14i-151gR15oR16R17R18i464R19i453gR20r44gR15oR16R17R18i464R19i431gR20jR11:5:2i3r24goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:39:0R15oR16R17R18i471R19i467gR20jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0.5R15oR16R17R18i475R19i472gR20r52goR3jR4:0:1jR33:3:1d-0.5R15oR16R17R18i481R19i477gR20r52goR3jR4:0:1jR33:3:1i1R15oR16R17R18i484R19i483gR20r52ghR15oR16R17R18i485R19i467gR20jR11:5:2i3r24gR15oR16R17R18i485R19i431gR20jR11:5:2i3r24goR3jR4:8:2oR3jR4:2:1r62R15oR16R17R18i492R19i488gR20r66gaoR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i496R19i493gR20r52goR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i501R19i498gR20r52goR3jR4:0:1jR33:3:1zR15oR16R17R18i504R19i503gR20r52ghR15oR16R17R18i505R19i488gR20jR11:5:2i3r24gR15oR16R17R18i505R19i431gR20jR11:5:2i3r24gR15oR16R17R18i505R19i419gR20r25gnR15oR16R17R18i505R19i403gR20jR11:0:0ghR15oR16R17R18i511R19i397gR20r113gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr113ghR14i-160gR37r113goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r37R8R22R10jR11:5:2i3r24R14i-162goR3jR4:10:3oR3jR4:1:1r10R15oR16R17R18i573R19i565gR20r12goR3jR4:5:3r31oR3jR4:5:3r33oR3jR4:5:3r33oR3jR4:1:1oR6r37R8y24:pixelTransformedPositionR10jR11:5:2i3r24R14i-157gR15oR16R17R18i600R19i576gR20r139goR3jR4:1:1r42R15oR16R17R18i614R19i603gR20r44gR15oR16R17R18i614R19i576gR20r59goR3jR4:8:2oR3jR4:2:1r62R15oR16R17R18i621R19i617gR20r66gaoR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i625R19i622gR20r52goR3jR4:0:1jR33:3:1d-0.5R15oR16R17R18i631R19i627gR20r52goR3jR4:0:1jR33:3:1i1R15oR16R17R18i634R19i633gR20r52ghR15oR16R17R18i635R19i617gR20jR11:5:2i3r24gR15oR16R17R18i635R19i576gR20jR11:5:2i3r24goR3jR4:8:2oR3jR4:2:1r62R15oR16R17R18i642R19i638gR20r66gaoR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i646R19i643gR20r52goR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i651R19i648gR20r52goR3jR4:0:1jR33:3:1zR15oR16R17R18i654R19i653gR20r52ghR15oR16R17R18i655R19i638gR20jR11:5:2i3r24gR15oR16R17R18i655R19i576gR20r129goR3jR4:1:1r22R15oR16R17R18i670R19i661gR20r25gR15oR16R17R18i670R19i561gR20r129gR15oR16R17R18i671R19i545gR20r113goR3jR4:7:2oR6r37R8y5:depthR10r52R14i-163goR3jR4:8:2oR3jR4:2:1jR32:53:0R15oR16R17R18i696R19i690gR20jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r24ghR37r52ghgaoR3jR4:8:2oR3jR4:2:1jR32:33:0R15oR16R17R18i707R19i697gR20jR11:13:1aoR1aoR8y1:_R10r48goR8y2:uvR10jR11:5:2i2r24ghR37jR11:5:2i4r24ghgaoR3jR4:1:1r47R15oR16R17R18i707R19i697gR20r48goR3jR4:9:2oR3jR4:1:1r128R15oR16R17R18i721R19i712gR20r129gajy14:hxsl.Component:0:0jR43:1:0hR15oR16R17R18i724R19i712gR20jR11:5:2i2r24ghR15oR16R17R18i725R19i697gR20r224ghR15oR16R17R18i726R19i690gR20r52gR15oR16R17R18i727R19i678gR20r113goR3jR4:7:2oR6r37R8y4:zMaxR10r52R14i-164goR3jR4:8:2oR3jR4:2:1jR32:51:0R15oR16R17R18i919R19i908gR20jR11:13:1aoR1aoR8R41R10r52ghR37r52ghgaoR3jR4:9:2oR3jR4:1:1r128R15oR16R17R18i917R19i908gR20r129gajR43:2:0hR15oR16R17R18i919R19i908gR20r52ghR15oR16R17R18i930R19i908gR20r52gR15oR16R17R18i931R19i897gR20r113goR3jR4:7:2oR6r37R8y5:deltaR10r52R14i-165goR3jR4:5:3jR21:3:0oR3jR4:8:2oR3jR4:2:1jR32:21:0R15oR16R17R18i969R19i948gR20jR11:13:1aoR1aoR8R41R10r52goR8y1:bR10r52ghR37r52ghgaoR3jR4:3:1oR3jR4:5:3r31oR3jR4:1:1r200R15oR16R17R18i954R19i949gR20r52goR3jR4:1:1r53R15oR16R17R18i968R19i957gR20r52gR15oR16R17R18i968R19i949gR20r52gR15oR16R17R18i969R19i948gR20r52goR3jR4:1:1r247R15oR16R17R18i978R19i974gR20r52ghR15oR16R17R18i979R19i948gR20r52goR3jR4:1:1r247R15oR16R17R18i986R19i982gR20r52gR15oR16R17R18i986R19i948gR20r52gR15oR16R17R18i987R19i936gR20r113goR3jR4:7:2oR6r37R8y5:shadeR10r52R14i-166goR3jR4:8:2oR3jR4:2:1r250R15oR16R17R18i1032R19i1004gR20jR11:13:1aoR1aoR8R41R10r52ghR37r52ghgaoR3jR4:8:2oR3jR4:2:1jR32:9:0R15oR16R17R18i1007R19i1004gR20jR11:13:1aoR1aoR8R40R10r52ghR37r52ghgaoR3jR4:5:3r33oR3jR4:1:1r51R15oR16R17R18i1021R19i1009gR20r52goR3jR4:1:1r272R15oR16R17R18i1029R19i1024gR20r52gR15oR16R17R18i1029R19i1009gR20r52ghR15oR16R17R18i1032R19i1004gR20r52ghR15oR16R17R18i1043R19i1004gR20r52gR15oR16R17R18i1044R19i992gR20r113goR3jR4:5:3jR21:20:1r33oR3jR4:9:2oR3jR4:1:1oR6r37R8y10:pixelColorR10jR11:5:2i4r24R14i-155gR15oR16R17R18i1059R19i1049gR20r354gar235r236r264hR15oR16R17R18i1063R19i1049gR20jR11:5:2i3r24goR3jR4:5:3r31oR3jR4:5:3r33oR3jR4:3:1oR3jR4:5:3r274oR3jR4:0:1jR33:3:1i1R15oR16R17R18i1069R19i1068gR20r52goR3jR4:1:1r312R15oR16R17R18i1077R19i1072gR20r52gR15oR16R17R18i1077R19i1068gR20r52gR15oR16R17R18i1078R19i1067gR20r52goR3jR4:9:2oR3jR4:1:1r49R15oR16R17R18i1093R19i1081gR20r50gar235r236r264hR15oR16R17R18i1097R19i1081gR20jR11:5:2i3r24gR15oR16R17R18i1097R19i1067gR20r383goR3jR4:1:1r312R15oR16R17R18i1105R19i1100gR20r52gR15oR16R17R18i1105R19i1067gR20r383gR15oR16R17R18i1105R19i1049gR20r360ghR15oR16R17R18i1111R19i537gR20r113gR6jR34:1:0R35oR6r118R8y8:fragmentR10jR11:13:1aoR1ahR37r113ghR14i-161gR37r113ghR8y17:h3d.shader.Shadowy4:varsar117r396r45r22r36r353r138r10hg";
-h3d_shader_Skin.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey19:transformedPositiony4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-144gy1:poy4:filey67:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FSkin.hxy3:maxi538y3:mini519gy1:tr12goR3jR4:5:3jR5:0:0oR3jR4:5:3r16oR3jR4:5:3jR5:1:0oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1oR6r10R8y16:relativePositionR10jR11:5:2i3r11R13i-143gR14oR15R16R17i563R18i547gR19r24goR3jR4:16:2oR3jR4:1:1oR6jR7:2:0R8y13:bonesMatrixesR10jR11:14:2jR11:8:0jy13:hxsl.SizeDecl:1:1oR6r30R8y8:MaxBonesR10jR11:1:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-146gR13i-147gR14oR15R16R17i579R18i566gR19r37goR3jR4:9:2oR3jR4:1:1oR6jR7:1:0R8y7:indexesR10jR11:9:1i4y6:parentoR6r43R8y5:inputR10jR11:12:1aoR6r43R8y8:positionR10jR11:5:2i3r11R27r45R13i-139goR6r43R8y6:normalR10jR11:5:2i3r11R27r45R13i-140goR6r43R8y7:weightsR10jR11:5:2i3r11R27r45R13i-141gr42hR13i-138gR13i-142gR14oR15R16R17i593R18i580gR19r44gajy14:hxsl.Component:0:0hR14oR15R16R17i595R18i580gR19r33gR14oR15R16R17i596R18i566gR19r31gR14oR15R16R17i596R18i547gR19jR11:5:2i3r11gR14oR15R16R17i597R18i546gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i613R18i600gR19r52gar57hR14oR15R16R17i615R18i600gR19jR11:3:0gR14oR15R16R17i615R18i546gR19r64goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r23R14oR15R16R17i640R18i624gR19r24goR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i656R18i643gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i670R18i657gR19r44gajR32:1:0hR14oR15R16R17i672R18i657gR19r33gR14oR15R16R17i673R18i643gR19r31gR14oR15R16R17i673R18i624gR19r64gR14oR15R16R17i674R18i623gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i690R18i677gR19r52gar92hR14oR15R16R17i692R18i677gR19r74gR14oR15R16R17i692R18i623gR19r64gR14oR15R16R17i692R18i546gR19jR11:5:2i3r11goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r23R14oR15R16R17i717R18i701gR19r24goR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i733R18i720gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i747R18i734gR19r44gajR32:2:0hR14oR15R16R17i749R18i734gR19r33gR14oR15R16R17i750R18i720gR19r31gR14oR15R16R17i750R18i701gR19r64gR14oR15R16R17i751R18i700gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i767R18i754gR19r52gar128hR14oR15R16R17i769R18i754gR19r74gR14oR15R16R17i769R18i700gR19r64gR14oR15R16R17i769R18i546gR19jR11:5:2i3r11gR14oR15R16R17i769R18i519gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:transformedNormalR10jR11:5:2i3r11R13i-145gR14oR15R16R17i792R18i775gR19r154goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:31:0R14oR15R16R17i804R18i795gR19jR11:13:1aoR1aoR8y5:valueR10r64ghy3:retr64ghgaoR3jR4:5:3r16oR3jR4:5:3r16oR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r49R14oR15R16R17i824R18i812gR19r50goR3jR4:8:2oR3jR4:2:1jR34:48:0R14oR15R16R17i831R18i827gR19jR11:13:1ahgaoR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i845R18i832gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i859R18i846gR19r44gar57hR14oR15R16R17i861R18i846gR19r33gR14oR15R16R17i862R18i832gR19r31ghR14oR15R16R17i863R18i827gR19jR11:6:0gR14oR15R16R17i863R18i812gR19r64gR14oR15R16R17i864R18i811gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i880R18i867gR19r52gar57hR14oR15R16R17i882R18i867gR19r74gR14oR15R16R17i882R18i811gR19r64goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r49R14oR15R16R17i903R18i891gR19r50goR3jR4:8:2oR3jR4:2:1r178R14oR15R16R17i910R18i906gR19r182gaoR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i924R18i911gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i938R18i925gR19r44gar92hR14oR15R16R17i940R18i925gR19r33gR14oR15R16R17i941R18i911gR19r31ghR14oR15R16R17i942R18i906gR19r199gR14oR15R16R17i942R18i891gR19r64gR14oR15R16R17i943R18i890gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i959R18i946gR19r52gar92hR14oR15R16R17i961R18i946gR19r74gR14oR15R16R17i961R18i890gR19r64gR14oR15R16R17i961R18i811gR19jR11:5:2i3r11goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r49R14oR15R16R17i982R18i970gR19r50goR3jR4:8:2oR3jR4:2:1r178R14oR15R16R17i989R18i985gR19r182gaoR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i1003R18i990gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i1017R18i1004gR19r44gar128hR14oR15R16R17i1019R18i1004gR19r33gR14oR15R16R17i1020R18i990gR19r31ghR14oR15R16R17i1021R18i985gR19r199gR14oR15R16R17i1021R18i970gR19r64gR14oR15R16R17i1022R18i969gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i1038R18i1025gR19r52gar128hR14oR15R16R17i1040R18i1025gR19r74gR14oR15R16R17i1040R18i969gR19r64gR14oR15R16R17i1040R18i811gR19jR11:5:2i3r11ghR14oR15R16R17i1041R18i795gR19r64gR14oR15R16R17i1041R18i775gR19r154ghR14oR15R16R17i1056R18i420gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahR36r303ghR13i-148gR36r303ghR8y15:h3d.shader.Skiny4:varsar305r153r29r23r45r9r32hg";
-h3d_shader_SpecularTexture.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:1:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey9:specColory4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-60gy1:poy4:filey78:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FSpecularTexture.hxy3:maxi218y3:mini209gy1:tr13goR3jR4:9:2oR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:33:0R14oR15R16R17i229R18i222gR19jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8y2:uvR10jR11:5:2i2r12ghy3:retjR11:5:2i4r12ghgaoR3jR4:1:1oR6jR7:2:0R8y7:textureR10r26R13i-58gR14oR15R16R17i229R18i222gR19r26goR3jR4:1:1oR6r11R8y12:calculatedUVR10jR11:5:2i2r12R13i-59gR14oR15R16R17i246R18i234gR19r39ghR14oR15R16R17i247R18i222gR19r29gajy14:hxsl.Component:0:0jR26:1:0jR26:2:0hR14oR15R16R17i251R18i222gR19jR11:5:2i3r12gR14oR15R16R17i251R18i209gR19r13ghR14oR15R16R17i257R18i203gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahR23r55ghR13i-61gR23r55ghR8y26:h3d.shader.SpecularTexturey4:varsar38r10r57r33hg";
-h3d_shader_Texture.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey12:calculatedUVy4:typejy9:hxsl.Type:5:2i2jy12:hxsl.VecType:1:0y2:idi-69gy1:poy4:filey70:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FTexture.hxy3:maxi443y3:mini431gy1:tr12goR3jR4:1:1oR6jR7:1:0R8y2:uvR10jR11:5:2i2r11y6:parentoR6r17R8y5:inputR10jR11:12:1ar16hR13i-62gR13i-63gR14oR15R16R17i454R18i446gR19r18gR14oR15R16R17i454R18i431gR19r12ghR14oR15R16R17i460R18i425gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr28ghR13i-72gR26r28goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8y1:cR10jR11:5:2i4r11R13i-74goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:33:0R14oR15R16R17i507R18i500gR19jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8R20R10jR11:5:2i2r11ghR26r42ghgaoR3jR4:1:1oR6jR7:2:0R8y7:textureR10r52R13i-68gR14oR15R16R17i507R18i500gR19r52goR3jR4:1:1r9R14oR15R16R17i524R18i512gR19r12ghR14oR15R16R17i525R18i500gR19r42gR14oR15R16R17i526R18i492gR19r28goR3jR4:10:3oR3jR4:5:3jR5:14:0oR3jR4:1:1oR6r59R8y9:killAlphaR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-65gR14oR15R16R17i544R18i535gR19r74goR3jR4:5:3jR5:9:0oR3jR4:5:3jR5:3:0oR3jR4:9:2oR3jR4:1:1r41R14oR15R16R17i549R18i548gR19r42gajy14:hxsl.Component:3:0hR14oR15R16R17i551R18i548gR19jR11:3:0goR3jR4:1:1oR6r59R8y18:killAlphaThresholdR10r91R32ajR33:7:2d0d1hR13i-67gR14oR15R16R17i572R18i554gR19r91gR14oR15R16R17i572R18i548gR19r91goR3jR4:0:1jy10:hxsl.Const:3:1zR14oR15R16R17i576R18i575gR19r91gR14oR15R16R17i576R18i548gR19r74gR14oR15R16R17i576R18i535gR19r74goR3jR4:11:0R14oR15R16R17i586R18i579gR19r28gnR14oR15R16R17i586R18i531gR19r28goR3jR4:10:3oR3jR4:1:1oR6r59R8y8:additiveR10r74R32ajR33:0:1nhR13i-64gR14oR15R16R17i604R18i596gR19r74goR3jR4:5:3jR5:20:1jR5:0:0oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-70gR14oR15R16R17i622R18i612gR19r125goR3jR4:1:1r41R14oR15R16R17i627R18i626gR19r42gR14oR15R16R17i627R18i612gR19r125goR3jR4:5:3jR5:20:1jR5:1:0oR3jR4:1:1r124R14oR15R16R17i653R18i643gR19r125goR3jR4:1:1r41R14oR15R16R17i658R18i657gR19r42gR14oR15R16R17i658R18i643gR19r125gR14oR15R16R17i658R18i592gR19r28goR3jR4:10:3oR3jR4:1:1oR6r59R8y13:specularAlphaR10r74R32ajR33:0:1nhR13i-66gR14oR15R16R17i681R18i668gR19r74goR3jR4:5:3jR5:20:1r134oR3jR4:1:1oR6r10R8y9:specColorR10jR11:5:2i3r11R13i-71gR14oR15R16R17i698R18i689gR19r157goR3jR4:9:2oR3jR4:1:1r41R14oR15R16R17i703R18i702gR19r42gar88r88r88hR14oR15R16R17i707R18i702gR19jR11:5:2i3r11gR14oR15R16R17i707R18i689gR19r157gnR14oR15R16R17i707R18i664gR19r28ghR14oR15R16R17i713R18i486gR19r28gR6jR23:1:0R24oR6r31R8y8:fragmentR10jR11:13:1aoR1ahR26r28ghR13i-73gR26r28ghR8y18:h3d.shader.Texturey4:varsar9r30r156r175r115r58r148r93r19r73r124hg";
-h3d_shader_UVDelta.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:0:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey12:calculatedUVy4:typejy9:hxsl.Type:5:2i2jy12:hxsl.VecType:1:0y2:idi-314gy1:poy4:filey70:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FUVDelta.hxy3:maxi179y3:mini167gy1:tr13goR3jR4:1:1oR6jR7:2:0R8y7:uvDeltaR10jR11:5:2i2r12R13i-313gR14oR15R16R17i190R18i183gR19r19gR14oR15R16R17i190R18i167gR19r13ghR14oR15R16R17i196R18i161gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr26ghR13i-315gR24r26ghR8y18:h3d.shader.UVDeltay4:varsar10r28r17hg";
-h3d_shader_VertexColorAlpha.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:10:3oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:2:0y4:namey8:additivey4:typejy9:hxsl.Type:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhy2:idi-219gy1:poy4:filey79:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FVertexColorAlpha.hxy3:maxi245y3:mini237gy1:tr10goR3jR4:5:3jy16:haxe.macro.Binop:20:1jR20:0:0oR3jR4:1:1oR5jR6:4:0R7y10:pixelColorR9jR10:5:2i4jy12:hxsl.VecType:1:0R13i-218gR14oR15R16R17i263R18i253gR19r22goR3jR4:1:1oR5jR6:1:0R7y5:colorR9jR10:5:2i4r21y6:parentoR5r27R7y5:inputR9jR10:12:1ar26hR13i-216gR13i-217gR14oR15R16R17i278R18i267gR19r28gR14oR15R16R17i278R18i253gR19r22goR3jR4:5:3jR20:20:1jR20:1:0oR3jR4:1:1r19R14oR15R16R17i304R18i294gR19r22goR3jR4:1:1r26R14oR15R16R17i319R18i308gR19r28gR14oR15R16R17i319R18i294gR19r22gR14oR15R16R17i319R18i233gR19jR10:0:0ghR14oR15R16R17i325R18i227gR19r49gR5jy17:hxsl.FunctionKind:1:0y3:refoR5jR6:6:0R7y8:fragmentR9jR10:13:1aoR1ahy3:retr49ghR13i-220gR29r49ghR7y27:h3d.shader.VertexColorAlphay4:varsar53r8r29r19hg";
-h3d_shader_VolumeDecal.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey17:transformedNormaly4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-193gy1:poy4:filey74:%2Fhome%2Fgrabli66%2FHaxelib%2Fheaps%2Fgit%2Fh3d%2Fshader%2FVolumeDecal.hxy3:maxi282y3:mini265gy1:tr12goR3jR4:1:1oR6jR7:2:0R8y6:normalR10jR11:5:2i3r11R13i-206gR14oR15R16R17i291R18i285gR19r18gR14oR15R16R17i291R18i265gR19r12ghR14oR15R16R17i297R18i259gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr25ghR13i-208gR24r25goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8y6:matrixR10jR11:7:0R13i-210goR3jR4:5:3jR5:1:0oR3jR4:1:1oR6jR7:0:0R8y15:inverseViewProjR10r39y6:parentoR6r44R8y6:cameraR10jR11:12:1aoR6r44R8y4:viewR10r39R27r45R13i-168goR6r44R8y4:projR10r39R27r45R13i-169goR6r44R8y8:positionR10jR11:5:2i3r11R27r45R13i-170goR6r44R8y8:projDiagR10jR11:5:2i3r11R27r45R13i-171goR6r44R8y8:viewProjR10r39R27r45R13i-172gr43oR6r44R8y5:zNearR10jR11:3:0R27r45R13i-174goR6r44R8y4:zFarR10r55R27r45R13i-175goR6jR7:3:0R8y3:dirR10jR11:5:2i3r11R27r45R13i-176ghR13i-167gR13i-173gR14oR15R16R17i364R18i342gR19r39goR3jR4:1:1oR6r44R8y16:modelViewInverseR10r39R27oR6r44R8y6:globalR10jR11:12:1aoR6r44R8y4:timeR10r55R27r65R13i-178goR6r44R8y9:pixelSizeR10jR11:5:2i2r11R27r65R13i-179goR6r44R8y9:modelViewR10r39R27r65y10:qualifiersajy17:hxsl.VarQualifier:3:0hR13i-180gr64hR13i-177gR42ar72hR13i-181gR14oR15R16R17i390R18i367gR19r39gR14oR15R16R17i390R18i342gR19r39gR14oR15R16R17i391R18i329gR19r25goR3jR4:7:2oR6r10R8y9:screenPosR10jR11:5:2i2r11R13i-211goR3jR4:5:3jR5:2:0oR3jR4:9:2oR3jR4:1:1oR6r10R8y17:projectedPositionR10jR11:5:2i4r11R13i-194gR14oR15R16R17i429R18i412gR19r89gajy14:hxsl.Component:0:0jR46:1:0hR14oR15R16R17i432R18i412gR19r83goR3jR4:9:2oR3jR4:1:1r88R14oR15R16R17i452R18i435gR19r89gajR46:3:0hR14oR15R16R17i454R18i435gR19r55gR14oR15R16R17i454R18i412gR19r83gR14oR15R16R17i455R18i396gR19r25goR3jR4:7:2oR6r10R8y3:tuvR10jR11:5:2i2r11R13i-212goR3jR4:5:3jR5:0:0oR3jR4:5:3r41oR3jR4:1:1r82R14oR15R16R17i479R18i470gR19r83goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:38:0R14oR15R16R17i486R18i482gR19jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0.5R14oR15R16R17i490R18i487gR19r55goR3jR4:0:1jR49:3:1d-0.5R14oR15R16R17i496R18i492gR19r55ghR14oR15R16R17i497R18i482gR19jR11:5:2i2r11gR14oR15R16R17i497R18i470gR19jR11:5:2i2r11goR3jR4:8:2oR3jR4:2:1r120R14oR15R16R17i504R18i500gR19r124gaoR3jR4:0:1jR49:3:1d0.5R14oR15R16R17i508R18i505gR19r55goR3jR4:0:1jR49:3:1d0.5R14oR15R16R17i513R18i510gR19r55ghR14oR15R16R17i514R18i500gR19jR11:5:2i2r11gR14oR15R16R17i514R18i470gR19r111gR14oR15R16R17i515R18i460gR19r25goR3jR4:7:2oR6r10R8y3:ruvR10jR11:5:2i4r11R13i-213goR3jR4:8:2oR3jR4:2:1jR48:40:0R14oR15R16R17i534R18i530gR19jR11:13:1ahgaoR3jR4:1:1r82R14oR15R16R17i550R18i541gR19r83goR3jR4:8:2oR3jR4:2:1jR48:53:0R14oR15R16R17i563R18i557gR19jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r11ghR24r55ghgaoR3jR4:8:2oR3jR4:2:1jR48:33:0R14oR15R16R17i572R18i564gR19jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8y2:uvR10jR11:5:2i2r11ghR24jR11:5:2i4r11ghgaoR3jR4:1:1oR6r44R8y8:depthMapR10r195R13i-204gR14oR15R16R17i572R18i564gR19r195goR3jR4:1:1r110R14oR15R16R17i580R18i577gR19r111ghR14oR15R16R17i581R18i564gR19r198ghR14oR15R16R17i582R18i557gR19r55goR3jR4:0:1jR49:3:1i1R14oR15R16R17i590R18i589gR19r55ghR14oR15R16R17i596R18i530gR19r162gR14oR15R16R17i597R18i520gR19r25goR3jR4:7:2oR6r10R8y4:wposR10r198R13i-214goR3jR4:5:3r41oR3jR4:1:1r161R14oR15R16R17i616R18i613gR19r162goR3jR4:1:1r38R14oR15R16R17i625R18i619gR19r39gR14oR15R16R17i625R18i613gR19r198gR14oR15R16R17i626R18i602gR19r25goR3jR4:7:2oR6r10R8y4:pposR10r198R13i-215goR3jR4:5:3r41oR3jR4:1:1r161R14oR15R16R17i645R18i642gR19r162goR3jR4:1:1r43R14oR15R16R17i670R18i648gR19r39gR14oR15R16R17i670R18i642gR19r198gR14oR15R16R17i671R18i631gR19r25goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y24:pixelTransformedPositionR10jR11:5:2i3r11R13i-192gR14oR15R16R17i700R18i676gR19r249goR3jR4:5:3r85oR3jR4:9:2oR3jR4:1:1r234R14oR15R16R17i707R18i703gR19r198gar93r94jR46:2:0hR14oR15R16R17i711R18i703gR19jR11:5:2i3r11goR3jR4:9:2oR3jR4:1:1r234R14oR15R16R17i718R18i714gR19r198gar102hR14oR15R16R17i720R18i714gR19r55gR14oR15R16R17i720R18i703gR19r261gR14oR15R16R17i720R18i676gR19r249goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y12:calculatedUVR10jR11:5:2i2r11R13i-207gR14oR15R16R17i738R18i726gR19r276goR3jR4:5:3r113oR3jR4:5:3r41oR3jR4:1:1oR6r17R8y5:scaleR10jR11:5:2i2r11R13i-205gR14oR15R16R17i746R18i741gR19r283goR3jR4:3:1oR3jR4:5:3r85oR3jR4:9:2oR3jR4:1:1r221R14oR15R16R17i754R18i750gR19r198gar93r94hR14oR15R16R17i757R18i750gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r221R14oR15R16R17i764R18i760gR19r198gar102hR14oR15R16R17i766R18i760gR19r55gR14oR15R16R17i766R18i750gR19r295gR14oR15R16R17i767R18i749gR19r295gR14oR15R16R17i767R18i741gR19jR11:5:2i2r11goR3jR4:0:1jR49:3:1d0.5R14oR15R16R17i773R18i770gR19r55gR14oR15R16R17i773R18i741gR19r309gR14oR15R16R17i773R18i726gR19r276goR3jR4:10:3oR3jR4:5:3jR5:9:0oR3jR4:8:2oR3jR4:2:1jR48:21:0R14oR15R16R17i786R18i783gR19jR11:13:1aoR1aoR8y1:aR10r55goR8y1:bR10r55ghR24r55ghgaoR3jR4:8:2oR3jR4:2:1r323R14oR15R16R17i790R18i787gR19jR11:13:1ar327hgaoR3jR4:9:2oR3jR4:1:1r275R14oR15R16R17i803R18i791gR19r276gar93hR14oR15R16R17i805R18i791gR19r55goR3jR4:9:2oR3jR4:1:1r275R14oR15R16R17i819R18i807gR19r276gar94hR14oR15R16R17i821R18i807gR19r55ghR14oR15R16R17i822R18i787gR19r55goR3jR4:8:2oR3jR4:2:1r323R14oR15R16R17i827R18i824gR19jR11:13:1ar327hgaoR3jR4:5:3jR5:3:0oR3jR4:0:1jR49:3:1i1R14oR15R16R17i829R18i828gR19r55goR3jR4:9:2oR3jR4:1:1r275R14oR15R16R17i844R18i832gR19r276gar93hR14oR15R16R17i846R18i832gR19r55gR14oR15R16R17i846R18i828gR19r55goR3jR4:5:3r364oR3jR4:0:1jR49:3:1i1R14oR15R16R17i849R18i848gR19r55goR3jR4:9:2oR3jR4:1:1r275R14oR15R16R17i864R18i852gR19r276gar94hR14oR15R16R17i866R18i852gR19r55gR14oR15R16R17i866R18i848gR19r55ghR14oR15R16R17i867R18i824gR19r55ghR14oR15R16R17i868R18i783gR19r55goR3jR4:0:1jR49:3:1zR14oR15R16R17i872R18i871gR19r55gR14oR15R16R17i872R18i783gR19jR11:2:0goR3jR4:11:0R14oR15R16R17i882R18i875gR19r25gnR14oR15R16R17i882R18i779gR19r25ghR14oR15R16R17i888R18i323gR19r25gR6jR21:1:0R22oR6r28R8y8:fragmentR10jR11:13:1aoR1ahR24r25ghR13i-209gR24r25ghR8y22:h3d.shader.VolumeDecaly4:varsar88oR6r10R8y5:depthR10r55R13i-196gr275r27r9r282oR6r10R8y9:specColorR10jR11:5:2i3r11R13i-199gr16r411r202oR6r10R8y16:relativePositionR10jR11:5:2i3r11R13i-190gr45oR6jR7:5:0R8y6:outputR10jR11:12:1aoR6r423R8R31R10jR11:5:2i4r11R27r422R13i-186goR6r423R8y5:colorR10jR11:5:2i4r11R27r422R13i-187goR6r423R8R65R10jR11:5:2i4r11R27r422R13i-188goR6r423R8R20R10jR11:5:2i4r11R27r422R13i-189ghR13i-185goR6r10R8y8:screenUVR10jR11:5:2i2r11R13i-197gr65oR6jR7:1:0R8y5:inputR10jR11:12:1aoR6r437R8R31R10jR11:5:2i3r11R27r436R13i-183goR6r437R8R20R10jR11:5:2i3r11R27r436R13i-184ghR13i-182goR6r10R8y19:transformedPositionR10jR11:5:2i3r11R13i-191goR6r10R8y9:specPowerR10r55R13i-198gr248oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-195ghg";
+h3d_shader_AmbientLight.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:lightColory4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-226gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FAmbientLight.hxy3:maxi349y3:mini339gy1:tr12goR3jR4:10:3oR3jR4:1:1oR6jR7:2:0R8y8:additiveR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-227gR14oR15R16R17i360R18i352gR19r19goR3jR4:1:1oR6jR7:0:0R8y12:ambientLightR10jR11:5:2i3r11y6:parentoR6r26R8y6:globalR10jR11:12:1ar25oR6r26R8y16:perPixelLightingR10r19R24r28R21ajR22:0:1nhR13i-223ghR13i-221gR13i-222gR14oR15R16R17i382R18i363gR19r27goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:39:0R14oR15R16R17i389R18i385gR19jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0R14oR15R16R17i392R18i390gR19jR11:3:0ghR14oR15R16R17i393R18i385gR19jR11:5:2i3r11gR14oR15R16R17i393R18i352gR19r27gR14oR15R16R17i393R18i339gR19r12ghR14oR15R16R17i399R18i333gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahy3:retr58ghR13i-228gR32r58goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6r10R8y15:lightPixelColorR10jR11:5:2i3r11R13i-225gR14oR15R16R17i454R18i439gR19r73goR3jR4:10:3oR3jR4:1:1r17R14oR15R16R17i465R18i457gR19r19goR3jR4:1:1r25R14oR15R16R17i487R18i468gR19r27goR3jR4:8:2oR3jR4:2:1r38R14oR15R16R17i494R18i490gR19r42gaoR3jR4:0:1jR28:3:1d0R14oR15R16R17i497R18i495gR19r48ghR14oR15R16R17i498R18i490gR19jR11:5:2i3r11gR14oR15R16R17i498R18i457gR19r27gR14oR15R16R17i498R18i439gR19r73ghR14oR15R16R17i504R18i433gR19r58gR6r59R30oR6r61R8y16:__init__fragmentR10jR11:13:1aoR1ahR32r58ghR13i-229gR32r58goR1aoR6r10R8R9R10jR11:5:2i3r11R13i-230ghR2oR3jR4:4:1aoR3jR4:12:1oR3jR4:10:3oR3jR4:1:1r17R14oR15R16R17i578R18i570gR19r19goR3jR4:1:1r108R14oR15R16R17i591R18i581gR19r109goR3jR4:3:1oR3jR4:5:3jR5:0:0oR3jR4:1:1r25R14oR15R16R17i614R18i595gR19r27goR3jR4:5:3jR5:1:0oR3jR4:8:2oR3jR4:2:1jR27:22:0R14oR15R16R17i642R18i617gR19jR11:13:1aoR1aoR8y1:_R10r27goR8y1:bR10r48ghR32jR11:5:2i3r11ghgaoR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:0:1jR28:3:1i1R14oR15R16R17i619R18i618gR19r48goR3jR4:1:1r25R14oR15R16R17i641R18i622gR19r27gR14oR15R16R17i641R18i618gR19r27gR14oR15R16R17i642R18i617gR19r27goR3jR4:0:1jR28:3:1d0R14oR15R16R17i649R18i647gR19r48ghR14oR15R16R17i650R18i617gR19r138goR3jR4:1:1r108R14oR15R16R17i663R18i653gR19r109gR14oR15R16R17i663R18i617gR19jR11:5:2i3r11gR14oR15R16R17i663R18i595gR19jR11:5:2i3r11gR14oR15R16R17i664R18i594gR19r169gR14oR15R16R17i664R18i570gR19r109gR14oR15R16R17i664R18i563gR19r58ghR14oR15R16R17i670R18i557gR19r58gR6jR29:3:0R30oR6r61R8y9:calcLightR10jR11:13:1aoR1aoR8R9R10r109ghR32jR11:5:2i3r11ghR13i-231gR32r184goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:6:2jy15:haxe.macro.Unop:2:0oR3jR4:1:1r30R14oR15R16R17i728R18i705gR19r19gR14oR15R16R17i728R18i704gR19r19goR3jR4:5:3jR5:20:1r127oR3jR4:9:2oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-224gR14oR15R16R17i741R18i731gR19r203gajy14:hxsl.Component:0:0jR40:1:0jR40:2:0hR14oR15R16R17i745R18i731gR19jR11:5:2i3r11goR3jR4:8:2oR3jR4:1:1r179R14oR15R16R17i758R18i749gR19r185gaoR3jR4:1:1r9R14oR15R16R17i769R18i759gR19r12ghR14oR15R16R17i770R18i749gR19r184gR14oR15R16R17i770R18i731gR19r212gnR14oR15R16R17i770R18i700gR19r58ghR14oR15R16R17i776R18i694gR19r58gR6jR29:0:0R30oR6r61R8y6:vertexR10jR11:13:1aoR1ahR32r58ghR13i-232gR32r58goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:1:1r30R14oR15R16R17i835R18i812gR19r19goR3jR4:5:3jR5:20:1r127oR3jR4:9:2oR3jR4:1:1r202R14oR15R16R17i848R18i838gR19r203gar207r208r209hR14oR15R16R17i852R18i838gR19jR11:5:2i3r11goR3jR4:8:2oR3jR4:1:1r179R14oR15R16R17i865R18i856gR19r185gaoR3jR4:1:1r72R14oR15R16R17i881R18i866gR19r73ghR14oR15R16R17i882R18i856gR19r184gR14oR15R16R17i882R18i838gR19r252gnR14oR15R16R17i882R18i808gR19r58ghR14oR15R16R17i888R18i802gR19r58gR6jR29:1:0R30oR6r61R8y8:fragmentR10jR11:13:1aoR1ahR32r58ghR13i-233gR32r58ghR8y23:h3d.shader.AmbientLighty4:varsar230r9r60r270r17r101r179r28r202r72hg";
+h3d_shader_Base2d.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey14:spritePositiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-11gy1:poy4:filey72:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FBase2d.hxy3:maxi983y3:mini969gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R14oR15R16R17i990R18i986gR19jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8y8:positionR10jR11:5:2i2r11y6:parentoR6r25R8y5:inputR10jR11:12:1ar24oR6r25R8y2:uvR10jR11:5:2i2r11R22r27R13i-3goR6r25R8y5:colorR10jR11:5:2i4r11R22r27R13i-4ghR13i-1gR13i-2gR14oR15R16R17i1005R18i991gR19r26goR3jR4:1:1oR6jR7:2:0R8y6:zValueR10jR11:3:0R13i-9gR14oR15R16R17i1013R18i1007gR19r39goR3jR4:0:1jy10:hxsl.Const:3:1i1R14oR15R16R17i1016R18i1015gR19r39ghR14oR15R16R17i1017R18i986gR19jR11:5:2i4r11gR14oR15R16R17i1017R18i969gR19r12goR3jR4:10:3oR3jR4:1:1oR6r38R8y10:isRelativeR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-16gR14oR15R16R17i1037R18i1027gR19r54goR3jR4:4:1aoR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1oR6r10R8y16:absolutePositionR10jR11:5:2i4r11R13i-12gR14oR15R16R17i1063R18i1047gR19r65gajy14:hxsl.Component:0:0hR14oR15R16R17i1065R18i1047gR19r39goR3jR4:8:2oR3jR4:2:1jR20:29:0R14oR15R16R17i1093R18i1068gR19jR11:13:1aoR1aoR8y1:_R10jR11:5:2i3r11goR8y1:bR10jR11:5:2i3r11ghy3:retr39ghgaoR3jR4:8:2oR3jR4:2:1jR20:39:0R14oR15R16R17i1072R18i1068gR19jR11:13:1ahgaoR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i1087R18i1073gR19r12gar69jR32:1:0hR14oR15R16R17i1090R18i1073gR19jR11:5:2i2r11goR3jR4:0:1jR27:3:1i1R14oR15R16R17i1092R18i1091gR19r39ghR14oR15R16R17i1093R18i1068gR19r81goR3jR4:1:1oR6r38R8y15:absoluteMatrixAR10jR11:5:2i3r11R13i-18gR14oR15R16R17i1113R18i1098gR19r111ghR14oR15R16R17i1114R18i1068gR19r39gR14oR15R16R17i1114R18i1047gR19r39goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1137R18i1121gR19r65gar99hR14oR15R16R17i1139R18i1121gR19r39goR3jR4:8:2oR3jR4:2:1r74R14oR15R16R17i1167R18i1142gR19jR11:13:1aoR1aoR8R33R10jR11:5:2i3r11gr82hR35r39ghgaoR3jR4:8:2oR3jR4:2:1r88R14oR15R16R17i1146R18i1142gR19r92gaoR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i1161R18i1147gR19r12gar69r99hR14oR15R16R17i1164R18i1147gR19jR11:5:2i2r11goR3jR4:0:1jR27:3:1i1R14oR15R16R17i1166R18i1165gR19r39ghR14oR15R16R17i1167R18i1142gR19r134goR3jR4:1:1oR6r38R8y15:absoluteMatrixBR10jR11:5:2i3r11R13i-19gR14oR15R16R17i1187R18i1172gR19r158ghR14oR15R16R17i1188R18i1142gR19r39gR14oR15R16R17i1188R18i1121gR19r39goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1211R18i1195gR19r65gajR32:2:0jR32:3:0hR14oR15R16R17i1214R18i1195gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r9R14oR15R16R17i1231R18i1217gR19r12gar171r172hR14oR15R16R17i1234R18i1217gR19jR11:5:2i2r11gR14oR15R16R17i1234R18i1195gR19r175ghR14oR15R16R17i1241R18i1040gR19jR11:0:0goR3jR4:5:3r7oR3jR4:1:1r64R14oR15R16R17i1268R18i1252gR19r65goR3jR4:1:1r9R14oR15R16R17i1285R18i1271gR19r12gR14oR15R16R17i1285R18i1252gR19r65gR14oR15R16R17i1285R18i1023gR19r188goR3jR4:5:3r7oR3jR4:1:1oR6jR7:3:0R8y12:calculatedUVR10jR11:5:2i2r11R13i-15gR14oR15R16R17i1303R18i1291gR19r204goR3jR4:10:3oR3jR4:1:1oR6r38R8y8:hasUVPosR10r54R29ajR30:0:1nhR13i-22gR14oR15R16R17i1314R18i1306gR19r54goR3jR4:5:3jR5:0:0oR3jR4:5:3jR5:1:0oR3jR4:1:1r29R14oR15R16R17i1325R18i1317gR19r30goR3jR4:9:2oR3jR4:1:1oR6r38R8y5:uvPosR10jR11:5:2i4r11R13i-23gR14oR15R16R17i1333R18i1328gR19r224gar171r172hR14oR15R16R17i1336R18i1328gR19jR11:5:2i2r11gR14oR15R16R17i1336R18i1317gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r223R14oR15R16R17i1344R18i1339gR19r224gar69r99hR14oR15R16R17i1347R18i1339gR19jR11:5:2i2r11gR14oR15R16R17i1347R18i1317gR19jR11:5:2i2r11goR3jR4:1:1r29R14oR15R16R17i1358R18i1350gR19r30gR14oR15R16R17i1358R18i1306gR19r244gR14oR15R16R17i1358R18i1291gR19r204goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-13gR14oR15R16R17i1374R18i1364gR19r255goR3jR4:10:3oR3jR4:1:1r53R14oR15R16R17i1387R18i1377gR19r54goR3jR4:5:3r217oR3jR4:1:1oR6r38R8R25R10jR11:5:2i4r11R13i-17gR14oR15R16R17i1395R18i1390gR19r265goR3jR4:1:1r31R14oR15R16R17i1409R18i1398gR19r32gR14oR15R16R17i1409R18i1390gR19jR11:5:2i4r11goR3jR4:1:1r31R14oR15R16R17i1423R18i1412gR19r32gR14oR15R16R17i1423R18i1377gR19r273gR14oR15R16R17i1423R18i1364gR19r255goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y12:textureColorR10jR11:5:2i4r11R13i-14gR14oR15R16R17i1441R18i1429gR19r284goR3jR4:8:2oR3jR4:2:1jR20:33:0R14oR15R16R17i1451R18i1444gR19jR11:13:1aoR1aoR8R33R10jR11:10:0goR8R24R10jR11:5:2i2r11ghR35jR11:5:2i4r11ghgaoR3jR4:1:1oR6r38R8y7:textureR10r296R13i-10gR14oR15R16R17i1451R18i1444gR19r296goR3jR4:1:1r202R14oR15R16R17i1468R18i1456gR19r204ghR14oR15R16R17i1469R18i1444gR19r299gR14oR15R16R17i1469R18i1429gR19r284goR3jR4:5:3jR5:20:1r217oR3jR4:1:1r254R14oR15R16R17i1485R18i1475gR19r255goR3jR4:1:1r283R14oR15R16R17i1501R18i1489gR19r284gR14oR15R16R17i1501R18i1475gR19r255ghR14oR15R16R17i1507R18i963gR19r188gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahR35r188ghR13i-29gR35r188goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8y3:tmpR10jR11:5:2i3r11R13i-32goR3jR4:8:2oR3jR4:2:1r88R14oR15R16R17i1610R18i1606gR19r92gaoR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1627R18i1611gR19r65gar69r99hR14oR15R16R17i1630R18i1611gR19jR11:5:2i2r11goR3jR4:0:1jR27:3:1i1R14oR15R16R17i1633R18i1632gR19r39ghR14oR15R16R17i1634R18i1606gR19r338gR14oR15R16R17i1635R18i1596gR19r188goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y14:outputPositionR10jR11:5:2i4r11R13i-28gR14oR15R16R17i1654R18i1640gR19r363goR3jR4:8:2oR3jR4:2:1r17R14oR15R16R17i1661R18i1657gR19r21gaoR3jR4:8:2oR3jR4:2:1r74R14oR15R16R17i1671R18i1668gR19jR11:13:1aoR1aoR8R33R10r338gr82hR35r39ghgaoR3jR4:1:1r337R14oR15R16R17i1671R18i1668gR19r338goR3jR4:1:1oR6r38R8y13:filterMatrixAR10jR11:5:2i3r11R13i-20gR14oR15R16R17i1689R18i1676gR19r386ghR14oR15R16R17i1690R18i1668gR19r39goR3jR4:8:2oR3jR4:2:1r74R14oR15R16R17i1700R18i1697gR19jR11:13:1aoR1aoR8R33R10r338gr82hR35r39ghgaoR3jR4:1:1r337R14oR15R16R17i1700R18i1697gR19r338goR3jR4:1:1oR6r38R8y13:filterMatrixBR10jR11:5:2i3r11R13i-21gR14oR15R16R17i1718R18i1705gR19r406ghR14oR15R16R17i1719R18i1697gR19r39goR3jR4:9:2oR3jR4:1:1r64R14oR15R16R17i1742R18i1726gR19r65gar171r172hR14oR15R16R17i1745R18i1726gR19jR11:5:2i2r11ghR14oR15R16R17i1751R18i1657gR19jR11:5:2i4r11gR14oR15R16R17i1751R18i1640gR19r363goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r362R14oR15R16R17i1800R18i1786gR19r363gar69r99hR14oR15R16R17i1803R18i1786gR19jR11:5:2i2r11goR3jR4:5:3r217oR3jR4:3:1oR3jR4:5:3r215oR3jR4:9:2oR3jR4:1:1r362R14oR15R16R17i1821R18i1807gR19r363gar69r99hR14oR15R16R17i1824R18i1807gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1oR6r38R8y8:viewportR10jR11:5:2i4r11R13i-27gR14oR15R16R17i1835R18i1827gR19r447gar69r99hR14oR15R16R17i1838R18i1827gR19jR11:5:2i2r11gR14oR15R16R17i1838R18i1807gR19jR11:5:2i2r11gR14oR15R16R17i1839R18i1806gR19r456goR3jR4:9:2oR3jR4:1:1r446R14oR15R16R17i1850R18i1842gR19r447gar171r172hR14oR15R16R17i1853R18i1842gR19jR11:5:2i2r11gR14oR15R16R17i1853R18i1806gR19jR11:5:2i2r11gR14oR15R16R17i1853R18i1786gR19r432goR3jR4:10:3oR3jR4:1:1oR6r38R8y10:pixelAlignR10r54R29ajR30:0:1nhR13i-25gR14oR15R16R17i1959R18i1949gR19r54goR3jR4:5:3jR5:20:1jR5:3:0oR3jR4:9:2oR3jR4:1:1r362R14oR15R16R17i1976R18i1962gR19r363gar69r99hR14oR15R16R17i1979R18i1962gR19jR11:5:2i2r11goR3jR4:1:1oR6r38R8y16:halfPixelInverseR10jR11:5:2i2r11R13i-26gR14oR15R16R17i1999R18i1983gR19r492gR14oR15R16R17i1999R18i1962gR19r489gnR14oR15R16R17i1999R18i1945gR19r188goR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R21R10jR11:5:2i4r11R22oR6r502R8y6:outputR10jR11:12:1ar501oR6r502R8R25R10jR11:5:2i4r11R22r504R13i-7ghR13i-5gR13i-6gR14oR15R16R17i2020R18i2005gR19r503goR3jR4:1:1r362R14oR15R16R17i2037R18i2023gR19r363gR14oR15R16R17i2037R18i2005gR19r503ghR14oR15R16R17i2043R18i1531gR19r188gR6jR44:0:0R45oR6r327R8y6:vertexR10jR11:13:1aoR1ahR35r188ghR13i-30gR35r188goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:5:3jR5:14:0oR3jR4:1:1oR6r38R8y9:killAlphaR10r54R29ajR30:0:1nhR13i-24gR14oR15R16R17i2088R18i2079gR19r54goR3jR4:5:3jR5:9:0oR3jR4:9:2oR3jR4:1:1r254R14oR15R16R17i2102R18i2092gR19r255gar172hR14oR15R16R17i2104R18i2092gR19r39goR3jR4:0:1jR27:3:1d0.001R14oR15R16R17i2112R18i2107gR19r39gR14oR15R16R17i2112R18i2092gR19r54gR14oR15R16R17i2112R18i2079gR19r54goR3jR4:11:0R14oR15R16R17i2122R18i2115gR19r188gnR14oR15R16R17i2122R18i2075gR19r188goR3jR4:5:3r7oR3jR4:1:1r506R14oR15R16R17i2140R18i2128gR19r507goR3jR4:1:1r254R14oR15R16R17i2153R18i2143gR19r255gR14oR15R16R17i2153R18i2128gR19r507ghR14oR15R16R17i2159R18i2069gR19r188gR6jR44:1:0R45oR6r327R8y8:fragmentR10jR11:13:1aoR1ahR35r188ghR13i-31gR35r188ghR8y17:h3d.shader.Base2dy4:varsar202r519r37r110r209r326r64r571r303r474r491r283r223r9r362r504r53r157r27r264r532oR6jR7:0:0R8y4:timeR10r39R13i-8gr385r254r405r446hg";
+h3d_shader_BaseMesh.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey16:relativePositiony4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-98gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FBaseMesh.hxy3:maxi1268y3:mini1252gy1:tr12goR3jR4:1:1oR6jR7:1:0R8y8:positionR10jR11:5:2i3r11y6:parentoR6r17R8y5:inputR10jR11:12:1ar16oR6r17R8y6:normalR10jR11:5:2i3r11R21r19R13i-92ghR13i-90gR13i-91gR14oR15R16R17i1285R18i1271gR19r18gR14oR15R16R17i1285R18i1252gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y19:transformedPositionR10jR11:5:2i3r11R13i-99gR14oR15R16R17i1310R18i1291gR19r31goR3jR4:5:3jR5:1:0oR3jR4:1:1r9R14oR15R16R17i1329R18i1313gR19r12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:50:0R14oR15R16R17i1348R18i1332gR19jR11:13:1ahgaoR3jR4:1:1oR6jR7:0:0R8y9:modelViewR10jR11:7:0R21oR6r49R8y6:globalR10jR11:12:1aoR6r49R8y4:timeR10jR11:3:0R21r51R13i-86goR6r49R8y9:pixelSizeR10jR11:5:2i2r11R21r51R13i-87gr48oR6r49R8y16:modelViewInverseR10r50R21r51y10:qualifiersajy17:hxsl.VarQualifier:3:0hR13i-89ghR13i-85gR31ar59hR13i-88gR14oR15R16R17i1348R18i1332gR19r50ghR14oR15R16R17i1357R18i1332gR19jR11:8:0gR14oR15R16R17i1357R18i1313gR19jR11:5:2i3r11gR14oR15R16R17i1357R18i1291gR19r31goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:projectedPositionR10jR11:5:2i4r11R13i-102gR14oR15R16R17i1380R18i1363gR19r75goR3jR4:5:3r35oR3jR4:8:2oR3jR4:2:1jR25:40:0R14oR15R16R17i1387R18i1383gR19jR11:13:1ahgaoR3jR4:1:1r30R14oR15R16R17i1407R18i1388gR19r31goR3jR4:0:1jy10:hxsl.Const:3:1i1R14oR15R16R17i1410R18i1409gR19r54ghR14oR15R16R17i1411R18i1383gR19jR11:5:2i4r11goR3jR4:1:1oR6r49R8y8:viewProjR10r50R21oR6r49R8y6:cameraR10jR11:12:1aoR6r49R8y4:viewR10r50R21r99R13i-76goR6r49R8y4:projR10r50R21r99R13i-77goR6r49R8R20R10jR11:5:2i3r11R21r99R13i-78goR6r49R8y8:projDiagR10jR11:5:2i3r11R21r99R13i-79gr98oR6r49R8y15:inverseViewProjR10r50R21r99R13i-81goR6r49R8y5:zNearR10r54R21r99R13i-82goR6r49R8y4:zFarR10r54R21r99R13i-83goR6jR7:3:0R8y3:dirR10jR11:5:2i3r11R21r99R13i-84ghR13i-75gR13i-80gR14oR15R16R17i1429R18i1414gR19r50gR14oR15R16R17i1429R18i1383gR19jR11:5:2i4r11gR14oR15R16R17i1429R18i1363gR19r75goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:transformedNormalR10jR11:5:2i3r11R13i-101gR14oR15R16R17i1452R18i1435gR19r124goR3jR4:8:2oR3jR4:2:1jR25:31:0R14oR15R16R17i1495R18i1455gR19jR11:13:1aoR1aoR8y1:_R10r69ghy3:retr69ghgaoR3jR4:3:1oR3jR4:5:3r35oR3jR4:1:1r21R14oR15R16R17i1468R18i1456gR19r22goR3jR4:8:2oR3jR4:2:1jR25:48:0R14oR15R16R17i1487R18i1471gR19jR11:13:1ahgaoR3jR4:1:1r48R14oR15R16R17i1487R18i1471gR19r50ghR14oR15R16R17i1494R18i1471gR19jR11:6:0gR14oR15R16R17i1494R18i1456gR19r69gR14oR15R16R17i1495R18i1455gR19r69ghR14oR15R16R17i1507R18i1455gR19r69gR14oR15R16R17i1507R18i1435gR19r124goR3jR4:5:3r7oR3jR4:1:1r110R14oR15R16R17i1523R18i1513gR19r112goR3jR4:8:2oR3jR4:2:1r129R14oR15R16R17i1565R18i1526gR19jR11:13:1aoR1aoR8R45R10jR11:5:2i3r11ghR46r69ghgaoR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:1:1r103R14oR15R16R17i1542R18i1527gR19r104goR3jR4:1:1r30R14oR15R16R17i1564R18i1545gR19r31gR14oR15R16R17i1564R18i1527gR19r177gR14oR15R16R17i1565R18i1526gR19r177ghR14oR15R16R17i1577R18i1526gR19r69gR14oR15R16R17i1577R18i1513gR19r112goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-103gR14oR15R16R17i1593R18i1583gR19r200goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i4r11R13i-108gR14oR15R16R17i1601R18i1596gR19r206gR14oR15R16R17i1601R18i1583gR19r200goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y9:specPowerR10r54R13i-106gR14oR15R16R17i1616R18i1607gR19r54goR3jR4:1:1oR6r205R8y13:specularPowerR10r54R31ajR32:7:2d0d100hR13i-109gR14oR15R16R17i1632R18i1619gR19r54gR14oR15R16R17i1632R18i1607gR19r54goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y9:specColorR10jR11:5:2i3r11R13i-107gR14oR15R16R17i1647R18i1638gR19r227goR3jR4:5:3r35oR3jR4:1:1oR6r205R8y13:specularColorR10jR11:5:2i3r11R13i-111gR14oR15R16R17i1663R18i1650gR19r233goR3jR4:1:1oR6r205R8y14:specularAmountR10r54R31ajR32:7:2d0d10hR13i-110gR14oR15R16R17i1680R18i1666gR19r54gR14oR15R16R17i1680R18i1650gR19r233gR14oR15R16R17i1680R18i1638gR19r227goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y8:screenUVR10jR11:5:2i2r11R13i-105gR14oR15R16R17i1694R18i1686gR19r249goR3jR4:5:3jR5:0:0oR3jR4:5:3r35oR3jR4:3:1oR3jR4:5:3jR5:2:0oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1715R18i1698gR19r75gajy14:hxsl.Component:0:0jR55:1:0hR14oR15R16R17i1718R18i1698gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1738R18i1721gR19r75gajR55:3:0hR14oR15R16R17i1740R18i1721gR19r54gR14oR15R16R17i1740R18i1698gR19r267gR14oR15R16R17i1741R18i1697gR19r267goR3jR4:8:2oR3jR4:2:1jR25:38:0R14oR15R16R17i1748R18i1744gR19jR11:13:1ahgaoR3jR4:0:1jR34:3:1d0.5R14oR15R16R17i1752R18i1749gR19r54goR3jR4:0:1jR34:3:1d-0.5R14oR15R16R17i1758R18i1754gR19r54ghR14oR15R16R17i1759R18i1744gR19jR11:5:2i2r11gR14oR15R16R17i1759R18i1697gR19jR11:5:2i2r11goR3jR4:0:1jR34:3:1d0.5R14oR15R16R17i1765R18i1762gR19r54gR14oR15R16R17i1765R18i1697gR19r301gR14oR15R16R17i1765R18i1686gR19r249goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y5:depthR10r54R13i-104gR14oR15R16R17i1776R18i1771gR19r54goR3jR4:5:3r257oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1796R18i1779gR19r75gajR55:2:0hR14oR15R16R17i1798R18i1779gR19r54goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i1818R18i1801gR19r75gar273hR14oR15R16R17i1820R18i1801gR19r54gR14oR15R16R17i1820R18i1779gR19r54gR14oR15R16R17i1820R18i1771gR19r54ghR14oR15R16R17i1826R18i1246gR19jR11:0:0gR6jy17:hxsl.FunctionKind:2:0y3:refoR6jR7:6:0R8y8:__init__R10jR11:13:1aoR1ahR46r337ghR13i-112gR46r337goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r123R14oR15R16R17i1883R18i1866gR19r124goR3jR4:8:2oR3jR4:2:1r129R14oR15R16R17i1903R18i1886gR19jR11:13:1aoR1aoR8R45R10r124ghR46r69ghgaoR3jR4:1:1r123R14oR15R16R17i1903R18i1886gR19r124ghR14oR15R16R17i1915R18i1886gR19r69gR14oR15R16R17i1915R18i1866gR19r124goR3jR4:5:3r7oR3jR4:1:1r248R14oR15R16R17i2024R18i2016gR19r249goR3jR4:5:3r253oR3jR4:5:3r35oR3jR4:3:1oR3jR4:5:3r257oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i2045R18i2028gR19r75gar263r264hR14oR15R16R17i2048R18i2028gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i2068R18i2051gR19r75gar273hR14oR15R16R17i2070R18i2051gR19r54gR14oR15R16R17i2070R18i2028gR19r385gR14oR15R16R17i2071R18i2027gR19r385goR3jR4:8:2oR3jR4:2:1r282R14oR15R16R17i2078R18i2074gR19r286gaoR3jR4:0:1jR34:3:1d0.5R14oR15R16R17i2082R18i2079gR19r54goR3jR4:0:1jR34:3:1d-0.5R14oR15R16R17i2088R18i2084gR19r54ghR14oR15R16R17i2089R18i2074gR19jR11:5:2i2r11gR14oR15R16R17i2089R18i2027gR19jR11:5:2i2r11goR3jR4:0:1jR34:3:1d0.5R14oR15R16R17i2095R18i2092gR19r54gR14oR15R16R17i2095R18i2027gR19r415gR14oR15R16R17i2095R18i2016gR19r249goR3jR4:5:3r7oR3jR4:1:1r312R14oR15R16R17i2106R18i2101gR19r54goR3jR4:5:3r257oR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i2126R18i2109gR19r75gar321hR14oR15R16R17i2128R18i2109gR19r54goR3jR4:9:2oR3jR4:1:1r74R14oR15R16R17i2148R18i2131gR19r75gar273hR14oR15R16R17i2150R18i2131gR19r54gR14oR15R16R17i2150R18i2109gR19r54gR14oR15R16R17i2150R18i2101gR19r54goR3jR4:5:3r7oR3jR4:1:1r213R14oR15R16R17i2243R18i2234gR19r54goR3jR4:1:1r217R14oR15R16R17i2259R18i2246gR19r54gR14oR15R16R17i2259R18i2234gR19r54goR3jR4:5:3r7oR3jR4:1:1r226R14oR15R16R17i2274R18i2265gR19r227goR3jR4:5:3r35oR3jR4:1:1r232R14oR15R16R17i2290R18i2277gR19r233goR3jR4:1:1r237R14oR15R16R17i2307R18i2293gR19r54gR14oR15R16R17i2307R18i2277gR19r233gR14oR15R16R17i2307R18i2265gR19r227ghR14oR15R16R17i2313R18i1860gR19r337gR6r338R58oR6r340R8y16:__init__fragmentR10jR11:13:1aoR1ahR46r337ghR13i-113gR46r337goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1oR6jR7:5:0R8R20R10jR11:5:2i4r11R21oR6r485R8y6:outputR10jR11:12:1ar484oR6r485R8R48R10jR11:5:2i4r11R21r487R13i-95goR6r485R8R56R10jR11:5:2i4r11R21r487R13i-96goR6r485R8R23R10jR11:5:2i4r11R21r487R13i-97ghR13i-93gR13i-94gR14oR15R16R17i2358R18i2343gR19r486goR3jR4:1:1r74R14oR15R16R17i2378R18i2361gR19r75gR14oR15R16R17i2378R18i2343gR19r486goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y24:pixelTransformedPositionR10jR11:5:2i3r11R13i-100gR14oR15R16R17i2408R18i2384gR19r506goR3jR4:1:1r30R14oR15R16R17i2430R18i2411gR19r31gR14oR15R16R17i2430R18i2384gR19r506ghR14oR15R16R17i2436R18i2337gR19r337gR6jR57:0:0R58oR6r340R8y6:vertexR10jR11:13:1aoR1ahR46r337ghR13i-114gR46r337goR1ahR2oR3jR4:4:1aoR3jR4:5:3r7oR3jR4:1:1r489R14oR15R16R17i2480R18i2468gR19r490goR3jR4:1:1r199R14oR15R16R17i2493R18i2483gR19r200gR14oR15R16R17i2493R18i2468gR19r490goR3jR4:5:3r7oR3jR4:1:1r491R14oR15R16R17i2511R18i2499gR19r492goR3jR4:8:2oR3jR4:2:1jR25:52:0R14oR15R16R17i2518R18i2514gR19jR11:13:1aoR1aoR8y5:valueR10r54ghR46jR11:5:2i4r11ghgaoR3jR4:1:1r312R14oR15R16R17i2524R18i2519gR19r54ghR14oR15R16R17i2525R18i2514gR19r548gR14oR15R16R17i2525R18i2499gR19r492goR3jR4:5:3r7oR3jR4:1:1r493R14oR15R16R17i2544R18i2531gR19r494goR3jR4:8:2oR3jR4:2:1jR25:54:0R14oR15R16R17i2557R18i2547gR19jR11:13:1aoR1aoR8R64R10jR11:5:2i3r11ghR46jR11:5:2i4r11ghgaoR3jR4:1:1r123R14oR15R16R17i2575R18i2558gR19r124ghR14oR15R16R17i2576R18i2547gR19r572gR14oR15R16R17i2576R18i2531gR19r494ghR14oR15R16R17i2582R18i2462gR19r337gR6jR57:1:0R58oR6r340R8y8:fragmentR10jR11:13:1aoR1ahR46r337ghR13i-115gR46r337ghR8y19:h3d.shader.BaseMeshy4:varsar74r312r517r123r237r226r232r339r585r217r473r9r99r487r248r51r19r30r204r213r505r199hg";
+h3d_shader_Blur.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:5:0y4:namey8:positiony4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y6:parentoR6r10R8y6:outputR10jR11:12:1ar9oR6r10R8y5:colorR10jR11:5:2i4r11R13r13y2:idi-254ghR16i-252gR16i-253gy1:poy4:filey78:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FScreenShader.hxy3:maxi262y3:mini247gy1:tr12goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:40:0R17oR18R19R20i269R21i265gR22jR11:13:1ahgaoR3jR4:1:1oR6jR7:1:0R8R9R10jR11:5:2i2r11R13oR6r30R8y5:inputR10jR11:12:1ar29oR6r30R8y2:uvR10jR11:5:2i2r11R13r32R16i-251ghR16i-249gR16i-250gR17oR18R19R20i284R21i270gR22r31goR3jR4:0:1jy10:hxsl.Const:3:1zR17oR18R19R20i287R21i286gR22jR11:3:0goR3jR4:0:1jR26:3:1i1R17oR18R19R20i290R21i289gR22r43ghR17oR18R19R20i291R21i265gR22jR11:5:2i4r11gR17oR18R19R20i291R21i247gR22r12ghR17oR18R19R20i297R21i241gR22jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr55ghR16i-268gR30r55goR1ahR2oR3jR4:4:1aoR3jR4:10:3oR3jR4:1:1oR6jR7:2:0R8y16:isDepthDependantR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR16i-265gR17oR18y70:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FBlur.hxR20i638R21i622gR22r71goR3jR4:4:1aoR3jR4:7:2oR6jR7:4:0R8y4:pcurR10jR11:5:2i3r11R16i-272goR3jR4:8:2oR3jR4:1:1oR6r58R8y11:getPositionR10jR11:13:1aoR1aoR8R25R10jR11:5:2i2r11ghR30r81ghR16i-271gR17oR18R34R20i670R21i659gR22r90gaoR3jR4:1:1r34R17oR18R34R20i679R21i671gR22r35ghR17oR18R34R20i680R21i659gR22r81gR17oR18R34R20i681R21i648gR22r55goR3jR4:7:2oR6r80R8y4:ccurR10jR11:5:2i4r11R16i-273goR3jR4:8:2oR3jR4:2:1jR23:33:0R17oR18R34R20i705R21i698gR22jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8R25R10jR11:5:2i2r11ghR30r103ghgaoR3jR4:1:1oR6r70R8y7:textureR10r113R16i-256gR17oR18R34R20i705R21i698gR22r113goR3jR4:1:1r34R17oR18R34R20i718R21i710gR22r35ghR17oR18R34R20i719R21i698gR22r103gR17oR18R34R20i720R21i687gR22r55goR3jR4:7:2oR6r80R8R15R10jR11:5:2i4r11R16i-274goR3jR4:8:2oR3jR4:2:1r22R17oR18R34R20i742R21i738gR22r26gaoR3jR4:0:1jR26:3:1zR17oR18R34R20i744R21i743gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i747R21i746gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i750R21i749gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i753R21i752gR22r43ghR17oR18R34R20i754R21i738gR22r131gR17oR18R34R20i755R21i726gR22r55goR3jR4:7:2oR6r80R8y4:ncurR10jR11:5:2i3r11R16i-275goR3jR4:8:2oR3jR4:2:1jR23:55:0R17oR18R34R20i784R21i772gR22jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r11ghR30r159ghgaoR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i798R21i785gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1oR6r70R8y13:normalTextureR10r113R16i-267gR17oR18R34R20i798R21i785gR22r113goR3jR4:1:1r34R17oR18R34R20i811R21i803gR22r35ghR17oR18R34R20i812R21i785gR22r103ghR17oR18R34R20i813R21i772gR22r159gR17oR18R34R20i814R21i761gR22r55goR3jR4:20:3y6:unrollahoR3jR4:13:3oR6r80R8y1:iR10jR11:1:0R16i-276goR3jR4:5:3jR5:21:0oR3jR4:5:3jR5:0:0oR3jR4:6:2jy15:haxe.macro.Unop:3:0oR3jR4:1:1oR6r70R8y7:QualityR10r199R32ajR33:0:1nhR16i-258gR17oR18R34R20i846R21i839gR22r199gR17oR18R34R20i846R21i838gR22r199goR3jR4:0:1jR26:2:1i1R17oR18R34R20i853R21i849gR22r199gR17oR18R34R20i853R21i838gR22r199goR3jR4:1:1r207R17oR18R34R20i860R21i853gR22r199gR17oR18R34R20i860R21i838gR22jR11:14:2r199jy13:hxsl.SizeDecl:0:1zgoR3jR4:4:1aoR3jR4:7:2oR6r80R8R25R10jR11:5:2i2r11R16i-277goR3jR4:5:3r203oR3jR4:1:1r34R17oR18R34R20i888R21i880gR22r35goR3jR4:5:3jR5:1:0oR3jR4:1:1oR6r70R8y5:pixelR10jR11:5:2i2r11R16i-261gR17oR18R34R20i896R21i891gR22r240goR3jR4:8:2oR3jR4:2:1jR23:36:0R17oR18R34R20i904R21i899gR22jR11:13:1aoR1aoR8R41R10r199ghR30r43ghgaoR3jR4:1:1r198R17oR18R34R20i906R21i905gR22r199ghR17oR18R34R20i907R21i899gR22r43gR17oR18R34R20i907R21i891gR22r240gR17oR18R34R20i907R21i880gR22r231gR17oR18R34R20i908R21i871gR22r55goR3jR4:7:2oR6r80R8y1:cR10r103R16i-278goR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i930R21i923gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1r119R17oR18R34R20i930R21i923gR22r113goR3jR4:1:1r230R17oR18R34R20i937R21i935gR22r231ghR17oR18R34R20i938R21i923gR22r103gR17oR18R34R20i939R21i915gR22r55goR3jR4:7:2oR6r80R8R17R10r81R16i-279goR3jR4:8:2oR3jR4:1:1r84R17oR18R34R20i965R21i954gR22r90gaoR3jR4:1:1r230R17oR18R34R20i968R21i966gR22r231ghR17oR18R34R20i969R21i954gR22r81gR17oR18R34R20i970R21i946gR22r55goR3jR4:7:2oR6r80R8y1:dR10r43R16i-280goR3jR4:8:2oR3jR4:2:1jR23:29:0R17oR18R34R20i995R21i985gR22jR11:13:1aoR1aoR8R38R10jR11:5:2i3r11goR8y1:bR10jR11:5:2i3r11ghR30r43ghgaoR3jR4:3:1oR3jR4:5:3jR5:3:0oR3jR4:1:1r288R17oR18R34R20i987R21i986gR22r81goR3jR4:1:1r79R17oR18R34R20i994R21i990gR22r81gR17oR18R34R20i994R21i986gR22r312gR17oR18R34R20i995R21i985gR22r312goR3jR4:5:3r319oR3jR4:1:1r288R17oR18R34R20i1001R21i1000gR22r81goR3jR4:1:1r79R17oR18R34R20i1008R21i1004gR22r81gR17oR18R34R20i1008R21i1000gR22jR11:5:2i3r11ghR17oR18R34R20i1009R21i985gR22r43gR17oR18R34R20i1010R21i977gR22r55goR3jR4:7:2oR6r80R8y1:nR10r159R16i-281goR3jR4:8:2oR3jR4:2:1r162R17oR18R34R20i1037R21i1025gR22r170gaoR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i1051R21i1038gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1r183R17oR18R34R20i1051R21i1038gR22r113goR3jR4:1:1r230R17oR18R34R20i1058R21i1056gR22r231ghR17oR18R34R20i1059R21i1038gR22r103ghR17oR18R34R20i1060R21i1025gR22r159gR17oR18R34R20i1061R21i1017gR22r55goR3jR4:5:3r7oR3jR4:1:1r266R17oR18R34R20i1071R21i1070gR22r103goR3jR4:8:2oR3jR4:2:1jR23:24:0R17oR18R34R20i1077R21i1074gR22jR11:13:1aoR1aoR8y1:xR10r103goR8y1:yR10r103goR8y1:aR10r43ghR30r103ghgaoR3jR4:1:1r102R17oR18R34R20i1082R21i1078gR22r103goR3jR4:1:1r266R17oR18R34R20i1085R21i1084gR22r103goR3jR4:8:2oR3jR4:2:1r305R17oR18R34R20i1091R21i1087gR22jR11:13:1aoR1aoR8R38R10r159gr313hR30r43ghgaoR3jR4:1:1r158R17oR18R34R20i1091R21i1087gR22r159goR3jR4:1:1r345R17oR18R34R20i1097R21i1096gR22r159ghR17oR18R34R20i1098R21i1087gR22r43ghR17oR18R34R20i1099R21i1074gR22r103gR17oR18R34R20i1099R21i1070gR22r103goR3jR4:5:3r7oR3jR4:1:1r266R17oR18R34R20i1108R21i1107gR22r103goR3jR4:8:2oR3jR4:2:1r379R17oR18R34R20i1114R21i1111gR22jR11:13:1ar383hgaoR3jR4:1:1r266R17oR18R34R20i1116R21i1115gR22r103goR3jR4:1:1r102R17oR18R34R20i1122R21i1118gR22r103goR3jR4:8:2oR3jR4:2:1jR23:21:0R17oR18R34R20i1154R21i1124gR22jR11:13:1aoR1aoR8R38R10r43goR8R51R10r43ghR30r43ghgaoR3jR4:3:1oR3jR4:5:3r237oR3jR4:8:2oR3jR4:2:1jR23:22:0R17oR18R34R20i1136R21i1125gR22jR11:13:1aoR1aoR8R38R10r43gr444hR30r43ghgaoR3jR4:3:1oR3jR4:5:3r319oR3jR4:1:1r302R17oR18R34R20i1127R21i1126gR22r43goR3jR4:0:1jR26:3:1d0.001R17oR18R34R20i1135R21i1130gR22r43gR17oR18R34R20i1135R21i1126gR22r43gR17oR18R34R20i1136R21i1125gR22r43goR3jR4:0:1jR26:3:1d0R17oR18R34R20i1143R21i1141gR22r43ghR17oR18R34R20i1144R21i1125gR22r43goR3jR4:0:1jR26:3:1i100000R17oR18R34R20i1153R21i1147gR22r43gR17oR18R34R20i1153R21i1125gR22r43gR17oR18R34R20i1154R21i1124gR22r43goR3jR4:0:1jR26:3:1d1R17oR18R34R20i1161R21i1159gR22r43ghR17oR18R34R20i1162R21i1124gR22r43ghR17oR18R34R20i1163R21i1111gR22r103gR17oR18R34R20i1163R21i1107gR22r103goR3jR4:5:3jR5:20:1r203oR3jR4:1:1r130R17oR18R34R20i1176R21i1171gR22r131goR3jR4:5:3r237oR3jR4:1:1r266R17oR18R34R20i1181R21i1180gR22r103goR3jR4:16:2oR3jR4:1:1oR6r70R8y6:valuesR10jR11:14:2r43jR47:1:1r207R16i-260gR17oR18R34R20i1190R21i1184gR22r510goR3jR4:10:3oR3jR4:5:3jR5:9:0oR3jR4:1:1r198R17oR18R34R20i1192R21i1191gR22r199goR3jR4:0:1jR26:2:1zR17oR18R34R20i1196R21i1195gR22r199gR17oR18R34R20i1196R21i1191gR22r71goR3jR4:6:2r205oR3jR4:1:1r198R17oR18R34R20i1201R21i1200gR22r199gR17oR18R34R20i1201R21i1199gR22r199goR3jR4:1:1r198R17oR18R34R20i1205R21i1204gR22r199gR17oR18R34R20i1205R21i1191gR22r199gR17oR18R34R20i1206R21i1184gR22r43gR17oR18R34R20i1206R21i1180gR22r103gR17oR18R34R20i1206R21i1171gR22r131ghR17oR18R34R20i1214R21i863gR22r55gR17oR18R34R20i1214R21i828gR22r55gR17oR18R34R20i1214R21i821gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i1232R21i1220gR22r16goR3jR4:1:1r130R17oR18R34R20i1240R21i1235gR22r131gR17oR18R34R20i1240R21i1220gR22r16ghR17oR18R34R20i1247R21i641gR22r55goR3jR4:10:3oR3jR4:1:1oR6r70R8y7:isDepthR10r71R32ajR33:0:1nhR16i-259gR17oR18R34R20i1268R21i1261gR22r71goR3jR4:4:1aoR3jR4:7:2oR6r80R8y3:valR10r43R16i-282goR3jR4:0:1jR26:3:1d0R17oR18R34R20i1290R21i1288gR22r43gR17oR18R34R20i1291R21i1278gR22r55goR3jR4:20:3R43ahoR3jR4:13:3oR6r80R8R44R10r199R16i-283goR3jR4:5:3r201oR3jR4:5:3r203oR3jR4:6:2r205oR3jR4:1:1r207R17oR18R34R20i1323R21i1316gR22r199gR17oR18R34R20i1323R21i1315gR22r199goR3jR4:0:1jR26:2:1i1R17oR18R34R20i1330R21i1326gR22r199gR17oR18R34R20i1330R21i1315gR22r199goR3jR4:1:1r207R17oR18R34R20i1337R21i1330gR22r199gR17oR18R34R20i1337R21i1315gR22jR11:14:2r199jR47:0:1zgoR3jR4:5:3jR5:20:1r203oR3jR4:1:1r569R17oR18R34R20i1349R21i1346gR22r43goR3jR4:5:3r237oR3jR4:8:2oR3jR4:2:1jR23:53:0R17oR18R34R20i1359R21i1353gR22jR11:13:1aoR1aoR8R41R10jR11:5:2i4r11ghR30r43ghgaoR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i1367R21i1360gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1r119R17oR18R34R20i1367R21i1360gR22r113goR3jR4:5:3r203oR3jR4:1:1r34R17oR18R34R20i1380R21i1372gR22r35goR3jR4:5:3r237oR3jR4:1:1r239R17oR18R34R20i1388R21i1383gR22r240goR3jR4:8:2oR3jR4:2:1r245R17oR18R34R20i1396R21i1391gR22jR11:13:1ar249hgaoR3jR4:1:1r579R17oR18R34R20i1398R21i1397gR22r199ghR17oR18R34R20i1399R21i1391gR22r43gR17oR18R34R20i1399R21i1383gR22r240gR17oR18R34R20i1399R21i1372gR22jR11:5:2i2r11ghR17oR18R34R20i1400R21i1360gR22r103ghR17oR18R34R20i1401R21i1353gR22r43goR3jR4:16:2oR3jR4:1:1r508R17oR18R34R20i1410R21i1404gR22r510goR3jR4:10:3oR3jR4:5:3r515oR3jR4:1:1r579R17oR18R34R20i1412R21i1411gR22r199goR3jR4:0:1jR26:2:1zR17oR18R34R20i1416R21i1415gR22r199gR17oR18R34R20i1416R21i1411gR22r71goR3jR4:6:2r205oR3jR4:1:1r579R17oR18R34R20i1421R21i1420gR22r199gR17oR18R34R20i1421R21i1419gR22r199goR3jR4:1:1r579R17oR18R34R20i1425R21i1424gR22r199gR17oR18R34R20i1425R21i1411gR22r199gR17oR18R34R20i1426R21i1404gR22r43gR17oR18R34R20i1426R21i1353gR22r43gR17oR18R34R20i1426R21i1346gR22r43gR17oR18R34R20i1426R21i1305gR22r55gR17oR18R34R20i1426R21i1298gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i1445R21i1433gR22r16goR3jR4:8:2oR3jR4:2:1jR23:52:0R17oR18R34R20i1452R21i1448gR22jR11:13:1aoR1aoR8R41R10r43ghR30jR11:5:2i4r11ghgaoR3jR4:8:2oR3jR4:2:1r437R17oR18R34R20i1456R21i1453gR22jR11:13:1aoR1aoR8R38R10r43gr444hR30r43ghgaoR3jR4:1:1r569R17oR18R34R20i1456R21i1453gR22r43goR3jR4:0:1jR26:3:1d0.9999999R17oR18R34R20i1470R21i1461gR22r43ghR17oR18R34R20i1471R21i1453gR22r43ghR17oR18R34R20i1472R21i1448gR22r710gR17oR18R34R20i1472R21i1433gR22r16ghR17oR18R34R20i1479R21i1271gR22r55goR3jR4:4:1aoR3jR4:7:2oR6r80R8R15R10jR11:5:2i4r11R16i-284goR3jR4:8:2oR3jR4:2:1r22R17oR18R34R20i1508R21i1504gR22r26gaoR3jR4:0:1jR26:3:1zR17oR18R34R20i1510R21i1509gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i1513R21i1512gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i1516R21i1515gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i1519R21i1518gR22r43ghR17oR18R34R20i1520R21i1504gR22r742gR17oR18R34R20i1521R21i1492gR22r55goR3jR4:20:3R43ahoR3jR4:13:3oR6r80R8R44R10r199R16i-285goR3jR4:5:3r201oR3jR4:5:3r203oR3jR4:6:2r205oR3jR4:1:1r207R17oR18R34R20i1553R21i1546gR22r199gR17oR18R34R20i1553R21i1545gR22r199goR3jR4:0:1jR26:2:1i1R17oR18R34R20i1560R21i1556gR22r199gR17oR18R34R20i1560R21i1545gR22r199goR3jR4:1:1r207R17oR18R34R20i1567R21i1560gR22r199gR17oR18R34R20i1567R21i1545gR22jR11:14:2r199jR47:0:1zgoR3jR4:5:3jR5:20:1r203oR3jR4:1:1r741R17oR18R34R20i1581R21i1576gR22r742goR3jR4:5:3r237oR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i1592R21i1585gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1r119R17oR18R34R20i1592R21i1585gR22r113goR3jR4:5:3r203oR3jR4:1:1r34R17oR18R34R20i1605R21i1597gR22r35goR3jR4:5:3r237oR3jR4:1:1r239R17oR18R34R20i1613R21i1608gR22r240goR3jR4:8:2oR3jR4:2:1r245R17oR18R34R20i1621R21i1616gR22jR11:13:1ar249hgaoR3jR4:1:1r771R17oR18R34R20i1623R21i1622gR22r199ghR17oR18R34R20i1624R21i1616gR22r43gR17oR18R34R20i1624R21i1608gR22r240gR17oR18R34R20i1624R21i1597gR22jR11:5:2i2r11ghR17oR18R34R20i1625R21i1585gR22r103goR3jR4:16:2oR3jR4:1:1r508R17oR18R34R20i1634R21i1628gR22r510goR3jR4:10:3oR3jR4:5:3r515oR3jR4:1:1r771R17oR18R34R20i1636R21i1635gR22r199goR3jR4:0:1jR26:2:1zR17oR18R34R20i1640R21i1639gR22r199gR17oR18R34R20i1640R21i1635gR22r71goR3jR4:6:2r205oR3jR4:1:1r771R17oR18R34R20i1645R21i1644gR22r199gR17oR18R34R20i1645R21i1643gR22r199goR3jR4:1:1r771R17oR18R34R20i1649R21i1648gR22r199gR17oR18R34R20i1649R21i1635gR22r199gR17oR18R34R20i1650R21i1628gR22r43gR17oR18R34R20i1650R21i1585gR22r103gR17oR18R34R20i1650R21i1576gR22r742gR17oR18R34R20i1650R21i1535gR22r55gR17oR18R34R20i1650R21i1528gR22r55goR3jR4:5:3r7oR3jR4:1:1r15R17oR18R34R20i1669R21i1657gR22r16goR3jR4:1:1r741R17oR18R34R20i1677R21i1672gR22r742gR17oR18R34R20i1677R21i1657gR22r16ghR17oR18R34R20i1684R21i1485gR22r55gR17oR18R34R20i1684R21i1257gR22r55gR17oR18R34R20i1684R21i618gR22r55goR3jR4:10:3oR3jR4:1:1oR6r70R8y13:hasFixedColorR10r71R32ajR33:0:1nhR16i-262gR17oR18R34R20i1706R21i1693gR22r71goR3jR4:4:1aoR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i1728R21i1716gR22r16gajy14:hxsl.Component:0:0jR60:1:0jR60:2:0hR17oR18R34R20i1732R21i1716gR22jR11:5:2i3r11goR3jR4:9:2oR3jR4:1:1oR6r70R8y10:fixedColorR10jR11:5:2i4r11R16i-264gR17oR18R34R20i1745R21i1735gR22r914gar905r906r907hR17oR18R34R20i1749R21i1735gR22jR11:5:2i3r11gR17oR18R34R20i1749R21i1716gR22r910goR3jR4:10:3oR3jR4:1:1oR6r70R8y16:smoothFixedColorR10r71R32ajR33:0:1nhR16i-263gR17oR18R34R20i1776R21i1760gR22r71goR3jR4:5:3jR5:20:1r237oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i1797R21i1785gR22r16gajR60:3:0hR17oR18R34R20i1799R21i1785gR22r43goR3jR4:9:2oR3jR4:1:1r913R17oR18R34R20i1813R21i1803gR22r914gar937hR17oR18R34R20i1815R21i1803gR22r43gR17oR18R34R20i1815R21i1785gR22r43goR3jR4:5:3r7oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i1845R21i1833gR22r16gar937hR17oR18R34R20i1847R21i1833gR22r43goR3jR4:5:3r237oR3jR4:9:2oR3jR4:1:1r913R17oR18R34R20i1860R21i1850gR22r914gar937hR17oR18R34R20i1862R21i1850gR22r43goR3jR4:8:2oR3jR4:2:1r245R17oR18R34R20i1870R21i1865gR22jR11:13:1aoR1aoR8R41R10r71ghR30r43ghgaoR3jR4:5:3jR5:7:0oR3jR4:9:2oR3jR4:1:1r15R17oR18R34R20i1883R21i1871gR22r16gar937hR17oR18R34R20i1885R21i1871gR22r43goR3jR4:0:1jR26:3:1zR17oR18R34R20i1889R21i1888gR22r43gR17oR18R34R20i1889R21i1871gR22r71ghR17oR18R34R20i1890R21i1865gR22r43gR17oR18R34R20i1890R21i1850gR22r43gR17oR18R34R20i1890R21i1833gR22r43gR17oR18R34R20i1890R21i1756gR22r55ghR17oR18R34R20i1897R21i1709gR22r55gnR17oR18R34R20i1897R21i1689gR22r55ghR17oR18R34R20i1902R21i612gR22r55gR6jR27:1:0R28oR6r58R8y8:fragmentR10jR11:13:1aoR1ahR30r55ghR16i-269gR30r55goR1aoR6r80R8R25R10r89R16i-270ghR2oR3jR4:4:1aoR3jR4:7:2oR6r80R8y5:depthR10r43R16i-286goR3jR4:8:2oR3jR4:2:1r609R17oR18R34R20i1973R21i1967gR22r617gaoR3jR4:8:2oR3jR4:2:1r106R17oR18R34R20i1986R21i1974gR22jR11:13:1aoR1aoR8R38R10r113gr114hR30r103ghgaoR3jR4:1:1oR6r70R8y12:depthTextureR10r113R16i-257gR17oR18R34R20i1986R21i1974gR22r113goR3jR4:1:1r1012R17oR18R34R20i1993R21i1991gR22r89ghR17oR18R34R20i1994R21i1974gR22r103ghR17oR18R34R20i1995R21i1967gR22r43gR17oR18R34R20i1996R21i1955gR22r55goR3jR4:7:2oR6r80R8y3:uv2R10jR11:5:2i2r11R16i-287goR3jR4:5:3r237oR3jR4:3:1oR3jR4:5:3r319oR3jR4:1:1r1012R17oR18R34R20i2014R21i2012gR22r89goR3jR4:0:1jR26:3:1d0.5R17oR18R34R20i2020R21i2017gR22r43gR17oR18R34R20i2020R21i2012gR22r89gR17oR18R34R20i2021R21i2011gR22r89goR3jR4:8:2oR3jR4:2:1jR23:38:0R17oR18R34R20i2028R21i2024gR22jR11:13:1ahgaoR3jR4:0:1jR26:3:1i2R17oR18R34R20i2030R21i2029gR22r43goR3jR4:0:1jR26:3:1i-2R17oR18R34R20i2034R21i2032gR22r43ghR17oR18R34R20i2035R21i2024gR22jR11:5:2i2r11gR17oR18R34R20i2035R21i2011gR22r1047gR17oR18R34R20i2036R21i2001gR22r55goR3jR4:7:2oR6r80R8y4:tempR10r103R16i-288goR3jR4:5:3r237oR3jR4:8:2oR3jR4:2:1r22R17oR18R34R20i2056R21i2052gR22r26gaoR3jR4:1:1r1046R17oR18R34R20i2060R21i2057gR22r1047goR3jR4:1:1r1016R17oR18R34R20i2067R21i2062gR22r43goR3jR4:0:1jR26:3:1i1R17oR18R34R20i2070R21i2069gR22r43ghR17oR18R34R20i2071R21i2052gR22jR11:5:2i4r11goR3jR4:1:1oR6r70R8y21:cameraInverseViewProjR10jR11:7:0R16i-255gR17oR18R34R20i2095R21i2074gR22r1108gR17oR18R34R20i2095R21i2052gR22r103gR17oR18R34R20i2096R21i2041gR22r55goR3jR4:7:2oR6r80R8y8:originWSR10jR11:5:2i3r11R16i-289goR3jR4:5:3jR5:2:0oR3jR4:9:2oR3jR4:1:1r1086R17oR18R34R20i2120R21i2116gR22r103gar905r906r907hR17oR18R34R20i2124R21i2116gR22r1117goR3jR4:9:2oR3jR4:1:1r1086R17oR18R34R20i2131R21i2127gR22r103gar937hR17oR18R34R20i2133R21i2127gR22r43gR17oR18R34R20i2133R21i2116gR22r1117gR17oR18R34R20i2134R21i2101gR22r55goR3jR4:12:1oR3jR4:1:1r1116R17oR18R34R20i2154R21i2146gR22r1117gR17oR18R34R20i2154R21i2139gR22r55ghR17oR18R34R20i2160R21i1949gR22r55gR6jR27:3:0R28r84R30r81ghR8y15:h3d.shader.Blury4:varsar57r207r239r892r913r508r1005r84r119r561r183r69r13r32oR6r70R8y9:hasNormalR10r71R32ajR33:0:1nhR16i-266gr1107r1033r925hg";
+h3d_shader_ColorAdd.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:0:0oR3jR4:9:2oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey10:pixelColory4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-303gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorAdd.hxy3:maxi180y3:mini170gy1:tr14gajy14:hxsl.Component:0:0jR20:1:0jR20:2:0hR14oR15R16R17i184R18i170gR19jR11:5:2i3r13goR3jR4:1:1oR6jR7:2:0R8y5:colorR10jR11:5:2i3r13R13i-304gR14oR15R16R17i193R18i188gR19r27gR14oR15R16R17i193R18i170gR19r23ghR14oR15R16R17i199R18i164gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahy3:retr34ghR13i-305gR25r34ghR8y19:h3d.shader.ColorAddy4:varsar36r25r11hg";
+h3d_shader_ColorKey.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey5:cdiffy4:typejy9:hxsl.Type:5:2i4jy12:hxsl.VecType:1:0y2:idi-309goR3jR4:5:3jy16:haxe.macro.Binop:3:0oR3jR4:1:1oR5r8R7y12:textureColorR9jR10:5:2i4r9R12i-307gy1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorKey.hxy3:maxi197y3:mini185gy1:tr15goR3jR4:1:1oR5jR6:2:0R7y8:colorKeyR9jR10:5:2i4r9R12i-306gR15oR16R17R18i208R19i200gR20r21gR15oR16R17R18i208R19i185gR20r10gR15oR16R17R18i209R19i173gR20jR10:0:0goR3jR4:10:3oR3jR4:5:3jR13:9:0oR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:29:0R15oR16R17R18i223R19i218gR20jR10:13:1aoR1aoR7y1:_R9r10goR7y1:bR9jR10:5:2i4r9ghy3:retjR10:3:0ghgaoR3jR4:1:1r7R15oR16R17R18i223R19i218gR20r10goR3jR4:1:1r7R15oR16R17R18i233R19i228gR20r10ghR15oR16R17R18i234R19i218gR20r43goR3jR4:0:1jy10:hxsl.Const:3:1d1e-005R15oR16R17R18i244R19i237gR20r43gR15oR16R17R18i244R19i218gR20jR10:2:0goR3jR4:11:0R15oR16R17R18i254R19i247gR20r28gnR15oR16R17R18i254R19i214gR20r28ghR15oR16R17R18i260R19i167gR20r28gR5jy17:hxsl.FunctionKind:1:0y3:refoR5jR6:6:0R7y8:fragmentR9jR10:13:1aoR1ahR25r28ghR12i-308gR25r28ghR7y19:h3d.shader.ColorKeyy4:varsar69r19r14hg";
+h3d_shader_ColorMatrix.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey3:rgby4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-313goR3jR4:5:3jy16:haxe.macro.Binop:1:0oR3jR4:9:2oR3jR4:1:1oR5r8R7y10:pixelColorR9jR10:5:2i4r9R12i-310gy1:poy4:filey77:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FColorMatrix.hxy3:maxi194y3:mini184gy1:tr16gajy14:hxsl.Component:0:0jR21:1:0jR21:2:0hR15oR16R17R18i198R19i184gR20jR10:5:2i3r9goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:50:0R15oR16R17R18i207R19i201gR20jR10:13:1ahgaoR3jR4:1:1oR5jR6:2:0R7y6:matrixR9jR10:7:0R12i-311gR15oR16R17R18i207R19i201gR20r37ghR15oR16R17R18i216R19i201gR20jR10:8:0gR15oR16R17R18i216R19i184gR20r10gR15oR16R17R18i217R19i174gR20jR10:0:0goR3jR4:5:3jR13:4:0oR3jR4:9:2oR3jR4:1:1r15R15oR16R17R18i232R19i222gR20r16gajR21:3:0hR15oR16R17R18i234R19i222gR20jR10:3:0goR3jR4:9:2oR3jR4:3:1oR3jR4:5:3r12oR3jR4:1:1r15R15oR16R17R18i248R19i238gR20r16goR3jR4:1:1r35R15oR16R17R18i257R19i251gR20r37gR15oR16R17R18i257R19i238gR20jR10:5:2i4r9gR15oR16R17R18i258R19i237gR20r70gar55hR15oR16R17R18i260R19i237gR20r58gR15oR16R17R18i260R19i222gR20r58goR3jR4:5:3r49oR3jR4:9:2oR3jR4:1:1r15R15oR16R17R18i276R19i266gR20r16gar20r21r22hR15oR16R17R18i280R19i266gR20jR10:5:2i3r9goR3jR4:1:1r7R15oR16R17R18i286R19i283gR20r10gR15oR16R17R18i286R19i266gR20r86ghR15oR16R17R18i292R19i168gR20r47gR5jy17:hxsl.FunctionKind:1:0y3:refoR5jR6:6:0R7y8:fragmentR9jR10:13:1aoR1ahy3:retr47ghR12i-312gR27r47ghR7y22:h3d.shader.ColorMatrixy4:varsar95r35r15hg";
+h3d_shader_DirLight.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey4:diffy4:typejy9:hxsl.Type:3:0y2:idi-55goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:22:0y1:poy4:filey74:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FDirLight.hxy3:maxi501y3:mini468gy1:tjR10:13:1aoR1aoR7y1:_R9r9goR7y1:bR9r9ghy3:retr9ghgaoR3jR4:8:2oR3jR4:2:1jR12:29:0R13oR14R15R16i485R17i468gR18jR10:13:1aoR1aoR7R19R9jR10:5:2i3jy12:hxsl.VecType:1:0goR7R20R9jR10:5:2i3r31ghR21r9ghgaoR3jR4:1:1oR5r8R7y17:transformedNormalR9r32R11i-48gR13oR14R15R16i485R17i468gR18r32goR3jR4:6:2jy15:haxe.macro.Unop:3:0oR3jR4:1:1oR5jR6:2:0R7y9:directionR9jR10:5:2i3r31R11i-42gR13oR14R15R16i500R17i491gR18r46gR13oR14R15R16i500R17i490gR18r46ghR13oR14R15R16i501R17i468gR18r9goR3jR4:0:1jy10:hxsl.Const:3:1d0R13oR14R15R16i508R17i506gR18r9ghR13oR14R15R16i509R17i468gR18r9gR13oR14R15R16i510R17i457gR18jR10:0:0goR3jR4:10:3oR3jR4:6:2jR24:2:0oR3jR4:1:1oR5r45R7y14:enableSpecularR9jR10:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR11i-43gR13oR14R15R16i534R17i520gR18r67gR13oR14R15R16i534R17i519gR18r67goR3jR4:12:1oR3jR4:5:3jy16:haxe.macro.Binop:1:0oR3jR4:1:1oR5r45R7y5:colorR9jR10:5:2i3r31R11i-41gR13oR14R15R16i554R17i549gR18r79goR3jR4:1:1r7R13oR14R15R16i561R17i557gR18r9gR13oR14R15R16i561R17i549gR18r79gR13oR14R15R16i561R17i542gR18r61gnR13oR14R15R16i561R17i515gR18r61goR3jR4:7:2oR5r8R7y1:rR9r34R11i-56goR3jR4:8:2oR3jR4:2:1jR12:31:0R13oR14R15R16i612R17i575gR18jR10:13:1aoR1aoR7R19R9r34ghR21r34ghgaoR3jR4:8:2oR3jR4:2:1jR12:32:0R13oR14R15R16i582R17i575gR18jR10:13:1aoR1aoR7y1:aR9r34goR7R20R9r34ghR21r34ghgaoR3jR4:1:1r44R13oR14R15R16i592R17i583gR18r46goR3jR4:1:1r38R13oR14R15R16i611R17i594gR18r32ghR13oR14R15R16i612R17i575gR18r34ghR13oR14R15R16i624R17i575gR18r34gR13oR14R15R16i625R17i567gR18r61goR3jR4:7:2oR5r8R7y9:specValueR9r9R11i-57goR3jR4:8:2oR3jR4:2:1r12R13oR14R15R16i704R17i646gR18jR10:13:1aoR1aoR7R19R9r9gr19hR21r9ghgaoR3jR4:8:2oR3jR4:2:1r24R13oR14R15R16i647R17i646gR18jR10:13:1aoR1aoR7R19R9r34gr33hR21r9ghgaoR3jR4:1:1r92R13oR14R15R16i647R17i646gR18r34goR3jR4:8:2oR3jR4:2:1r95R13oR14R15R16i691R17i652gR18jR10:13:1aoR1aoR7R19R9jR10:5:2i3r31ghR21r34ghgaoR3jR4:3:1oR3jR4:5:3jR30:3:0oR3jR4:1:1oR5jR6:0:0R7y8:positionR9jR10:5:2i3r31y6:parentoR5r169R7y6:cameraR9jR10:12:1ar168hR11i-44gR11i-45gR13oR14R15R16i668R17i653gR18r170goR3jR4:1:1oR5r8R7y19:transformedPositionR9jR10:5:2i3r31R11i-49gR13oR14R15R16i690R17i671gR18r178gR13oR14R15R16i690R17i653gR18r161gR13oR14R15R16i691R17i652gR18r161ghR13oR14R15R16i703R17i652gR18r34ghR13oR14R15R16i704R17i646gR18r9goR3jR4:0:1jR26:3:1d0R13oR14R15R16i711R17i709gR18r9ghR13oR14R15R16i712R17i646gR18r9gR13oR14R15R16i713R17i630gR18r61goR3jR4:12:1oR3jR4:5:3r76oR3jR4:1:1r78R13oR14R15R16i730R17i725gR18r79goR3jR4:3:1oR3jR4:5:3jR30:0:0oR3jR4:1:1r7R13oR14R15R16i738R17i734gR18r9goR3jR4:5:3r76oR3jR4:1:1oR5r8R7y9:specColorR9jR10:5:2i3r31R11i-51gR13oR14R15R16i750R17i741gR18r211goR3jR4:8:2oR3jR4:2:1jR12:8:0R13oR14R15R16i756R17i753gR18jR10:13:1aoR1aoR7R33R9r9gr19hR21r9ghgaoR3jR4:1:1r129R13oR14R15R16i766R17i757gR18r9goR3jR4:1:1oR5r8R7y9:specPowerR9r9R11i-50gR13oR14R15R16i777R17i768gR18r9ghR13oR14R15R16i778R17i753gR18r9gR13oR14R15R16i778R17i741gR18r211gR13oR14R15R16i778R17i734gR18r211gR13oR14R15R16i779R17i733gR18r211gR13oR14R15R16i779R17i725gR18jR10:5:2i3r31gR13oR14R15R16i779R17i718gR18r61ghR13oR14R15R16i785R17i451gR18r61gR5jy17:hxsl.FunctionKind:3:0y3:refoR5jR6:6:0R7y12:calcLightingR9jR10:13:1aoR1ahR21jR10:5:2i3r31ghR11i-52gR21r253goR1ahR2oR3jR4:4:1aoR3jR4:5:3jR30:20:1r204oR3jR4:9:2oR3jR4:1:1oR5r8R7y10:lightColorR9jR10:5:2i3r31R11i-46gR13oR14R15R16i825R17i815gR18r264gajy14:hxsl.Component:0:0jR45:1:0jR45:2:0hR13oR14R15R16i829R17i815gR18jR10:5:2i3r31goR3jR4:8:2oR3jR4:1:1r248R13oR14R15R16i845R17i833gR18r254gahR13oR14R15R16i847R17i833gR18r253gR13oR14R15R16i847R17i815gR18r273ghR13oR14R15R16i853R17i809gR18r61gR5jR41:0:0R42oR5r249R7y6:vertexR9jR10:13:1aoR1ahR21r61ghR11i-53gR21r61goR1ahR2oR3jR4:4:1aoR3jR4:5:3jR30:20:1r204oR3jR4:9:2oR3jR4:1:1oR5r8R7y15:lightPixelColorR9jR10:5:2i3r31R11i-47gR13oR14R15R16i900R17i885gR18r300gar268r269r270hR13oR14R15R16i904R17i885gR18jR10:5:2i3r31goR3jR4:8:2oR3jR4:1:1r248R13oR14R15R16i920R17i908gR18r254gahR13oR14R15R16i922R17i908gR18r253gR13oR14R15R16i922R17i885gR18r306ghR13oR14R15R16i928R17i879gR18r61gR5jR41:1:0R42oR5r249R7y8:fragmentR9jR10:13:1aoR1ahR21r61ghR11i-54gR21r61ghR7y19:h3d.shader.DirLighty4:varsar286r66r38r263r210r319r248r171r78r177r44r229r299hg";
+h3d_shader_LineShader.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:4:1aoR3jR4:7:2oy4:kindjy12:hxsl.VarKind:4:0y4:namey3:diry4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-137goR3jR4:5:3jy16:haxe.macro.Binop:1:0oR3jR4:1:1oR5jR6:1:0R7y6:normalR9jR10:5:2i3r11y6:parentoR5r17R7y5:inputR9jR10:12:1aoR5r17R7y8:positionR9jR10:5:2i3r11R15r19R12i-124gr16oR5r17R7y2:uvR9jR10:5:2i2r11R15r19R12i-126ghR12i-123gR12i-125gy1:poy4:filey76:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FLineShader.hxy3:maxi683y3:mini671gy1:tr18goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:48:0R19oR20R21R22i702R23i686gR24jR10:13:1ahgaoR3jR4:1:1oR5jR6:0:0R7y9:modelViewR9jR10:7:0R15oR5r38R7y6:globalR9jR10:12:1aoR5r38R7y9:pixelSizeR9jR10:5:2i2r11R15r40R12i-121gr37hR12i-120gy10:qualifiersajy17:hxsl.VarQualifier:3:0hR12i-122gR19oR20R21R22i702R23i686gR24r39ghR19oR20R21R22i709R23i686gR24jR10:6:0gR19oR20R21R22i709R23i671gR24r12gR19oR20R21R22i710R23i661gR24jR10:0:0goR3jR4:5:3jR13:4:0oR3jR4:1:1oR5r10R7y4:pdirR9jR10:5:2i4r11R12i-134gR19oR20R21R22i734R23i730gR24r61goR3jR4:5:3r14oR3jR4:8:2oR3jR4:2:1jR25:40:0R19oR20R21R22i741R23i737gR24jR10:13:1ahgaoR3jR4:5:3r14oR3jR4:1:1r9R19oR20R21R22i745R23i742gR24r12goR3jR4:8:2oR3jR4:2:1r30R19oR20R21R22i752R23i748gR24jR10:13:1ahgaoR3jR4:1:1oR5r38R7y4:viewR9r39R15oR5r38R7y6:cameraR9jR10:12:1ar85oR5r38R7y4:projR9r39R15r86R12i-118goR5r38R7y8:viewProjR9r39R15r86R12i-119ghR12i-116gR12i-117gR19oR20R21R22i764R23i753gR24r39ghR19oR20R21R22i765R23i748gR24r51gR19oR20R21R22i765R23i742gR24r12goR3jR4:0:1jy10:hxsl.Const:3:1i1R19oR20R21R22i768R23i767gR24jR10:3:0ghR19oR20R21R22i769R23i737gR24jR10:5:2i4r11goR3jR4:1:1r88R19oR20R21R22i783R23i772gR24r39gR19oR20R21R22i783R23i737gR24jR10:5:2i4r11gR19oR20R21R22i783R23i730gR24r61goR3jR4:5:3jR13:20:1r14oR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i794R23i790gR24r61gajy14:hxsl.Component:0:0jR37:1:0hR19oR20R21R22i797R23i790gR24jR10:5:2i2r11goR3jR4:5:3jR13:2:0oR3jR4:0:1jR36:3:1i1R19oR20R21R22i802R23i801gR24r101goR3jR4:8:2oR3jR4:2:1jR25:13:0R19oR20R21R22i809R23i805gR24jR10:13:1aoR1aoR7y5:valueR9r101ghy3:retr101ghgaoR3jR4:5:3jR13:0:0oR3jR4:5:3r14oR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i814R23i810gR24r61gar120hR19oR20R21R22i816R23i810gR24r101goR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i823R23i819gR24r61gar120hR19oR20R21R22i825R23i819gR24r101gR19oR20R21R22i825R23i810gR24r101goR3jR4:5:3r14oR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i832R23i828gR24r61gar121hR19oR20R21R22i834R23i828gR24r101goR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i841R23i837gR24r61gar121hR19oR20R21R22i843R23i837gR24r101gR19oR20R21R22i843R23i828gR24r101gR19oR20R21R22i843R23i810gR24r101ghR19oR20R21R22i844R23i805gR24r101gR19oR20R21R22i844R23i801gR24r101gR19oR20R21R22i844R23i790gR24r124goR3jR4:5:3jR13:20:1r143oR3jR4:1:1oR5r10R7y19:transformedPositionR9jR10:5:2i3r11R12i-130gR19oR20R21R22i870R23i851gR24r190goR3jR4:5:3r14oR3jR4:5:3r14oR3jR4:1:1r9R19oR20R21R22i877R23i874gR24r12goR3jR4:9:2oR3jR4:1:1r23R19oR20R21R22i888R23i880gR24r24gar120hR19oR20R21R22i890R23i880gR24r101gR19oR20R21R22i890R23i874gR24r12goR3jR4:1:1oR5jR6:2:0R7y11:lengthScaleR9r101R12i-132gR19oR20R21R22i904R23i893gR24r101gR19oR20R21R22i904R23i874gR24r12gR19oR20R21R22i904R23i851gR24r190goR3jR4:5:3r58oR3jR4:1:1oR5r10R7y17:transformedNormalR9jR10:5:2i3r11R12i-129gR19oR20R21R22i928R23i911gR24r219goR3jR4:8:2oR3jR4:2:1jR25:31:0R19oR20R21R22i934R23i931gR24jR10:13:1aoR1aoR7y1:_R9r12ghR39r12ghgaoR3jR4:1:1r9R19oR20R21R22i934R23i931gR24r12ghR19oR20R21R22i946R23i931gR24r12gR19oR20R21R22i946R23i911gR24r219ghR19oR20R21R22i953R23i654gR24r56ghR19oR20R21R22i958R23i648gR24r56gR5jy17:hxsl.FunctionKind:2:0y3:refoR5jR6:6:0R7y8:__init__R9jR10:13:1aoR1ahR39r56ghR12i-135gR39r56goR1ahR2oR3jR4:4:1aoR3jR4:5:3jR13:20:1r143oR3jR4:9:2oR3jR4:1:1oR5r10R7y17:projectedPositionR9jR10:5:2i4r11R12i-131gR19oR20R21R22i1005R23i988gR24r260gar120r121hR19oR20R21R22i1008R23i988gR24jR10:5:2i2r11goR3jR4:5:3r14oR3jR4:5:3r14oR3jR4:5:3r14oR3jR4:5:3r14oR3jR4:3:1oR3jR4:5:3r14oR3jR4:9:2oR3jR4:1:1r60R19oR20R21R22i1017R23i1013gR24r61gar121r120hR19oR20R21R22i1020R23i1013gR24jR10:5:2i2r11goR3jR4:8:2oR3jR4:2:1jR25:38:0R19oR20R21R22i1027R23i1023gR24jR10:13:1ahgaoR3jR4:0:1jR36:3:1i1R19oR20R21R22i1029R23i1028gR24r101goR3jR4:0:1jR36:3:1i-1R19oR20R21R22i1032R23i1030gR24r101ghR19oR20R21R22i1033R23i1023gR24jR10:5:2i2r11gR19oR20R21R22i1033R23i1013gR24jR10:5:2i2r11gR19oR20R21R22i1034R23i1012gR24r302goR3jR4:3:1oR3jR4:5:3jR13:3:0oR3jR4:9:2oR3jR4:1:1r23R19oR20R21R22i1046R23i1038gR24r24gar121hR19oR20R21R22i1048R23i1038gR24r101goR3jR4:0:1jR36:3:1d0.5R19oR20R21R22i1054R23i1051gR24r101gR19oR20R21R22i1054R23i1038gR24r101gR19oR20R21R22i1055R23i1037gR24r101gR19oR20R21R22i1055R23i1012gR24r302goR3jR4:9:2oR3jR4:1:1r259R19oR20R21R22i1075R23i1058gR24r260gajR37:2:0hR19oR20R21R22i1077R23i1058gR24r101gR19oR20R21R22i1077R23i1012gR24r302goR3jR4:1:1r42R19oR20R21R22i1096R23i1080gR24r43gR19oR20R21R22i1096R23i1012gR24jR10:5:2i2r11goR3jR4:1:1oR5r209R7y5:widthR9r101R12i-133gR19oR20R21R22i1104R23i1099gR24r101gR19oR20R21R22i1104R23i1012gR24r340gR19oR20R21R22i1104R23i988gR24r266ghR19oR20R21R22i1110R23i982gR24r56gR5jR44:0:0R45oR5r246R7y6:vertexR9jR10:13:1aoR1ahR39r56ghR12i-136gR39r56ghR7y21:h3d.shader.LineShadery4:varsar259r352r218r245r208r60r86oR5jR6:5:0R7y6:outputR9jR10:12:1aoR5r359R7R17R9jR10:5:2i4r11R15r358R12i-128ghR12i-127gr40r19r189r342hg";
+h3d_shader_Shadow.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:10:3oR3jR4:6:2jy15:haxe.macro.Unop:2:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:2:0y4:namey8:perPixely4:typejy9:hxsl.Type:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhy2:idi-159gy1:poy4:filey72:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FShadow.hxy3:maxi416y3:mini408gy1:tr12gR15oR16R17R18i416R19i407gR20r12goR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oR6jR7:3:0R8y9:shadowPosR10jR11:5:2i3jy12:hxsl.VecType:1:0R12ajR13:1:0hR14i-158gR15oR16R17R18i428R19i419gR20r25goR3jR4:5:3jR21:0:0oR3jR4:5:3jR21:1:0oR3jR4:5:3r33oR3jR4:1:1oR6jR7:4:0R8y19:transformedPositionR10jR11:5:2i3r24R14i-156gR15oR16R17R18i450R19i431gR20r38goR3jR4:1:1oR6jR7:0:0R8y4:projR10jR11:8:0y6:parentoR6r43R8y6:shadowR10jR11:12:1aoR6r43R8y3:mapR10jR11:10:0R26r45R14i-150gr42oR6r43R8y5:colorR10jR11:5:2i3r24R26r45R14i-152goR6r43R8y5:powerR10jR11:3:0R26r45R14i-153goR6r43R8y4:biasR10r52R26r45R14i-154ghR14i-149gR14i-151gR15oR16R17R18i464R19i453gR20r44gR15oR16R17R18i464R19i431gR20jR11:5:2i3r24goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:39:0R15oR16R17R18i471R19i467gR20jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0.5R15oR16R17R18i475R19i472gR20r52goR3jR4:0:1jR33:3:1d-0.5R15oR16R17R18i481R19i477gR20r52goR3jR4:0:1jR33:3:1i1R15oR16R17R18i484R19i483gR20r52ghR15oR16R17R18i485R19i467gR20jR11:5:2i3r24gR15oR16R17R18i485R19i431gR20jR11:5:2i3r24goR3jR4:8:2oR3jR4:2:1r62R15oR16R17R18i492R19i488gR20r66gaoR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i496R19i493gR20r52goR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i501R19i498gR20r52goR3jR4:0:1jR33:3:1zR15oR16R17R18i504R19i503gR20r52ghR15oR16R17R18i505R19i488gR20jR11:5:2i3r24gR15oR16R17R18i505R19i431gR20jR11:5:2i3r24gR15oR16R17R18i505R19i419gR20r25gnR15oR16R17R18i505R19i403gR20jR11:0:0ghR15oR16R17R18i511R19i397gR20r113gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr113ghR14i-160gR37r113goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r37R8R22R10jR11:5:2i3r24R14i-162goR3jR4:10:3oR3jR4:1:1r10R15oR16R17R18i573R19i565gR20r12goR3jR4:5:3r31oR3jR4:5:3r33oR3jR4:5:3r33oR3jR4:1:1oR6r37R8y24:pixelTransformedPositionR10jR11:5:2i3r24R14i-157gR15oR16R17R18i600R19i576gR20r139goR3jR4:1:1r42R15oR16R17R18i614R19i603gR20r44gR15oR16R17R18i614R19i576gR20r59goR3jR4:8:2oR3jR4:2:1r62R15oR16R17R18i621R19i617gR20r66gaoR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i625R19i622gR20r52goR3jR4:0:1jR33:3:1d-0.5R15oR16R17R18i631R19i627gR20r52goR3jR4:0:1jR33:3:1i1R15oR16R17R18i634R19i633gR20r52ghR15oR16R17R18i635R19i617gR20jR11:5:2i3r24gR15oR16R17R18i635R19i576gR20jR11:5:2i3r24goR3jR4:8:2oR3jR4:2:1r62R15oR16R17R18i642R19i638gR20r66gaoR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i646R19i643gR20r52goR3jR4:0:1jR33:3:1d0.5R15oR16R17R18i651R19i648gR20r52goR3jR4:0:1jR33:3:1zR15oR16R17R18i654R19i653gR20r52ghR15oR16R17R18i655R19i638gR20jR11:5:2i3r24gR15oR16R17R18i655R19i576gR20r129goR3jR4:1:1r22R15oR16R17R18i670R19i661gR20r25gR15oR16R17R18i670R19i561gR20r129gR15oR16R17R18i671R19i545gR20r113goR3jR4:7:2oR6r37R8y5:depthR10r52R14i-163goR3jR4:8:2oR3jR4:2:1jR32:53:0R15oR16R17R18i696R19i690gR20jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r24ghR37r52ghgaoR3jR4:8:2oR3jR4:2:1jR32:33:0R15oR16R17R18i707R19i697gR20jR11:13:1aoR1aoR8y1:_R10r48goR8y2:uvR10jR11:5:2i2r24ghR37jR11:5:2i4r24ghgaoR3jR4:1:1r47R15oR16R17R18i707R19i697gR20r48goR3jR4:9:2oR3jR4:1:1r128R15oR16R17R18i721R19i712gR20r129gajy14:hxsl.Component:0:0jR43:1:0hR15oR16R17R18i724R19i712gR20jR11:5:2i2r24ghR15oR16R17R18i725R19i697gR20r224ghR15oR16R17R18i726R19i690gR20r52gR15oR16R17R18i727R19i678gR20r113goR3jR4:7:2oR6r37R8y4:zMaxR10r52R14i-164goR3jR4:8:2oR3jR4:2:1jR32:51:0R15oR16R17R18i919R19i908gR20jR11:13:1aoR1aoR8R41R10r52ghR37r52ghgaoR3jR4:9:2oR3jR4:1:1r128R15oR16R17R18i917R19i908gR20r129gajR43:2:0hR15oR16R17R18i919R19i908gR20r52ghR15oR16R17R18i930R19i908gR20r52gR15oR16R17R18i931R19i897gR20r113goR3jR4:7:2oR6r37R8y5:deltaR10r52R14i-165goR3jR4:5:3jR21:3:0oR3jR4:8:2oR3jR4:2:1jR32:21:0R15oR16R17R18i969R19i948gR20jR11:13:1aoR1aoR8R41R10r52goR8y1:bR10r52ghR37r52ghgaoR3jR4:3:1oR3jR4:5:3r31oR3jR4:1:1r200R15oR16R17R18i954R19i949gR20r52goR3jR4:1:1r53R15oR16R17R18i968R19i957gR20r52gR15oR16R17R18i968R19i949gR20r52gR15oR16R17R18i969R19i948gR20r52goR3jR4:1:1r247R15oR16R17R18i978R19i974gR20r52ghR15oR16R17R18i979R19i948gR20r52goR3jR4:1:1r247R15oR16R17R18i986R19i982gR20r52gR15oR16R17R18i986R19i948gR20r52gR15oR16R17R18i987R19i936gR20r113goR3jR4:7:2oR6r37R8y5:shadeR10r52R14i-166goR3jR4:8:2oR3jR4:2:1r250R15oR16R17R18i1032R19i1004gR20jR11:13:1aoR1aoR8R41R10r52ghR37r52ghgaoR3jR4:8:2oR3jR4:2:1jR32:9:0R15oR16R17R18i1007R19i1004gR20jR11:13:1aoR1aoR8R40R10r52ghR37r52ghgaoR3jR4:5:3r33oR3jR4:1:1r51R15oR16R17R18i1021R19i1009gR20r52goR3jR4:1:1r272R15oR16R17R18i1029R19i1024gR20r52gR15oR16R17R18i1029R19i1009gR20r52ghR15oR16R17R18i1032R19i1004gR20r52ghR15oR16R17R18i1043R19i1004gR20r52gR15oR16R17R18i1044R19i992gR20r113goR3jR4:5:3jR21:20:1r33oR3jR4:9:2oR3jR4:1:1oR6r37R8y10:pixelColorR10jR11:5:2i4r24R14i-155gR15oR16R17R18i1059R19i1049gR20r354gar235r236r264hR15oR16R17R18i1063R19i1049gR20jR11:5:2i3r24goR3jR4:5:3r31oR3jR4:5:3r33oR3jR4:3:1oR3jR4:5:3r274oR3jR4:0:1jR33:3:1i1R15oR16R17R18i1069R19i1068gR20r52goR3jR4:1:1r312R15oR16R17R18i1077R19i1072gR20r52gR15oR16R17R18i1077R19i1068gR20r52gR15oR16R17R18i1078R19i1067gR20r52goR3jR4:9:2oR3jR4:1:1r49R15oR16R17R18i1093R19i1081gR20r50gar235r236r264hR15oR16R17R18i1097R19i1081gR20jR11:5:2i3r24gR15oR16R17R18i1097R19i1067gR20r383goR3jR4:1:1r312R15oR16R17R18i1105R19i1100gR20r52gR15oR16R17R18i1105R19i1067gR20r383gR15oR16R17R18i1105R19i1049gR20r360ghR15oR16R17R18i1111R19i537gR20r113gR6jR34:1:0R35oR6r118R8y8:fragmentR10jR11:13:1aoR1ahR37r113ghR14i-161gR37r113ghR8y17:h3d.shader.Shadowy4:varsar117r396r45r22r36r353r138r10hg";
+h3d_shader_Skin.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey19:transformedPositiony4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-144gy1:poy4:filey70:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FSkin.hxy3:maxi538y3:mini519gy1:tr12goR3jR4:5:3jR5:0:0oR3jR4:5:3r16oR3jR4:5:3jR5:1:0oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1oR6r10R8y16:relativePositionR10jR11:5:2i3r11R13i-143gR14oR15R16R17i563R18i547gR19r24goR3jR4:16:2oR3jR4:1:1oR6jR7:2:0R8y13:bonesMatrixesR10jR11:14:2jR11:8:0jy13:hxsl.SizeDecl:1:1oR6r30R8y8:MaxBonesR10jR11:1:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-146gR13i-147gR14oR15R16R17i579R18i566gR19r37goR3jR4:9:2oR3jR4:1:1oR6jR7:1:0R8y7:indexesR10jR11:9:1i4y6:parentoR6r43R8y5:inputR10jR11:12:1aoR6r43R8y8:positionR10jR11:5:2i3r11R27r45R13i-139goR6r43R8y6:normalR10jR11:5:2i3r11R27r45R13i-140goR6r43R8y7:weightsR10jR11:5:2i3r11R27r45R13i-141gr42hR13i-138gR13i-142gR14oR15R16R17i593R18i580gR19r44gajy14:hxsl.Component:0:0hR14oR15R16R17i595R18i580gR19r33gR14oR15R16R17i596R18i566gR19r31gR14oR15R16R17i596R18i547gR19jR11:5:2i3r11gR14oR15R16R17i597R18i546gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i613R18i600gR19r52gar57hR14oR15R16R17i615R18i600gR19jR11:3:0gR14oR15R16R17i615R18i546gR19r64goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r23R14oR15R16R17i640R18i624gR19r24goR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i656R18i643gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i670R18i657gR19r44gajR32:1:0hR14oR15R16R17i672R18i657gR19r33gR14oR15R16R17i673R18i643gR19r31gR14oR15R16R17i673R18i624gR19r64gR14oR15R16R17i674R18i623gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i690R18i677gR19r52gar92hR14oR15R16R17i692R18i677gR19r74gR14oR15R16R17i692R18i623gR19r64gR14oR15R16R17i692R18i546gR19jR11:5:2i3r11goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r23R14oR15R16R17i717R18i701gR19r24goR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i733R18i720gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i747R18i734gR19r44gajR32:2:0hR14oR15R16R17i749R18i734gR19r33gR14oR15R16R17i750R18i720gR19r31gR14oR15R16R17i750R18i701gR19r64gR14oR15R16R17i751R18i700gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i767R18i754gR19r52gar128hR14oR15R16R17i769R18i754gR19r74gR14oR15R16R17i769R18i700gR19r64gR14oR15R16R17i769R18i546gR19jR11:5:2i3r11gR14oR15R16R17i769R18i519gR19r12goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y17:transformedNormalR10jR11:5:2i3r11R13i-145gR14oR15R16R17i792R18i775gR19r154goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:31:0R14oR15R16R17i804R18i795gR19jR11:13:1aoR1aoR8y5:valueR10r64ghy3:retr64ghgaoR3jR4:5:3r16oR3jR4:5:3r16oR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r49R14oR15R16R17i824R18i812gR19r50goR3jR4:8:2oR3jR4:2:1jR34:48:0R14oR15R16R17i831R18i827gR19jR11:13:1ahgaoR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i845R18i832gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i859R18i846gR19r44gar57hR14oR15R16R17i861R18i846gR19r33gR14oR15R16R17i862R18i832gR19r31ghR14oR15R16R17i863R18i827gR19jR11:6:0gR14oR15R16R17i863R18i812gR19r64gR14oR15R16R17i864R18i811gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i880R18i867gR19r52gar57hR14oR15R16R17i882R18i867gR19r74gR14oR15R16R17i882R18i811gR19r64goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r49R14oR15R16R17i903R18i891gR19r50goR3jR4:8:2oR3jR4:2:1r178R14oR15R16R17i910R18i906gR19r182gaoR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i924R18i911gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i938R18i925gR19r44gar92hR14oR15R16R17i940R18i925gR19r33gR14oR15R16R17i941R18i911gR19r31ghR14oR15R16R17i942R18i906gR19r199gR14oR15R16R17i942R18i891gR19r64gR14oR15R16R17i943R18i890gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i959R18i946gR19r52gar92hR14oR15R16R17i961R18i946gR19r74gR14oR15R16R17i961R18i890gR19r64gR14oR15R16R17i961R18i811gR19jR11:5:2i3r11goR3jR4:5:3r19oR3jR4:3:1oR3jR4:5:3r19oR3jR4:1:1r49R14oR15R16R17i982R18i970gR19r50goR3jR4:8:2oR3jR4:2:1r178R14oR15R16R17i989R18i985gR19r182gaoR3jR4:16:2oR3jR4:1:1r29R14oR15R16R17i1003R18i990gR19r37goR3jR4:9:2oR3jR4:1:1r42R14oR15R16R17i1017R18i1004gR19r44gar128hR14oR15R16R17i1019R18i1004gR19r33gR14oR15R16R17i1020R18i990gR19r31ghR14oR15R16R17i1021R18i985gR19r199gR14oR15R16R17i1021R18i970gR19r64gR14oR15R16R17i1022R18i969gR19r64goR3jR4:9:2oR3jR4:1:1r51R14oR15R16R17i1038R18i1025gR19r52gar128hR14oR15R16R17i1040R18i1025gR19r74gR14oR15R16R17i1040R18i969gR19r64gR14oR15R16R17i1040R18i811gR19jR11:5:2i3r11ghR14oR15R16R17i1041R18i795gR19r64gR14oR15R16R17i1041R18i775gR19r154ghR14oR15R16R17i1056R18i420gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahR36r303ghR13i-148gR36r303ghR8y15:h3d.shader.Skiny4:varsar305r153r29r23r45r9r32hg";
+h3d_shader_SpecularTexture.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:1:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey9:specColory4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-60gy1:poy4:filey81:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FSpecularTexture.hxy3:maxi218y3:mini209gy1:tr13goR3jR4:9:2oR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:33:0R14oR15R16R17i229R18i222gR19jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8y2:uvR10jR11:5:2i2r12ghy3:retjR11:5:2i4r12ghgaoR3jR4:1:1oR6jR7:2:0R8y7:textureR10r26R13i-58gR14oR15R16R17i229R18i222gR19r26goR3jR4:1:1oR6r11R8y12:calculatedUVR10jR11:5:2i2r12R13i-59gR14oR15R16R17i246R18i234gR19r39ghR14oR15R16R17i247R18i222gR19r29gajy14:hxsl.Component:0:0jR26:1:0jR26:2:0hR14oR15R16R17i251R18i222gR19jR11:5:2i3r12gR14oR15R16R17i251R18i209gR19r13ghR14oR15R16R17i257R18i203gR19jR11:0:0gR6jy17:hxsl.FunctionKind:1:0y3:refoR6jR7:6:0R8y8:fragmentR10jR11:13:1aoR1ahR23r55ghR13i-61gR23r55ghR8y26:h3d.shader.SpecularTexturey4:varsar38r10r57r33hg";
+h3d_shader_Texture.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey12:calculatedUVy4:typejy9:hxsl.Type:5:2i2jy12:hxsl.VecType:1:0y2:idi-69gy1:poy4:filey73:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FTexture.hxy3:maxi443y3:mini431gy1:tr12goR3jR4:1:1oR6jR7:1:0R8y2:uvR10jR11:5:2i2r11y6:parentoR6r17R8y5:inputR10jR11:12:1ar16hR13i-62gR13i-63gR14oR15R16R17i454R18i446gR19r18gR14oR15R16R17i454R18i431gR19r12ghR14oR15R16R17i460R18i425gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr28ghR13i-72gR26r28goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8y1:cR10jR11:5:2i4r11R13i-74goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:33:0R14oR15R16R17i507R18i500gR19jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8R20R10jR11:5:2i2r11ghR26r42ghgaoR3jR4:1:1oR6jR7:2:0R8y7:textureR10r52R13i-68gR14oR15R16R17i507R18i500gR19r52goR3jR4:1:1r9R14oR15R16R17i524R18i512gR19r12ghR14oR15R16R17i525R18i500gR19r42gR14oR15R16R17i526R18i492gR19r28goR3jR4:10:3oR3jR4:5:3jR5:14:0oR3jR4:1:1oR6r59R8y9:killAlphaR10jR11:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhR13i-65gR14oR15R16R17i544R18i535gR19r74goR3jR4:5:3jR5:9:0oR3jR4:5:3jR5:3:0oR3jR4:9:2oR3jR4:1:1r41R14oR15R16R17i549R18i548gR19r42gajy14:hxsl.Component:3:0hR14oR15R16R17i551R18i548gR19jR11:3:0goR3jR4:1:1oR6r59R8y18:killAlphaThresholdR10r91R32ajR33:7:2d0d1hR13i-67gR14oR15R16R17i572R18i554gR19r91gR14oR15R16R17i572R18i548gR19r91goR3jR4:0:1jy10:hxsl.Const:3:1zR14oR15R16R17i576R18i575gR19r91gR14oR15R16R17i576R18i548gR19r74gR14oR15R16R17i576R18i535gR19r74goR3jR4:11:0R14oR15R16R17i586R18i579gR19r28gnR14oR15R16R17i586R18i531gR19r28goR3jR4:10:3oR3jR4:1:1oR6r59R8y8:additiveR10r74R32ajR33:0:1nhR13i-64gR14oR15R16R17i604R18i596gR19r74goR3jR4:5:3jR5:20:1jR5:0:0oR3jR4:1:1oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-70gR14oR15R16R17i622R18i612gR19r125goR3jR4:1:1r41R14oR15R16R17i627R18i626gR19r42gR14oR15R16R17i627R18i612gR19r125goR3jR4:5:3jR5:20:1jR5:1:0oR3jR4:1:1r124R14oR15R16R17i653R18i643gR19r125goR3jR4:1:1r41R14oR15R16R17i658R18i657gR19r42gR14oR15R16R17i658R18i643gR19r125gR14oR15R16R17i658R18i592gR19r28goR3jR4:10:3oR3jR4:1:1oR6r59R8y13:specularAlphaR10r74R32ajR33:0:1nhR13i-66gR14oR15R16R17i681R18i668gR19r74goR3jR4:5:3jR5:20:1r134oR3jR4:1:1oR6r10R8y9:specColorR10jR11:5:2i3r11R13i-71gR14oR15R16R17i698R18i689gR19r157goR3jR4:9:2oR3jR4:1:1r41R14oR15R16R17i703R18i702gR19r42gar88r88r88hR14oR15R16R17i707R18i702gR19jR11:5:2i3r11gR14oR15R16R17i707R18i689gR19r157gnR14oR15R16R17i707R18i664gR19r28ghR14oR15R16R17i713R18i486gR19r28gR6jR23:1:0R24oR6r31R8y8:fragmentR10jR11:13:1aoR1ahR26r28ghR13i-73gR26r28ghR8y18:h3d.shader.Texturey4:varsar9r30r156r175r115r58r148r93r19r73r124hg";
+h3d_shader_UVDelta.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:20:1jR5:0:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey12:calculatedUVy4:typejy9:hxsl.Type:5:2i2jy12:hxsl.VecType:1:0y2:idi-315gy1:poy4:filey73:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FUVDelta.hxy3:maxi179y3:mini167gy1:tr13goR3jR4:1:1oR6jR7:2:0R8y7:uvDeltaR10jR11:5:2i2r12R13i-314gR14oR15R16R17i190R18i183gR19r19gR14oR15R16R17i190R18i167gR19r13ghR14oR15R16R17i196R18i161gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr26ghR13i-316gR24r26ghR8y18:h3d.shader.UVDeltay4:varsar10r28r17hg";
+h3d_shader_VertexColorAlpha.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:10:3oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:2:0y4:namey8:additivey4:typejy9:hxsl.Type:2:0y10:qualifiersajy17:hxsl.VarQualifier:0:1nhy2:idi-219gy1:poy4:filey82:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FVertexColorAlpha.hxy3:maxi245y3:mini237gy1:tr10goR3jR4:5:3jy16:haxe.macro.Binop:20:1jR20:0:0oR3jR4:1:1oR5jR6:4:0R7y10:pixelColorR9jR10:5:2i4jy12:hxsl.VecType:1:0R13i-218gR14oR15R16R17i263R18i253gR19r22goR3jR4:1:1oR5jR6:1:0R7y5:colorR9jR10:5:2i4r21y6:parentoR5r27R7y5:inputR9jR10:12:1ar26hR13i-216gR13i-217gR14oR15R16R17i278R18i267gR19r28gR14oR15R16R17i278R18i253gR19r22goR3jR4:5:3jR20:20:1jR20:1:0oR3jR4:1:1r19R14oR15R16R17i304R18i294gR19r22goR3jR4:1:1r26R14oR15R16R17i319R18i308gR19r28gR14oR15R16R17i319R18i294gR19r22gR14oR15R16R17i319R18i233gR19jR10:0:0ghR14oR15R16R17i325R18i227gR19r49gR5jy17:hxsl.FunctionKind:1:0y3:refoR5jR6:6:0R7y8:fragmentR9jR10:13:1aoR1ahy3:retr49ghR13i-220gR29r49ghR7y27:h3d.shader.VertexColorAlphay4:varsar53r8r29r19hg";
+h3d_shader_VolumeDecal.SRC = "oy4:funsaoy4:argsahy4:exproy1:ejy13:hxsl.TExprDef:4:1aoR3jR4:5:3jy16:haxe.macro.Binop:4:0oR3jR4:1:1oy4:kindjy12:hxsl.VarKind:4:0y4:namey17:transformedNormaly4:typejy9:hxsl.Type:5:2i3jy12:hxsl.VecType:1:0y2:idi-193gy1:poy4:filey77:C%3A%5CHaxeToolkit%5Chaxe%5Clib%5Cheaps%2Fgit%2Fh3d%2Fshader%2FVolumeDecal.hxy3:maxi282y3:mini265gy1:tr12goR3jR4:1:1oR6jR7:2:0R8y6:normalR10jR11:5:2i3r11R13i-206gR14oR15R16R17i291R18i285gR19r18gR14oR15R16R17i291R18i265gR19r12ghR14oR15R16R17i297R18i259gR19jR11:0:0gR6jy17:hxsl.FunctionKind:0:0y3:refoR6jR7:6:0R8y6:vertexR10jR11:13:1aoR1ahy3:retr25ghR13i-208gR24r25goR1ahR2oR3jR4:4:1aoR3jR4:7:2oR6r10R8y6:matrixR10jR11:7:0R13i-210goR3jR4:5:3jR5:1:0oR3jR4:1:1oR6jR7:0:0R8y15:inverseViewProjR10r39y6:parentoR6r44R8y6:cameraR10jR11:12:1aoR6r44R8y4:viewR10r39R27r45R13i-168goR6r44R8y4:projR10r39R27r45R13i-169goR6r44R8y8:positionR10jR11:5:2i3r11R27r45R13i-170goR6r44R8y8:projDiagR10jR11:5:2i3r11R27r45R13i-171goR6r44R8y8:viewProjR10r39R27r45R13i-172gr43oR6r44R8y5:zNearR10jR11:3:0R27r45R13i-174goR6r44R8y4:zFarR10r55R27r45R13i-175goR6jR7:3:0R8y3:dirR10jR11:5:2i3r11R27r45R13i-176ghR13i-167gR13i-173gR14oR15R16R17i364R18i342gR19r39goR3jR4:1:1oR6r44R8y16:modelViewInverseR10r39R27oR6r44R8y6:globalR10jR11:12:1aoR6r44R8y4:timeR10r55R27r65R13i-178goR6r44R8y9:pixelSizeR10jR11:5:2i2r11R27r65R13i-179goR6r44R8y9:modelViewR10r39R27r65y10:qualifiersajy17:hxsl.VarQualifier:3:0hR13i-180gr64hR13i-177gR42ar72hR13i-181gR14oR15R16R17i390R18i367gR19r39gR14oR15R16R17i390R18i342gR19r39gR14oR15R16R17i391R18i329gR19r25goR3jR4:7:2oR6r10R8y9:screenPosR10jR11:5:2i2r11R13i-211goR3jR4:5:3jR5:2:0oR3jR4:9:2oR3jR4:1:1oR6r10R8y17:projectedPositionR10jR11:5:2i4r11R13i-194gR14oR15R16R17i429R18i412gR19r89gajy14:hxsl.Component:0:0jR46:1:0hR14oR15R16R17i432R18i412gR19r83goR3jR4:9:2oR3jR4:1:1r88R14oR15R16R17i452R18i435gR19r89gajR46:3:0hR14oR15R16R17i454R18i435gR19r55gR14oR15R16R17i454R18i412gR19r83gR14oR15R16R17i455R18i396gR19r25goR3jR4:7:2oR6r10R8y3:tuvR10jR11:5:2i2r11R13i-212goR3jR4:5:3jR5:0:0oR3jR4:5:3r41oR3jR4:1:1r82R14oR15R16R17i479R18i470gR19r83goR3jR4:8:2oR3jR4:2:1jy12:hxsl.TGlobal:38:0R14oR15R16R17i486R18i482gR19jR11:13:1ahgaoR3jR4:0:1jy10:hxsl.Const:3:1d0.5R14oR15R16R17i490R18i487gR19r55goR3jR4:0:1jR49:3:1d-0.5R14oR15R16R17i496R18i492gR19r55ghR14oR15R16R17i497R18i482gR19jR11:5:2i2r11gR14oR15R16R17i497R18i470gR19jR11:5:2i2r11goR3jR4:8:2oR3jR4:2:1r120R14oR15R16R17i504R18i500gR19r124gaoR3jR4:0:1jR49:3:1d0.5R14oR15R16R17i508R18i505gR19r55goR3jR4:0:1jR49:3:1d0.5R14oR15R16R17i513R18i510gR19r55ghR14oR15R16R17i514R18i500gR19jR11:5:2i2r11gR14oR15R16R17i514R18i470gR19r111gR14oR15R16R17i515R18i460gR19r25goR3jR4:7:2oR6r10R8y3:ruvR10jR11:5:2i4r11R13i-213goR3jR4:8:2oR3jR4:2:1jR48:40:0R14oR15R16R17i534R18i530gR19jR11:13:1ahgaoR3jR4:1:1r82R14oR15R16R17i550R18i541gR19r83goR3jR4:8:2oR3jR4:2:1jR48:53:0R14oR15R16R17i563R18i557gR19jR11:13:1aoR1aoR8y5:valueR10jR11:5:2i4r11ghR24r55ghgaoR3jR4:8:2oR3jR4:2:1jR48:33:0R14oR15R16R17i572R18i564gR19jR11:13:1aoR1aoR8y1:_R10jR11:10:0goR8y2:uvR10jR11:5:2i2r11ghR24jR11:5:2i4r11ghgaoR3jR4:1:1oR6r44R8y8:depthMapR10r195R13i-204gR14oR15R16R17i572R18i564gR19r195goR3jR4:1:1r110R14oR15R16R17i580R18i577gR19r111ghR14oR15R16R17i581R18i564gR19r198ghR14oR15R16R17i582R18i557gR19r55goR3jR4:0:1jR49:3:1i1R14oR15R16R17i590R18i589gR19r55ghR14oR15R16R17i596R18i530gR19r162gR14oR15R16R17i597R18i520gR19r25goR3jR4:7:2oR6r10R8y4:wposR10r198R13i-214goR3jR4:5:3r41oR3jR4:1:1r161R14oR15R16R17i616R18i613gR19r162goR3jR4:1:1r38R14oR15R16R17i625R18i619gR19r39gR14oR15R16R17i625R18i613gR19r198gR14oR15R16R17i626R18i602gR19r25goR3jR4:7:2oR6r10R8y4:pposR10r198R13i-215goR3jR4:5:3r41oR3jR4:1:1r161R14oR15R16R17i645R18i642gR19r162goR3jR4:1:1r43R14oR15R16R17i670R18i648gR19r39gR14oR15R16R17i670R18i642gR19r198gR14oR15R16R17i671R18i631gR19r25goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y24:pixelTransformedPositionR10jR11:5:2i3r11R13i-192gR14oR15R16R17i700R18i676gR19r249goR3jR4:5:3r85oR3jR4:9:2oR3jR4:1:1r234R14oR15R16R17i707R18i703gR19r198gar93r94jR46:2:0hR14oR15R16R17i711R18i703gR19jR11:5:2i3r11goR3jR4:9:2oR3jR4:1:1r234R14oR15R16R17i718R18i714gR19r198gar102hR14oR15R16R17i720R18i714gR19r55gR14oR15R16R17i720R18i703gR19r261gR14oR15R16R17i720R18i676gR19r249goR3jR4:5:3r7oR3jR4:1:1oR6r10R8y12:calculatedUVR10jR11:5:2i2r11R13i-207gR14oR15R16R17i738R18i726gR19r276goR3jR4:5:3r113oR3jR4:5:3r41oR3jR4:1:1oR6r17R8y5:scaleR10jR11:5:2i2r11R13i-205gR14oR15R16R17i746R18i741gR19r283goR3jR4:3:1oR3jR4:5:3r85oR3jR4:9:2oR3jR4:1:1r221R14oR15R16R17i754R18i750gR19r198gar93r94hR14oR15R16R17i757R18i750gR19jR11:5:2i2r11goR3jR4:9:2oR3jR4:1:1r221R14oR15R16R17i764R18i760gR19r198gar102hR14oR15R16R17i766R18i760gR19r55gR14oR15R16R17i766R18i750gR19r295gR14oR15R16R17i767R18i749gR19r295gR14oR15R16R17i767R18i741gR19jR11:5:2i2r11goR3jR4:0:1jR49:3:1d0.5R14oR15R16R17i773R18i770gR19r55gR14oR15R16R17i773R18i741gR19r309gR14oR15R16R17i773R18i726gR19r276goR3jR4:10:3oR3jR4:5:3jR5:9:0oR3jR4:8:2oR3jR4:2:1jR48:21:0R14oR15R16R17i786R18i783gR19jR11:13:1aoR1aoR8y1:aR10r55goR8y1:bR10r55ghR24r55ghgaoR3jR4:8:2oR3jR4:2:1r323R14oR15R16R17i790R18i787gR19jR11:13:1ar327hgaoR3jR4:9:2oR3jR4:1:1r275R14oR15R16R17i803R18i791gR19r276gar93hR14oR15R16R17i805R18i791gR19r55goR3jR4:9:2oR3jR4:1:1r275R14oR15R16R17i819R18i807gR19r276gar94hR14oR15R16R17i821R18i807gR19r55ghR14oR15R16R17i822R18i787gR19r55goR3jR4:8:2oR3jR4:2:1r323R14oR15R16R17i827R18i824gR19jR11:13:1ar327hgaoR3jR4:5:3jR5:3:0oR3jR4:0:1jR49:3:1i1R14oR15R16R17i829R18i828gR19r55goR3jR4:9:2oR3jR4:1:1r275R14oR15R16R17i844R18i832gR19r276gar93hR14oR15R16R17i846R18i832gR19r55gR14oR15R16R17i846R18i828gR19r55goR3jR4:5:3r364oR3jR4:0:1jR49:3:1i1R14oR15R16R17i849R18i848gR19r55goR3jR4:9:2oR3jR4:1:1r275R14oR15R16R17i864R18i852gR19r276gar94hR14oR15R16R17i866R18i852gR19r55gR14oR15R16R17i866R18i848gR19r55ghR14oR15R16R17i867R18i824gR19r55ghR14oR15R16R17i868R18i783gR19r55goR3jR4:0:1jR49:3:1zR14oR15R16R17i872R18i871gR19r55gR14oR15R16R17i872R18i783gR19jR11:2:0goR3jR4:11:0R14oR15R16R17i882R18i875gR19r25gnR14oR15R16R17i882R18i779gR19r25ghR14oR15R16R17i888R18i323gR19r25gR6jR21:1:0R22oR6r28R8y8:fragmentR10jR11:13:1aoR1ahR24r25ghR13i-209gR24r25ghR8y22:h3d.shader.VolumeDecaly4:varsar88oR6r10R8y5:depthR10r55R13i-196gr275r27r9r282oR6r10R8y9:specColorR10jR11:5:2i3r11R13i-199gr16r411r202oR6r10R8y16:relativePositionR10jR11:5:2i3r11R13i-190gr45oR6jR7:5:0R8y6:outputR10jR11:12:1aoR6r423R8R31R10jR11:5:2i4r11R27r422R13i-186goR6r423R8y5:colorR10jR11:5:2i4r11R27r422R13i-187goR6r423R8R65R10jR11:5:2i4r11R27r422R13i-188goR6r423R8R20R10jR11:5:2i4r11R27r422R13i-189ghR13i-185goR6r10R8y8:screenUVR10jR11:5:2i2r11R13i-197gr65oR6jR7:1:0R8y5:inputR10jR11:12:1aoR6r437R8R31R10jR11:5:2i3r11R27r436R13i-183goR6r437R8R20R10jR11:5:2i3r11R27r436R13i-184ghR13i-182goR6r10R8y19:transformedPositionR10jR11:5:2i3r11R13i-191goR6r10R8y9:specPowerR10r55R13i-198gr248oR6r10R8y10:pixelColorR10jR11:5:2i4r11R13i-195ghg";
 haxe_EntryPoint.pending = [];
 haxe_EntryPoint.threadCount = 0;
 haxe_Unserializer.DEFAULT_RESOLVER = new haxe__$Unserializer_DefaultResolver();
@@ -45821,7 +45854,7 @@ hxsl_RuntimeShader.UID = 0;
 js_html_compat_Float32Array.BYTES_PER_ELEMENT = 4;
 js_html_compat_Uint8Array.BYTES_PER_ELEMENT = 1;
 {
-	Main.main();
+	Game.main();
 	haxe_EntryPoint.run();
 }
 })(typeof window != "undefined" ? window : typeof global != "undefined" ? global : typeof self != "undefined" ? self : this);
