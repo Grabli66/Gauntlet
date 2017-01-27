@@ -1,11 +1,12 @@
-import h2d.col.Bounds;
+import differ.Collision;
+import differ.math.Vector in V;
+import differ.shapes.*;
+import differ.data.*;
 
 /**
     Main game class
 **/
-class Game extends hxd.App {    
-    public static var CollideGrid : CollisionGrid;
-
+class Game extends hxd.App {
     /**
         Player
     **/
@@ -27,11 +28,23 @@ class Game extends hxd.App {
     public static var Ghost : Ghost;
 
     /**
+        Collision shapes
+    **/
+    private static var _shapes : Array<Shape>;
+
+    /**
+        Collide result
+    **/
+    private static var _collideResult : Results<ShapeCollision>;
+
+    /**
         On app init
     **/
     override function init () {
-        Scene = s2d;        
-        CollideGrid = new CollisionGrid (100, 100, 32);
+        _shapes = new Array<Shape> ();
+        _collideResult = new Results<ShapeCollision> (0);
+
+        Scene = s2d;
 
         Player = new Player (100, 100);
         Ghost = new Ghost (500, 200);
@@ -45,6 +58,20 @@ class Game extends hxd.App {
         Player.Update (dt);
         Ghost.Update (dt);
 	}
+
+    /**
+        Add collision shape
+    **/
+    public static function AddShape (shape : Shape) : Void {
+        _shapes.push (shape);
+    }   
+
+    /**
+        Check collide
+    **/
+    public static function Collide (shape : Shape) : Results<ShapeCollision> {
+        return Collision.shapeWithShapes (shape, _shapes, _collideResult);
+    }
 
     static function main () {
         hxd.Res.initEmbed();

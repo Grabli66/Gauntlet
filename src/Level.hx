@@ -1,16 +1,27 @@
-
-import h2d.col.Bounds;
-import h2d.col.IPoint;
+import h2d.Tile;
+import differ.shapes.Polygon;
+import differ.Collision;
 
 /**
-    Cell of collider grid
+    Level cell
 **/
-class LevelCell {
+class Cell {
+    /**
+        Cell tile
+    **/
+    public var Tile (default, null) : Tile;
+
+    /**
+        Collision shape
+    **/
+    public var Square (default, null) : Polygon;
+
     /**
         Constructor
     **/
-    public function new () {
-
+    public function new (tile : Tile, info : Dynamic, ?square : Polygon) {
+        this.Tile = tile;
+        this.Square = square;
     }
 }
 
@@ -26,12 +37,7 @@ class Level {
     /**
         Tile data for level
     **/
-    private var _tileGroup : h2d.TileGroup;
-    
-    /**
-        Grid with colliders
-    **/
-    private var _collideGrid : CollisionGrid;
+    private var _tileGroup : h2d.TileGroup;   
 
     /**
         Debug drawer
@@ -39,62 +45,45 @@ class Level {
     private var _debug : h2d.Graphics;
 
     /**
+        Level cells
+    **/
+    private var _cells : Map<Int, Map<Int, Cell>>;
+
+    /**
         Constructor
     **/
     public function new () {
+        _cells = new Map<Int, Map<Int, Cell>> ();
+
         var tile = h2d.Tile.fromColor(0xFFAAFF, SIZE, SIZE);
         _tileGroup = new h2d.TileGroup (tile, Game.Scene);
-
         _tileGroup.x = 0;
         _tileGroup.y = 0;
 
-        for (i in 5...15) {
-            _tileGroup.add (SIZE * i, 0, tile);
-            Game.CollideGrid.SetByIdx (i, 0, null);
+        for (i in 0...15) {
+            AddCell (i, 0, tile, null, true);
         }
 
-        for (i in 5...15) {
-            _tileGroup.add (SIZE * i, 10 * 32, tile);
-            Game.CollideGrid.SetByIdx (i, 10, null);
-        } 
-
-        _debug = new h2d.Graphics (Game.Scene);
-        _debug.x = 0;
-        _debug.y = 0;
+        for (i in 0...15) {
+            AddCell (i, 15, tile, null, true);
+        }
     }
 
     /**
-        Check collision
+        Add new cell
     **/
-    /*public function Collide ( e : Bounds) : Bounds {
-        var bounds = e;
-        var points = new List<IPoint> ();
-        points.push (new IPoint (Math.floor ((bounds.x - _tileGroup.x) / SIZE), Math.floor ((bounds.y - _tileGroup.y) / SIZE)));
-        points.push (new IPoint (Math.floor ((bounds.xMax - _tileGroup.x) / SIZE), Math.floor ((bounds.y - _tileGroup.y) / SIZE)));
-        points.push (new IPoint (Math.floor ((bounds.x - _tileGroup.x) / SIZE), Math.floor ((bounds.yMax - _tileGroup.y) / SIZE)));
-        points.push (new IPoint (Math.floor ((bounds.xMax - _tileGroup.x) / SIZE), Math.floor ((bounds.yMax - _tileGroup.y) / SIZE)));
+    public function AddCell (idx : Int, idy : Int, tile : Tile, info : Dynamic, isCollide : Bool = false) : Void {
+        var cx = _cells[idx];
+        if (cx == null) {
+            cx = new Map<Int, Cell> ();
+            _cells[idx] = cx;
+        }               
 
-        _debug.clear ();
-        _debug.lineStyle(1, 0xFF00FF);
-
-        var res : Bounds = null;
-        for (p in points) {
-            var dex : Int = Math.floor (_tileGroup.x + p.x * SIZE);
-            var dey : Int = Math.floor (_tileGroup.y + p.y * SIZE);
-
-            var ibo = h2d.col.Bounds.fromValues (dex, dey, SIZE, SIZE);
-            if (_collideGrid.Exist (p.x, p.y)) {
-                if (res == null) res = new Bounds ();
-                var intb = bounds.intersection (ibo);
-                res.addBounds (intb);
-
-                _debug.beginFill (0xFFFF00);
-                _debug.drawRect (res.x, res.y, res.width, res.height);
-                _debug.endFill ();
-            }                                
-
-            _debug.drawRect (ibo.x, ibo.y, ibo.width, ibo.height);
-        }
-        return res;
-    }*/
+        cx[idy] = new Cell (tile, info);
+        var x = idx * SIZE;
+        var y = idy * SIZE;
+        _tileGroup.add (x, y, tile);
+        var box = Polygon.square (x, y, SIZE, false);
+        Game.AddShape (box);
+    }
 }

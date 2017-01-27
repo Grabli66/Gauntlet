@@ -3,6 +3,11 @@
 **/
 class Ghost extends Entity {
     /**
+        Tile size
+    **/
+    public static inline var SIZE : Int = 32;
+
+    /**
         Move speed
     **/
     private static inline var SPEED = 2;
@@ -11,8 +16,8 @@ class Ghost extends Entity {
         Constructor
     **/
     public function new (x : Int, y : Int) {
-        super (x, y);
-        Sprite.tile = h2d.Tile.fromColor(0x0000FF, 32, 32);
+        super (x, y, SIZE);
+        Sprite.tile = h2d.Tile.fromColor(0x0000FF, SIZE, SIZE);
     }
 
     /**
