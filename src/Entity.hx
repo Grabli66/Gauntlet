@@ -1,5 +1,7 @@
 import h2d.col.Bounds;
 import differ.shapes.Circle;
+import h2d.Sprite;
+import h2d.col.Point;
 
 /**
     Base entity
@@ -13,27 +15,23 @@ class Entity {
     /**
         Sprite
     **/
-    public var Sprite : h2d.Bitmap;
+    public var Sprite : Sprite;
 
     /**
         Entity shape
     **/
     public var Shape (default, null) : Circle;   
 
-    private var _debug : h2d.Graphics;
-
     /**
         Constructor
     **/
     public function new (x : Int, y : Int, size : Int) {
         _size = size;
-        Sprite = new h2d.Bitmap (null, Game.Scene);
+        Sprite = new Sprite (Game.Scene);
         Sprite.x = x;
         Sprite.y = y;
         Shape = new Circle (x + size / 2, y + size / 2, size / 2);
-        Game.AddShape (Shape);
-
-        _debug = new h2d.Graphics (Game.Scene);
+        Game.AddShape (Shape);        
     }
 
     /**
@@ -41,6 +39,13 @@ class Entity {
     **/
     public function GetBounds () : Bounds {
         return Sprite.getBounds ();
+    }
+
+    /**
+        Return center point
+    **/
+    public function GetCenter () : Point {
+        return GetBounds ().getCenter ();        
     }
 
     /**
@@ -57,10 +62,6 @@ class Entity {
         }
         Sprite.x = Shape.x - _size / 2;
         Sprite.y = Shape.y - _size / 2;
-
-        /*_debug.clear ();
-        _debug.lineStyle (1, 0xFF0000);
-        _debug.drawCircle (Shape.x, Shape.y, _size / 2, 30);*/
     }
 
     /**

@@ -17,7 +17,7 @@ EReg.prototype = {
 };
 var Entity = function(x,y,size) {
 	this._size = size;
-	this.Sprite = new h2d_Bitmap(null,Game.Scene);
+	this.Sprite = new h2d_Sprite(Game.Scene);
 	var _this = this.Sprite;
 	_this.posChanged = true;
 	_this.x = x;
@@ -26,7 +26,6 @@ var Entity = function(x,y,size) {
 	_this1.y = y;
 	this.Shape = new differ_shapes_Circle(x + size / 2,y + size / 2,size / 2);
 	Game.AddShape(this.Shape);
-	this._debug = new h2d_Graphics(Game.Scene);
 };
 $hxClasses["Entity"] = Entity;
 Entity.__name__ = ["Entity"];
@@ -34,12 +33,17 @@ Entity.prototype = {
 	GetBounds: function() {
 		return this.Sprite.getBounds();
 	}
+	,GetCenter: function() {
+		var _this = this.GetBounds();
+		return new h2d_col_Point((_this.xMin + _this.xMax) * 0.5,(_this.yMin + _this.yMax) * 0.5);
+	}
 	,Move: function(dx,dy) {
 		var _g = this.Shape;
 		_g.set_x(_g.get_x() + dx);
 		var _g1 = this.Shape;
 		_g1.set_y(_g1.get_y() + dy);
-		var _g2 = new differ_ResultsIterator_$differ_$data_$ShapeCollision(Game.Collide(this.Shape));
+		var colls = Game.Collide(this.Shape);
+		var _g2 = new differ_ResultsIterator_$differ_$data_$ShapeCollision(colls);
 		while(_g2.index < _g2.results.count) {
 			var _this = _g2.results;
 			var index = _g2.index++;
@@ -48,13 +52,13 @@ Entity.prototype = {
 			this.Shape.set_y(result.shape1.get_position().y + result.separationY);
 		}
 		var _this1 = this.Sprite;
-		var v = this.Shape.get_x() - this._size / 2;
+		var v = this.Shape.get_x();
 		_this1.posChanged = true;
-		_this1.x = v;
+		_this1.x = v - this._size / 2;
 		var _this2 = this.Sprite;
-		var v1 = this.Shape.get_y() - this._size / 2;
+		var v1 = this.Shape.get_y();
 		_this2.posChanged = true;
-		_this2.y = v1;
+		_this2.y = v1 - this._size / 2;
 	}
 	,Update: function(dt) {
 	}
@@ -127,6 +131,9 @@ hxd_App.prototype = {
 				return;
 			}
 			_gthis.s2d.checkResize();
+			if(initDone) {
+				_gthis.onResize();
+			}
 		};
 		this.s3d = new h3d_scene_Scene();
 		this.s2d = new h2d_Scene();
@@ -190,21 +197,31 @@ Game.__super__ = hxd_App;
 Game.prototype = $extend(hxd_App.prototype,{
 	init: function() {
 		Game._shapes = [];
+		Game.Enemies = [];
 		Game._collideResult = new differ_Results_$differ_$data_$ShapeCollision(0);
 		Game.Scene = this.s2d;
-		Game.Player = new Player(100,100);
-		Game.Ghost = new Ghost(500,200);
 		Game.Level = new Level();
+		Game.Enemies.push(new Ghost(300,300));
+		Game.Enemies.push(new Ghost(500,300));
+		Game.Enemies.push(new Ghost(700,300));
+		Game.Player = new Player(100,100);
 	}
 	,update: function(dt) {
 		Game.Player.Update(dt);
-		Game.Ghost.Update(dt);
+		var _g = 0;
+		var _g1 = Game.Enemies;
+		while(_g < _g1.length) {
+			var e = _g1[_g];
+			++_g;
+			e.Update(dt);
+		}
 	}
 	,__class__: Game
 });
 var Ghost = function(x,y) {
 	Entity.call(this,x,y,32);
-	this.Sprite.tile = h2d_Tile.fromColor(255,32,32);
+	var tile = h2d_Tile.fromColor(255,32,32);
+	this._bitmap = new h2d_Bitmap(tile,this.Sprite);
 };
 $hxClasses["Ghost"] = Ghost;
 Ghost.__name__ = ["Ghost"];
@@ -297,14 +314,18 @@ Lambda.__name__ = ["Lambda"];
 Lambda.array = function(it) {
 	var a = [];
 	var i = $iterator(it)();
-	while(i.hasNext()) a.push(i.next());
+	while(i.hasNext()) {
+		var i1 = i.next();
+		a.push(i1);
+	}
 	return a;
 };
 Lambda.indexOf = function(it,v) {
 	var i = 0;
 	var v2 = $iterator(it)();
 	while(v2.hasNext()) {
-		if(v == v2.next()) {
+		var v21 = v2.next();
+		if(v == v21) {
 			return i;
 		}
 		++i;
@@ -331,9 +352,15 @@ var Level = function() {
 	_this1.posChanged = true;
 	_this1.y = 0;
 	var _g = 0;
-	while(_g < 15) this.AddCell(_g++,0,tile,null,true);
+	while(_g < 15) {
+		var i = _g++;
+		this.AddCell(i,0,tile,null,true);
+	}
 	var _g1 = 0;
-	while(_g1 < 15) this.AddCell(_g1++,15,tile,null,true);
+	while(_g1 < 15) {
+		var i1 = _g1++;
+		this.AddCell(i1,15,tile,null,true);
+	}
 };
 $hxClasses["Level"] = Level;
 Level.__name__ = ["Level"];
@@ -347,12 +374,14 @@ Level.prototype = {
 			cx = new haxe_ds_IntMap();
 			this._cells.h[idx] = cx;
 		}
-		cx.h[idy] = new Cell(tile,info);
+		var v = new Cell(tile,info);
+		cx.h[idy] = v;
 		var x = idx * 32;
 		var y = idy * 32;
 		var _this = this._tileGroup;
 		_this.content.add(x,y,_this.curColor.x,_this.curColor.y,_this.curColor.z,_this.curColor.w,tile);
-		Game.AddShape(differ_shapes_Polygon.rectangle(x,y,32,32,false));
+		var box = differ_shapes_Polygon.rectangle(x,y,32,32,false);
+		Game.AddShape(box);
 	}
 	,__class__: Level
 };
@@ -433,14 +462,82 @@ _$List_ListIterator.prototype = {
 };
 Math.__name__ = ["Math"];
 var Player = function(x,y) {
+	this._swordMoveTime = 0.0;
 	Entity.call(this,x,y,32);
-	this.Sprite.tile = h2d_Tile.fromColor(16711680,32,32);
+	var tile = h2d_Tile.fromColor(16711680,32,32);
+	this._bitmap = new h2d_Bitmap(tile,this.Sprite);
+	this._sword = new h2d_Sprite();
+	this.Sprite.addChild(this._sword);
+	var _this = this._sword;
+	_this.posChanged = true;
+	_this.x = 16.;
+	var _this1 = this._sword;
+	_this1.posChanged = true;
+	_this1.y = 16.;
+	var sword = new h2d_Graphics(this.Sprite);
+	sword.beginFill(16711680);
+	sword.flush();
+	sword.addVertex(0,0,sword.curR,sword.curG,sword.curB,sword.curA,0 * sword.ma + 0 * sword.mc + sword.mx,0 * sword.mb + 0 * sword.md + sword.my);
+	sword.addVertex(60,12,sword.curR,sword.curG,sword.curB,sword.curA,60 * sword.ma + 12 * sword.mc + sword.mx,60 * sword.mb + 12 * sword.md + sword.my);
+	sword.addVertex(0,28,sword.curR,sword.curG,sword.curB,sword.curA,0 * sword.ma + 28 * sword.mc + sword.mx,0 * sword.mb + 28 * sword.md + sword.my);
+	sword.endFill();
+	sword.posChanged = true;
+	sword.x = 32;
+	sword.posChanged = true;
+	sword.y = 2;
+	this._sword.addChild(sword);
+	this._sword.set_visible(false);
+	this._isSwordMoving = false;
 };
 $hxClasses["Player"] = Player;
 Player.__name__ = ["Player"];
 Player.__super__ = Entity;
 Player.prototype = $extend(Entity.prototype,{
-	Update: function(dt) {
+	StartSword: function() {
+		if(this._isSwordMoving) {
+			return;
+		}
+		this._isSwordMoving = true;
+		this._sword.set_visible(true);
+		var mx = Game.Scene.get_mouseX();
+		var my = Game.Scene.get_mouseY();
+		var p = Game.Scene.globalToLocal(new h2d_col_Point(mx,my));
+		var center = this.GetCenter();
+		var distX = center.x - p.x;
+		var distY = center.y - p.y;
+		var nv_z;
+		var nv_y;
+		var nv_x;
+		var nv_w;
+		nv_x = distX;
+		nv_y = distY;
+		nv_z = 0;
+		nv_w = 0;
+		var k = 1. / Math.sqrt(nv_x * nv_x + nv_y * nv_y + nv_z * nv_z);
+		nv_x *= k;
+		nv_y *= k;
+		nv_z *= k;
+		var _this = this._sword;
+		var v = Math.atan2(nv_y,nv_x);
+		_this.posChanged = true;
+		_this.rotation = v;
+	}
+	,MoveSword: function(dt) {
+		if(!this._isSwordMoving) {
+			return;
+		}
+		if(this._swordMoveTime > 20) {
+			this._isSwordMoving = false;
+			this._sword.set_visible(false);
+			this._swordMoveTime = 0;
+			return;
+		}
+		var _g = this._sword;
+		_g.posChanged = true;
+		_g.rotation += 0.2;
+		this._swordMoveTime += dt;
+	}
+	,Update: function(dt) {
 		var dx = 0;
 		var dy = 0;
 		if(hxd_Key.isDown(87)) {
@@ -455,6 +552,10 @@ Player.prototype = $extend(Entity.prototype,{
 		if(hxd_Key.isDown(68)) {
 			dx = 5;
 		}
+		if(hxd_Key.isDown(0)) {
+			this.StartSword();
+		}
+		this.MoveSword(dt);
 		this.Move(dx,dy);
 	}
 	,__class__: Player
@@ -591,8 +692,9 @@ StringTools.trim = function(s) {
 };
 StringTools.hex = function(n,digits) {
 	var s = "";
+	var hexChars = "0123456789ABCDEF";
 	while(true) {
-		s = "0123456789ABCDEF".charAt(n & 15) + s;
+		s = hexChars.charAt(n & 15) + s;
 		n >>>= 4;
 		if(!(n > 0)) {
 			break;
@@ -781,7 +883,8 @@ Xml.prototype = {
 				_g.push(child);
 			}
 		}
-		return HxOverrides.iter(_g);
+		var ret = _g;
+		return HxOverrides.iter(ret);
 	}
 	,elementsNamed: function(name) {
 		if(this.nodeType != Xml.Document && this.nodeType != Xml.Element) {
@@ -806,7 +909,8 @@ Xml.prototype = {
 				_g.push(child);
 			}
 		}
-		return HxOverrides.iter(_g);
+		var ret = _g;
+		return HxOverrides.iter(ret);
 	}
 	,firstElement: function() {
 		if(this.nodeType != Xml.Document && this.nodeType != Xml.Element) {
@@ -866,7 +970,8 @@ differ_Collision.shapeWithShapes = function(shape1,shapes,into) {
 		if(results.items.length == results.count) {
 			results.items.push(new differ_data_ShapeCollision());
 		}
-		var result = shape1.test(other_shape,results.items[results.count]);
+		var value = results.items[results.count];
+		var result = shape1.test(other_shape,value);
 		if(result != null) {
 			results.items[results.count] = result;
 			results.count++;
@@ -892,7 +997,8 @@ differ_Collision.rayWithShapes = function(ray,shapes,into) {
 		if(results.items.length == results.count) {
 			results.items.push(new differ_data_RayCollision());
 		}
-		var result = shape.testRay(ray,results.items[results.count]);
+		var value = results.items[results.count];
+		var result = shape.testRay(ray,value);
 		if(result != null) {
 			results.items[results.count] = result;
 			results.count++;
@@ -918,7 +1024,8 @@ differ_Collision.rayWithRays = function(ray,rays,into) {
 		if(results.items.length == results.count) {
 			results.items.push(new differ_data_RayIntersection());
 		}
-		var result = differ_sat_SAT2D.testRayVsRay(ray,other,results.items[results.count]);
+		var value = results.items[results.count];
+		var result = differ_sat_SAT2D.testRayVsRay(ray,other,value);
 		if(result != null) {
 			results.items[results.count] = result;
 			results.count++;
@@ -929,17 +1036,19 @@ differ_Collision.rayWithRays = function(ray,rays,into) {
 differ_Collision.pointInPoly = function(x,y,poly) {
 	var sides = poly.get_transformedVertices().length;
 	var verts = poly.get_transformedVertices();
+	var i = 0;
 	var j = sides - 1;
 	var oddNodes = false;
 	var _g1 = 0;
-	while(_g1 < sides) {
-		var i = _g1++;
-		if(verts[i].y < y && verts[j].y >= y || verts[j].y < y && verts[i].y >= y) {
-			if(verts[i].x + (y - verts[i].y) / (verts[j].y - verts[i].y) * (verts[j].x - verts[i].x) < x) {
+	var _g = sides;
+	while(_g1 < _g) {
+		var i1 = _g1++;
+		if(verts[i1].y < y && verts[j].y >= y || verts[j].y < y && verts[i1].y >= y) {
+			if(verts[i1].x + (y - verts[i1].y) / (verts[j].y - verts[i1].y) * (verts[j].x - verts[i1].x) < x) {
 				oddNodes = !oddNodes;
 			}
 		}
-		j = i;
+		j = i1;
 	}
 	return oddNodes;
 };
@@ -1013,8 +1122,9 @@ var differ_Results_$differ_$data_$RayCollision = function(size) {
 	this.count = 0;
 	var _g = [];
 	var _g2 = 0;
-	while(_g2 < size) {
-		++_g2;
+	var _g1 = size;
+	while(_g2 < _g1) {
+		var i = _g2++;
 		_g.push(new differ_data_RayCollision());
 	}
 	this.items = _g;
@@ -1057,8 +1167,9 @@ var differ_Results_$differ_$data_$RayIntersection = function(size) {
 	this.count = 0;
 	var _g = [];
 	var _g2 = 0;
-	while(_g2 < size) {
-		++_g2;
+	var _g1 = size;
+	while(_g2 < _g1) {
+		var i = _g2++;
 		_g.push(new differ_data_RayIntersection());
 	}
 	this.items = _g;
@@ -1101,8 +1212,9 @@ var differ_Results_$differ_$data_$ShapeCollision = function(size) {
 	this.count = 0;
 	var _g = [];
 	var _g2 = 0;
-	while(_g2 < size) {
-		++_g2;
+	var _g1 = size;
+	while(_g2 < _g1) {
+		var i = _g2++;
 		_g.push(new differ_data_ShapeCollision());
 	}
 	this.items = _g;
@@ -1403,13 +1515,14 @@ differ_math_Vector.prototype = {
 	}
 	,truncate: function(max) {
 		var value = Math.min(max,Math.sqrt(this.x * this.x + this.y * this.y));
+		var ep = 0.00000001;
 		var _angle = Math.atan2(this.y,this.x);
 		this.x = Math.cos(_angle) * value;
 		this.y = Math.sin(_angle) * value;
-		if(Math.abs(this.x) < 0.00000001) {
+		if(Math.abs(this.x) < ep) {
 			this.x = 0;
 		}
-		if(Math.abs(this.y) < 0.00000001) {
+		if(Math.abs(this.y) < ep) {
 			this.y = 0;
 		}
 		return this;
@@ -1439,13 +1552,14 @@ differ_math_Vector.prototype = {
 		return "Vector x:" + this.x + ", y:" + this.y;
 	}
 	,set_length: function(value) {
+		var ep = 0.00000001;
 		var _angle = Math.atan2(this.y,this.x);
 		this.x = Math.cos(_angle) * value;
 		this.y = Math.sin(_angle) * value;
-		if(Math.abs(this.x) < 0.00000001) {
+		if(Math.abs(this.x) < ep) {
 			this.x = 0;
 		}
-		if(Math.abs(this.y) < 0.00000001) {
+		if(Math.abs(this.y) < ep) {
 			this.y = 0;
 		}
 		return value;
@@ -1547,8 +1661,10 @@ differ_sat_SAT2D.testCircleVsPolygon = function(circle,polygon,into,flip) {
 	var _g3 = verts.length;
 	while(_g12 < _g3) {
 		var i1 = _g12++;
-		normalAxisX = -((i1 >= verts.length - 1 ? verts[0] : verts[i1 + 1]).y - verts[i1].y);
-		normalAxisY = (i1 >= verts.length - 1 ? verts[0] : verts[i1 + 1]).x - verts[i1].x;
+		var v2 = i1 >= verts.length - 1 ? verts[0] : verts[i1 + 1];
+		normalAxisX = -(v2.y - verts[i1].y);
+		var v21 = i1 >= verts.length - 1 ? verts[0] : verts[i1 + 1];
+		normalAxisY = v21.x - verts[i1].x;
 		var aLen = Math.sqrt(normalAxisX * normalAxisX + normalAxisY * normalAxisY);
 		var component2 = normalAxisX;
 		if(aLen == 0) {
@@ -1701,6 +1817,8 @@ differ_sat_SAT2D.testPolygonVsPolygon = function(polygon1,polygon2,into,flip) {
 	into.otherUnitVectorY = result.otherUnitVectorY;
 	into.shape1 = result.shape1;
 	into.shape2 = result.shape2;
+	other = null;
+	result = other;
 	return into;
 };
 differ_sat_SAT2D.testRayVsCircle = function(ray,circle,into) {
@@ -1710,13 +1828,15 @@ differ_sat_SAT2D.testRayVsCircle = function(ray,circle,into) {
 	var ray2circleY = ray.start.y - circle.get_position().y;
 	var a = deltaX * deltaX + deltaY * deltaY;
 	var b = 2 * (deltaX * ray2circleX + deltaY * ray2circleY);
-	var d = b * b - 4 * a * (ray2circleX * ray2circleX + ray2circleY * ray2circleY - circle.get_radius() * circle.get_radius());
+	var c = ray2circleX * ray2circleX + ray2circleY * ray2circleY - circle.get_radius() * circle.get_radius();
+	var d = b * b - 4 * a * c;
 	if(d >= 0) {
 		d = Math.sqrt(d);
 		var t1 = (-b - d) / (2 * a);
 		var t2 = (-b + d) / (2 * a);
 		var valid;
-		switch(ray.infinite[1]) {
+		var _g = ray.infinite;
+		switch(_g[1]) {
 		case 0:
 			if(t1 >= 0.0) {
 				valid = t1 <= 1.0;
@@ -1790,7 +1910,8 @@ differ_sat_SAT2D.testRayVsPolygon = function(ray,polygon,into) {
 		}
 	}
 	var valid;
-	switch(ray.infinite[1]) {
+	var _g2 = ray.infinite;
+	switch(_g2[1]) {
 	case 0:
 		if(min_u >= 0.0) {
 			valid = min_u <= 1.0;
@@ -1841,7 +1962,8 @@ differ_sat_SAT2D.testRayVsRay = function(ray1,ray2,into) {
 	var u1 = (delta2X * diffY - delta2Y * diffX) / ud;
 	var u2 = (delta1X * diffY - delta1Y * diffX) / ud;
 	var valid1;
-	switch(ray1.infinite[1]) {
+	var _g = ray1.infinite;
+	switch(_g[1]) {
 	case 0:
 		if(u1 > 0.0) {
 			valid1 = u1 <= 1.0;
@@ -1857,7 +1979,8 @@ differ_sat_SAT2D.testRayVsRay = function(ray1,ray2,into) {
 		break;
 	}
 	var valid2;
-	switch(ray2.infinite[1]) {
+	var _g1 = ray2.infinite;
+	switch(_g1[1]) {
 	case 0:
 		if(u2 > 0.0) {
 			valid2 = u2 <= 1.0;
@@ -1897,6 +2020,7 @@ differ_sat_SAT2D.checkPolygons = function(polygon1,polygon2,into,flip) {
 	into.shape1 = into.shape2 = null;
 	into.overlap = into.separationX = into.separationY = into.unitVectorX = into.unitVectorY = 0.0;
 	into.otherOverlap = into.otherSeparationX = into.otherSeparationY = into.otherUnitVectorX = into.otherUnitVectorY = 0.0;
+	var offset = 0.0;
 	var test1 = 0.0;
 	var test2 = 0.0;
 	var testNum = 0.0;
@@ -1913,8 +2037,10 @@ differ_sat_SAT2D.checkPolygons = function(polygon1,polygon2,into,flip) {
 	var _g = verts1.length;
 	while(_g1 < _g) {
 		var i = _g1++;
-		axisX = -((i >= verts1.length - 1 ? verts1[0] : verts1[i + 1]).y - verts1[i].y);
-		axisY = (i >= verts1.length - 1 ? verts1[0] : verts1[i + 1]).x - verts1[i].x;
+		var v2 = i >= verts1.length - 1 ? verts1[0] : verts1[i + 1];
+		axisX = -(v2.y - verts1[i].y);
+		var v21 = i >= verts1.length - 1 ? verts1[0] : verts1[i + 1];
+		axisY = v21.x - verts1[i].x;
 		var aLen = Math.sqrt(axisX * axisX + axisY * axisY);
 		var component = axisX;
 		if(aLen == 0) {
@@ -1988,10 +2114,12 @@ differ_sat_SAT2D.rayU = function(udelta,aX,aY,bX,bY,dX,dY) {
 	return (dX * (aY - bY) - dY * (aX - bX)) / udelta;
 };
 differ_sat_SAT2D.findNormalAxisX = function(verts,index) {
-	return -((index >= verts.length - 1 ? verts[0] : verts[index + 1]).y - verts[index].y);
+	var v2 = index >= verts.length - 1 ? verts[0] : verts[index + 1];
+	return -(v2.y - verts[index].y);
 };
 differ_sat_SAT2D.findNormalAxisY = function(verts,index) {
-	return (index >= verts.length - 1 ? verts[0] : verts[index + 1]).x - verts[index].x;
+	var v2 = index >= verts.length - 1 ? verts[0] : verts[index + 1];
+	return v2.x - verts[index].x;
 };
 var differ_shapes_Shape = function(_x,_y) {
 	this._transformed = false;
@@ -2147,8 +2275,10 @@ differ_shapes_Polygon.create = function(x,y,sides,radius) {
 	var vector;
 	var vertices = [];
 	var _g1 = 0;
-	while(_g1 < sides) {
-		angle = _g1++ * rotation + (Math.PI - rotation) * 0.5;
+	var _g = sides;
+	while(_g1 < _g) {
+		var i = _g1++;
+		angle = i * rotation + (Math.PI - rotation) * 0.5;
 		vector = new differ_math_Vector();
 		vector.x = Math.cos(angle) * radius;
 		vector.y = Math.sin(angle) * radius;
@@ -2206,7 +2336,11 @@ differ_shapes_Polygon.prototype = $extend(differ_shapes_Shape.prototype,{
 	,destroy: function() {
 		var _count = this._vertices.length;
 		var _g1 = 0;
-		while(_g1 < _count) this._vertices[_g1++] = null;
+		var _g = _count;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this._vertices[i] = null;
+		}
 		this._transformedVertices = null;
 		this._vertices = null;
 		differ_shapes_Shape.prototype.destroy.call(this);
@@ -2217,8 +2351,10 @@ differ_shapes_Polygon.prototype = $extend(differ_shapes_Shape.prototype,{
 			this._transformed = true;
 			var _count = this._vertices.length;
 			var _g1 = 0;
-			while(_g1 < _count) {
-				var _this = this._vertices[_g1++];
+			var _g = _count;
+			while(_g1 < _g) {
+				var i = _g1++;
+				var _this = this._vertices[i];
 				this._transformedVertices.push(new differ_math_Vector(_this.x,_this.y).transform(this._transformMatrix));
 			}
 		}
@@ -2353,7 +2489,8 @@ format_gif_Reader.prototype = {
 		return { version : version, logicalScreenDescriptor : lsd, globalColorTable : gct, blocks : blocks};
 	}
 	,readBlock: function() {
-		switch(this.i.readByte()) {
+		var blockID = this.i.readByte();
+		switch(blockID) {
 		case 33:
 			return this.readExtension();
 		case 44:
@@ -2371,12 +2508,13 @@ format_gif_Reader.prototype = {
 		var packed = this.i.readByte();
 		var localColorTable = (packed & 128) == 128;
 		var interlaced = (packed & 64) == 64;
+		var sorted = (packed & 32) == 32;
 		var localColorTableSize = 2 << (packed & 7);
 		var lct = null;
 		if(localColorTable) {
 			lct = this.readColorTable(localColorTableSize);
 		}
-		return format_gif_Block.BFrame({ x : x, y : y, width : width, height : height, localColorTable : localColorTable, interlaced : interlaced, sorted : (packed & 32) == 32, localColorTableSize : localColorTableSize, pixels : this.readPixels(width,height,interlaced), colorTable : lct});
+		return format_gif_Block.BFrame({ x : x, y : y, width : width, height : height, localColorTable : localColorTable, interlaced : interlaced, sorted : sorted, localColorTableSize : localColorTableSize, pixels : this.readPixels(width,height,interlaced), colorTable : lct});
 	}
 	,readPixels: function(width,height,interlaced) {
 		var input = this.i;
@@ -2393,7 +2531,8 @@ format_gif_Reader.prototype = {
 		var codeMask = codeSizeLimit - 1;
 		var baseDict = [];
 		var _g1 = 0;
-		while(_g1 < clearCode) {
+		var _g = clearCode;
+		while(_g1 < _g) {
 			var i = _g1++;
 			baseDict[i] = [i];
 		}
@@ -2445,10 +2584,10 @@ format_gif_Reader.prototype = {
 				dict[dictLen++] = newRecord;
 			}
 			newRecord = dict[code];
-			var _g = 0;
-			while(_g < newRecord.length) {
-				var item = newRecord[_g];
-				++_g;
+			var _g2 = 0;
+			while(_g2 < newRecord.length) {
+				var item = newRecord[_g2];
+				++_g2;
 				pixels.b[i1++] = item & 255;
 			}
 			if(dictLen == codeSizeLimit && codeSize < 12) {
@@ -2506,7 +2645,9 @@ format_gif_Reader.prototype = {
 				buffer.writeBytes(bytes,0,len);
 				len = this.i.readByte();
 			}
+			buffer.flush();
 			bytes = buffer.getBytes();
+			buffer.close();
 			return format_gif_Block.BExtension(format_gif_Extension.EText({ textGridX : tmp, textGridY : tmp1, textGridWidth : tmp2, textGridHeight : tmp3, charCellWidth : tmp4, charCellHeight : tmp5, textForegroundColorIndex : tmp6, textBackgroundColorIndex : tmp7, text : bytes.toString()}));
 		case 249:
 			if(this.i.readByte() != 4) {
@@ -2514,7 +2655,8 @@ format_gif_Reader.prototype = {
 			}
 			var packed = this.i.readByte();
 			var disposalMethod;
-			switch((packed & 28) >> 2) {
+			var _g = (packed & 28) >> 2;
+			switch(_g) {
 			case 0:
 				disposalMethod = format_gif_DisposalMethod.UNSPECIFIED;
 				break;
@@ -2542,7 +2684,9 @@ format_gif_Reader.prototype = {
 				buffer1.writeBytes(bytes1,0,len1);
 				len1 = this.i.readByte();
 			}
+			buffer1.flush();
 			bytes1 = buffer1.getBytes();
+			buffer1.close();
 			return format_gif_Block.BExtension(format_gif_Extension.EComment(bytes1.toString()));
 		case 255:
 			return this.readApplicationExtension();
@@ -2555,7 +2699,9 @@ format_gif_Reader.prototype = {
 				buffer2.writeBytes(bytes2,0,len2);
 				len2 = this.i.readByte();
 			}
+			buffer2.flush();
 			bytes2 = buffer2.getBytes();
+			buffer2.close();
 			return format_gif_Block.BExtension(format_gif_Extension.EUnknown(subId,bytes2));
 		}
 	}
@@ -2573,7 +2719,9 @@ format_gif_Reader.prototype = {
 			buffer.writeBytes(bytes,0,len);
 			len = this.i.readByte();
 		}
+		buffer.flush();
 		bytes = buffer.getBytes();
+		buffer.close();
 		var data = bytes;
 		if(name == "NETSCAPE" && version == "2.0" && data.b[0] == 1) {
 			return format_gif_Block.BExtension(format_gif_Extension.EApplicationExtension(format_gif_ApplicationExtension.AENetscapeLooping(data.b[1] | data.b[2] << 8)));
@@ -2589,7 +2737,9 @@ format_gif_Reader.prototype = {
 			buffer.writeBytes(bytes,0,len);
 			len = this.i.readByte();
 		}
+		buffer.flush();
 		bytes = buffer.getBytes();
+		buffer.close();
 		return bytes;
 	}
 	,readColorTable: function(size) {
@@ -2618,7 +2768,8 @@ format_gif_Tools.framesCount = function(data) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		if(val[1] == 0) {
+		var block = val;
+		if(block[1] == 0) {
 			++frames;
 		}
 	}
@@ -2630,9 +2781,11 @@ format_gif_Tools.frame = function(data,frameIndex) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		if(val[1] == 0) {
+		var block = val;
+		if(block[1] == 0) {
+			var frame = block[2];
 			if(counter == frameIndex) {
-				return val[2];
+				return frame;
 			}
 			++counter;
 		}
@@ -2646,8 +2799,10 @@ format_gif_Tools.graphicControl = function(data,frameIndex) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		switch(val[1]) {
+		var block = val;
+		switch(block[1]) {
 		case 0:
+			var frame = block[2];
 			if(counter == frameIndex) {
 				return gce;
 			}
@@ -2655,8 +2810,9 @@ format_gif_Tools.graphicControl = function(data,frameIndex) {
 			++counter;
 			break;
 		case 1:
-			if(val[2][1] == 0) {
-				gce = val[2][2];
+			if(block[2][1] == 0) {
+				var g = block[2][2];
+				gce = g;
 			}
 			break;
 		default:
@@ -2671,9 +2827,10 @@ format_gif_Tools.extractBGRA = function(data,frameIndex) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		switch(val[1]) {
+		var block = val;
+		switch(block[1]) {
 		case 0:
-			var frame = val[2];
+			var frame = block[2];
 			if(frameCaret == frameIndex) {
 				var bytes = new haxe_io_Bytes(new ArrayBuffer(frame.width * frame.height * 4));
 				var ct = frame.localColorTable ? frame.colorTable : data.globalColorTable;
@@ -2685,7 +2842,8 @@ format_gif_Tools.extractBGRA = function(data,frameIndex) {
 				var _g1 = 0;
 				var _g = frame.pixels.length;
 				while(_g1 < _g) {
-					var index = frame.pixels.b[_g1++] * 3;
+					var i = _g1++;
+					var index = frame.pixels.b[i] * 3;
 					bytes.b[writeCaret] = ct.b[index + 2] & 255;
 					bytes.b[writeCaret + 1] = ct.b[index + 1] & 255;
 					bytes.b[writeCaret + 2] = ct.b[index] & 255;
@@ -2702,9 +2860,10 @@ format_gif_Tools.extractBGRA = function(data,frameIndex) {
 			gce = null;
 			break;
 		case 1:
-			var ext = val[2];
+			var ext = block[2];
 			if(ext[1] == 0) {
-				gce = ext[2];
+				var g = ext[2];
+				gce = g;
 			}
 			break;
 		default:
@@ -2719,9 +2878,10 @@ format_gif_Tools.extractRGBA = function(data,frameIndex) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		switch(val[1]) {
+		var block = val;
+		switch(block[1]) {
 		case 0:
-			var frame = val[2];
+			var frame = block[2];
 			if(frameCaret == frameIndex) {
 				var bytes = new haxe_io_Bytes(new ArrayBuffer(frame.width * frame.height * 4));
 				var ct = frame.localColorTable ? frame.colorTable : data.globalColorTable;
@@ -2733,7 +2893,8 @@ format_gif_Tools.extractRGBA = function(data,frameIndex) {
 				var _g1 = 0;
 				var _g = frame.pixels.length;
 				while(_g1 < _g) {
-					var index = frame.pixels.b[_g1++] * 3;
+					var i = _g1++;
+					var index = frame.pixels.b[i] * 3;
 					bytes.b[writeCaret] = ct.b[index] & 255;
 					bytes.b[writeCaret + 1] = ct.b[index + 1] & 255;
 					bytes.b[writeCaret + 2] = ct.b[index + 2] & 255;
@@ -2750,9 +2911,10 @@ format_gif_Tools.extractRGBA = function(data,frameIndex) {
 			gce = null;
 			break;
 		case 1:
-			var ext = val[2];
+			var ext = block[2];
 			if(ext[1] == 0) {
-				gce = ext[2];
+				var g = ext[2];
+				gce = g;
 			}
 			break;
 		default:
@@ -2768,9 +2930,10 @@ format_gif_Tools.extractFullBGRA = function(data,frameIndex) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		switch(val[1]) {
+		var block = val;
+		switch(block[1]) {
 		case 0:
-			var frame = val[2];
+			var frame = block[2];
 			var ct = frame.localColorTable ? frame.colorTable : data.globalColorTable;
 			if(ct == null) {
 				throw new js__$Boot_HaxeError("Frame does not have a color table!");
@@ -2780,12 +2943,13 @@ format_gif_Tools.extractFullBGRA = function(data,frameIndex) {
 			var x = 0;
 			var writeCaret = (frame.y * data.logicalScreenDescriptor.width + frame.x) * 4;
 			var lineSkip = (data.logicalScreenDescriptor.width - frame.width) * 4 + 4;
-			switch((frameCaret != frameIndex && gce != null ? gce.disposalMethod : format_gif_DisposalMethod.NO_ACTION)[1]) {
+			var disposalMethod = frameCaret != frameIndex && gce != null ? gce.disposalMethod : format_gif_DisposalMethod.NO_ACTION;
+			switch(disposalMethod[1]) {
 			case 2:
 				var _g1 = 0;
 				var _g = pixels.length;
 				while(_g1 < _g) {
-					++_g1;
+					var i = _g1++;
 					bytes.b[writeCaret] = 0;
 					bytes.b[writeCaret + 1] = 0;
 					bytes.b[writeCaret + 2] = 0;
@@ -2804,7 +2968,8 @@ format_gif_Tools.extractFullBGRA = function(data,frameIndex) {
 				var _g11 = 0;
 				var _g2 = pixels.length;
 				while(_g11 < _g2) {
-					var index = pixels.b[_g11++] * 3;
+					var i1 = _g11++;
+					var index = pixels.b[i1] * 3;
 					if(transparentIndex != index) {
 						bytes.b[writeCaret] = ct.b[index + 2] & 255;
 						bytes.b[writeCaret + 1] = ct.b[index + 1] & 255;
@@ -2826,9 +2991,10 @@ format_gif_Tools.extractFullBGRA = function(data,frameIndex) {
 			gce = null;
 			break;
 		case 1:
-			var ext = val[2];
+			var ext = block[2];
 			if(ext[1] == 0) {
-				gce = ext[2];
+				var g = ext[2];
+				gce = g;
 			}
 			break;
 		default:
@@ -2844,9 +3010,10 @@ format_gif_Tools.extractFullRGBA = function(data,frameIndex) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		switch(val[1]) {
+		var block = val;
+		switch(block[1]) {
 		case 0:
-			var frame = val[2];
+			var frame = block[2];
 			var ct = frame.localColorTable ? frame.colorTable : data.globalColorTable;
 			if(ct == null) {
 				throw new js__$Boot_HaxeError("Frame does not have a color table!");
@@ -2856,12 +3023,13 @@ format_gif_Tools.extractFullRGBA = function(data,frameIndex) {
 			var x = 0;
 			var writeCaret = (frame.y * data.logicalScreenDescriptor.width + frame.x) * 4;
 			var lineSkip = (data.logicalScreenDescriptor.width - frame.width) * 4 + 4;
-			switch((frameCaret != frameIndex && gce != null ? gce.disposalMethod : format_gif_DisposalMethod.NO_ACTION)[1]) {
+			var disposalMethod = frameCaret != frameIndex && gce != null ? gce.disposalMethod : format_gif_DisposalMethod.NO_ACTION;
+			switch(disposalMethod[1]) {
 			case 2:
 				var _g1 = 0;
 				var _g = pixels.length;
 				while(_g1 < _g) {
-					++_g1;
+					var i = _g1++;
 					bytes.b[writeCaret] = 0;
 					bytes.b[writeCaret + 1] = 0;
 					bytes.b[writeCaret + 2] = 0;
@@ -2880,7 +3048,8 @@ format_gif_Tools.extractFullRGBA = function(data,frameIndex) {
 				var _g11 = 0;
 				var _g2 = pixels.length;
 				while(_g11 < _g2) {
-					var index = pixels.b[_g11++] * 3;
+					var i1 = _g11++;
+					var index = pixels.b[i1] * 3;
 					if(transparentIndex != index) {
 						bytes.b[writeCaret] = ct.b[index] & 255;
 						bytes.b[writeCaret + 1] = ct.b[index + 1] & 255;
@@ -2902,9 +3071,10 @@ format_gif_Tools.extractFullRGBA = function(data,frameIndex) {
 			gce = null;
 			break;
 		case 1:
-			var ext = val[2];
+			var ext = block[2];
 			if(ext[1] == 0) {
-				gce = ext[2];
+				var g = ext[2];
+				gce = g;
 			}
 			break;
 		default:
@@ -2917,10 +3087,12 @@ format_gif_Tools.loopCount = function(data) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		if(val[1] == 1) {
-			if(val[2][1] == 3) {
-				if(val[2][2][1] == 0) {
-					return val[2][2][2];
+		var block = val;
+		if(block[1] == 1) {
+			if(block[2][1] == 3) {
+				if(block[2][2][1] == 0) {
+					var loops = block[2][2][2];
+					return loops;
 				}
 			}
 		}
@@ -3414,6 +3586,7 @@ format_mp3_Reader.prototype = {
 		this.id3v2_data = this.i.read(size);
 	}
 	,seekFrame: function() {
+		var found = false;
 		try {
 			var b;
 			while(true) {
@@ -3473,8 +3646,10 @@ format_mp3_Reader.prototype = {
 		if(version == format_mp3_MPEG.Reserved || layer == format_mp3_CLayer.LReserved) {
 			return null;
 		}
-		var bitrate = format_mp3_Tools.getBitrate(version,layer,this.bits.readBits(4));
-		var samplingRate = format_mp3_Tools.getSamplingRate(version,this.bits.readBits(2));
+		var bitrateIdx = this.bits.readBits(4);
+		var bitrate = format_mp3_Tools.getBitrate(version,layer,bitrateIdx);
+		var samplingRateIdx = this.bits.readBits(2);
+		var samplingRate = format_mp3_Tools.getSamplingRate(version,samplingRateIdx);
 		var isPadded = this.bits.readBit();
 		var privateBit = this.bits.readBit();
 		if(bitrate == format_mp3_Bitrate.BR_Bad || bitrate == format_mp3_Bitrate.BR_Free || samplingRate == format_mp3_SamplingRate.SR_Bad) {
@@ -3510,7 +3685,8 @@ format_mp3_Reader.prototype = {
 		}
 	}
 	,read: function() {
-		return { frames : this.readFrames(), sampleCount : this.samples, sampleSize : this.sampleSize, id3v2 : this.id3v2_data == null ? null : { versionBytes : this.id3v2_version, flagByte : this.id3v2_flags, data : this.id3v2_data}};
+		var fs = this.readFrames();
+		return { frames : fs, sampleCount : this.samples, sampleSize : this.sampleSize, id3v2 : this.id3v2_data == null ? null : { versionBytes : this.id3v2_version, flagByte : this.id3v2_flags, data : this.id3v2_data}};
 	}
 	,__class__: format_mp3_Reader
 };
@@ -3641,7 +3817,10 @@ format_png_Reader.prototype = {
 		if(this.checkCRC) {
 			var c = new haxe_crypto_Crc32();
 			var _g = 0;
-			while(_g < 4) c["byte"](HxOverrides.cca(id,_g++));
+			while(_g < 4) {
+				var i = _g++;
+				c["byte"](HxOverrides.cca(id,i));
+			}
 			c.update(data,0,data.length);
 			if(c.get() != crc) {
 				throw new js__$Boot_HaxeError("CRC check failure");
@@ -3670,8 +3849,10 @@ format_png_Tools.getHeader = function(d) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		if(val[1] == 1) {
-			return val[2];
+		var c = val;
+		if(c[1] == 1) {
+			var h = c[2];
+			return h;
 		}
 	}
 	throw new js__$Boot_HaxeError("Header not found");
@@ -3681,8 +3862,10 @@ format_png_Tools.getPalette = function(d) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		if(val[1] == 3) {
-			return val[2];
+		var c = val;
+		if(c[1] == 3) {
+			var b = c[2];
+			return b;
 		}
 	}
 	return null;
@@ -3719,7 +3902,7 @@ format_png_Tools.reverseBytes = function(b) {
 	var _g1 = 0;
 	var _g = b.length >> 2;
 	while(_g1 < _g) {
-		++_g1;
+		var i = _g1++;
 		var b1 = b.b[p];
 		var g = b.b[p + 1];
 		var r = b.b[p + 2];
@@ -3739,25 +3922,38 @@ format_png_Tools.extractGrey = function(d) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		if(val[1] == 2) {
-			var b = val[2];
+		var c = val;
+		if(c[1] == 2) {
+			var b = c[2];
 			if(fullData != null) {
+				var b1 = fullData.b;
 				var b2 = b.b;
 				var _g1 = 0;
 				var _g = b.length;
-				while(_g1 < _g) fullData.b.push(b2[_g1++]);
+				while(_g1 < _g) {
+					var i = _g1++;
+					fullData.b.push(b2[i]);
+				}
 			} else if(data == null) {
 				data = b;
 			} else {
 				fullData = new haxe_io_BytesBuffer();
+				var b11 = fullData.b;
 				var b21 = data.b;
 				var _g11 = 0;
 				var _g2 = data.length;
-				while(_g11 < _g2) fullData.b.push(b21[_g11++]);
+				while(_g11 < _g2) {
+					var i1 = _g11++;
+					fullData.b.push(b21[i1]);
+				}
+				var b12 = fullData.b;
 				var b22 = b.b;
 				var _g12 = 0;
 				var _g3 = b.length;
-				while(_g12 < _g3) fullData.b.push(b22[_g12++]);
+				while(_g12 < _g3) {
+					var i2 = _g12++;
+					fullData.b.push(b22[i2]);
+				}
 				data = null;
 			}
 		}
@@ -3778,7 +3974,8 @@ format_png_Tools.extractGrey = function(d) {
 			throw new js__$Boot_HaxeError("Unsupported color mode");
 		}
 		var width = h.width;
-		if(data.length < h.height * ((alpha ? 2 : 1) * width + 1)) {
+		var stride = (alpha ? 2 : 1) * width + 1;
+		if(data.length < h.height * stride) {
 			throw new js__$Boot_HaxeError("Not enough data");
 		}
 		var rinc = alpha ? 2 : 1;
@@ -3790,8 +3987,9 @@ format_png_Tools.extractGrey = function(d) {
 			switch(f) {
 			case 0:
 				var _g31 = 0;
-				while(_g31 < width) {
-					++_g31;
+				var _g21 = width;
+				while(_g31 < _g21) {
+					var x = _g31++;
 					var v = data.b[r];
 					r += rinc;
 					grey.b[w++] = v & 255;
@@ -3800,55 +3998,60 @@ format_png_Tools.extractGrey = function(d) {
 			case 1:
 				var cv = 0;
 				var _g32 = 0;
-				while(_g32 < width) {
-					++_g32;
+				var _g22 = width;
+				while(_g32 < _g22) {
+					var x1 = _g32++;
 					cv += data.b[r];
 					r += rinc;
 					grey.b[w++] = cv & 255;
 				}
 				break;
 			case 2:
-				var stride = y == 0 ? 0 : width;
+				var stride1 = y == 0 ? 0 : width;
 				var _g33 = 0;
-				while(_g33 < width) {
-					++_g33;
-					var v1 = data.b[r] + grey.b[w - stride];
+				var _g23 = width;
+				while(_g33 < _g23) {
+					var x2 = _g33++;
+					var v1 = data.b[r] + grey.b[w - stride1];
 					r += rinc;
 					grey.b[w++] = v1 & 255;
 				}
 				break;
 			case 3:
 				var cv1 = 0;
-				var stride1 = y == 0 ? 0 : width;
+				var stride2 = y == 0 ? 0 : width;
 				var _g34 = 0;
-				while(_g34 < width) {
-					++_g34;
-					cv1 = data.b[r] + (cv1 + grey.b[w - stride1] >> 1) & 255;
+				var _g24 = width;
+				while(_g34 < _g24) {
+					var x3 = _g34++;
+					cv1 = data.b[r] + (cv1 + grey.b[w - stride2] >> 1) & 255;
 					r += rinc;
 					grey.b[w++] = cv1 & 255;
 				}
 				break;
 			case 4:
+				var stride3 = width;
 				var cv2 = 0;
 				var _g35 = 0;
-				while(_g35 < width) {
-					var x = _g35++;
-					var b1 = y == 0 ? 0 : grey.b[w - width];
-					var c = x == 0 || y == 0 ? 0 : grey.b[w - width - 1];
-					var k = cv2 + b1 - c;
+				var _g25 = width;
+				while(_g35 < _g25) {
+					var x4 = _g35++;
+					var b3 = y == 0 ? 0 : grey.b[w - stride3];
+					var c1 = x4 == 0 || y == 0 ? 0 : grey.b[w - stride3 - 1];
+					var k = cv2 + b3 - c1;
 					var pa = k - cv2;
 					if(pa < 0) {
 						pa = -pa;
 					}
-					var pb = k - b1;
+					var pb = k - b3;
 					if(pb < 0) {
 						pb = -pb;
 					}
-					var pc = k - c;
+					var pc = k - c1;
 					if(pc < 0) {
 						pc = -pc;
 					}
-					cv2 = (pa <= pb && pa <= pc ? cv2 : pb <= pc ? b1 : c) + data.b[r] & 255;
+					cv2 = (pa <= pb && pa <= pc ? cv2 : pb <= pc ? b3 : c1) + data.b[r] & 255;
 					r += rinc;
 					grey.b[w++] = cv2 & 255;
 				}
@@ -3871,25 +4074,38 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 	while(_g_head != null) {
 		var val = _g_head.item;
 		_g_head = _g_head.next;
-		if(val[1] == 2) {
-			var b = val[2];
+		var c = val;
+		if(c[1] == 2) {
+			var b = c[2];
 			if(fullData != null) {
+				var b1 = fullData.b;
 				var b2 = b.b;
 				var _g1 = 0;
 				var _g = b.length;
-				while(_g1 < _g) fullData.b.push(b2[_g1++]);
+				while(_g1 < _g) {
+					var i = _g1++;
+					fullData.b.push(b2[i]);
+				}
 			} else if(data == null) {
 				data = b;
 			} else {
 				fullData = new haxe_io_BytesBuffer();
+				var b11 = fullData.b;
 				var b21 = data.b;
 				var _g11 = 0;
 				var _g2 = data.length;
-				while(_g11 < _g2) fullData.b.push(b21[_g11++]);
+				while(_g11 < _g2) {
+					var i1 = _g11++;
+					fullData.b.push(b21[i1]);
+				}
+				var b12 = fullData.b;
 				var b22 = b.b;
 				var _g12 = 0;
 				var _g3 = b.length;
-				while(_g12 < _g3) fullData.b.push(b22[_g12++]);
+				while(_g12 < _g3) {
+					var i2 = _g12++;
+					fullData.b.push(b22[i2]);
+				}
 				data = null;
 			}
 		}
@@ -3917,7 +4133,8 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			throw new js__$Boot_HaxeError("Unsupported color mode");
 		}
 		var width = h.width;
-		if(data.length < h.height * ((alpha ? 2 : 1) * width + 1)) {
+		var stride = (alpha ? 2 : 1) * width + 1;
+		if(data.length < h.height * stride) {
 			throw new js__$Boot_HaxeError("Not enough data");
 		}
 		var alphvaIdx = -1;
@@ -3926,9 +4143,10 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			while(_g_head1 != null) {
 				var val1 = _g_head1.item;
 				_g_head1 = _g_head1.next;
-				if(val1[1] == 4) {
-					if(val1[2] == "tRNS") {
-						var data1 = val1[3];
+				var t = val1;
+				if(t[1] == 4) {
+					if(t[2] == "tRNS") {
+						var data1 = t[3];
 						if(data1.length >= 2) {
 							alphvaIdx = data1.b[1];
 						}
@@ -3946,8 +4164,9 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			case 0:
 				if(alpha) {
 					var _g31 = 0;
-					while(_g31 < width) {
-						++_g31;
+					var _g21 = width;
+					while(_g31 < _g21) {
+						var x = _g31++;
 						var v = data.b[r++];
 						bgra.b[w++] = v & 255;
 						bgra.b[w++] = v & 255;
@@ -3956,8 +4175,9 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					}
 				} else {
 					var _g32 = 0;
-					while(_g32 < width) {
-						++_g32;
+					var _g22 = width;
+					while(_g32 < _g22) {
+						var x1 = _g32++;
 						var v1 = data.b[r++];
 						bgra.b[w++] = v1 & 255;
 						bgra.b[w++] = v1 & 255;
@@ -3971,8 +4191,9 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				var ca = 0;
 				if(alpha) {
 					var _g33 = 0;
-					while(_g33 < width) {
-						++_g33;
+					var _g23 = width;
+					while(_g33 < _g23) {
+						var x2 = _g33++;
 						cv += data.b[r++];
 						bgra.b[w++] = cv & 255;
 						bgra.b[w++] = cv & 255;
@@ -3982,8 +4203,9 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					}
 				} else {
 					var _g34 = 0;
-					while(_g34 < width) {
-						++_g34;
+					var _g24 = width;
+					while(_g34 < _g24) {
+						var x3 = _g34++;
 						cv += data.b[r++];
 						bgra.b[w++] = cv & 255;
 						bgra.b[w++] = cv & 255;
@@ -3993,22 +4215,24 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				}
 				break;
 			case 2:
-				var stride = y == 0 ? 0 : width * 4 * flipY1;
+				var stride1 = y == 0 ? 0 : width * 4 * flipY1;
 				if(alpha) {
 					var _g35 = 0;
-					while(_g35 < width) {
-						++_g35;
-						var v2 = data.b[r++] + bgra.b[w - stride];
+					var _g25 = width;
+					while(_g35 < _g25) {
+						var x4 = _g35++;
+						var v2 = data.b[r++] + bgra.b[w - stride1];
 						bgra.b[w++] = v2 & 255;
 						bgra.b[w++] = v2 & 255;
 						bgra.b[w++] = v2 & 255;
-						bgra.b[w++] = data.b[r++] + bgra.b[w - stride] & 255;
+						bgra.b[w++] = data.b[r++] + bgra.b[w - stride1] & 255;
 					}
 				} else {
 					var _g36 = 0;
-					while(_g36 < width) {
-						++_g36;
-						var v3 = data.b[r++] + bgra.b[w - stride];
+					var _g26 = width;
+					while(_g36 < _g26) {
+						var x5 = _g36++;
+						var v3 = data.b[r++] + bgra.b[w - stride1];
 						bgra.b[w++] = v3 & 255;
 						bgra.b[w++] = v3 & 255;
 						bgra.b[w++] = v3 & 255;
@@ -4019,23 +4243,25 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			case 3:
 				var cv1 = 0;
 				var ca1 = 0;
-				var stride1 = y == 0 ? 0 : width * 4 * flipY1;
+				var stride2 = y == 0 ? 0 : width * 4 * flipY1;
 				if(alpha) {
 					var _g37 = 0;
-					while(_g37 < width) {
-						++_g37;
-						cv1 = data.b[r++] + (cv1 + bgra.b[w - stride1] >> 1) & 255;
+					var _g27 = width;
+					while(_g37 < _g27) {
+						var x6 = _g37++;
+						cv1 = data.b[r++] + (cv1 + bgra.b[w - stride2] >> 1) & 255;
 						bgra.b[w++] = cv1 & 255;
 						bgra.b[w++] = cv1 & 255;
 						bgra.b[w++] = cv1 & 255;
-						ca1 = data.b[r++] + (ca1 + bgra.b[w - stride1] >> 1) & 255;
+						ca1 = data.b[r++] + (ca1 + bgra.b[w - stride2] >> 1) & 255;
 						bgra.b[w++] = ca1 & 255;
 					}
 				} else {
 					var _g38 = 0;
-					while(_g38 < width) {
-						++_g38;
-						cv1 = data.b[r++] + (cv1 + bgra.b[w - stride1] >> 1) & 255;
+					var _g28 = width;
+					while(_g38 < _g28) {
+						var x7 = _g38++;
+						cv1 = data.b[r++] + (cv1 + bgra.b[w - stride2] >> 1) & 255;
 						bgra.b[w++] = cv1 & 255;
 						bgra.b[w++] = cv1 & 255;
 						bgra.b[w++] = cv1 & 255;
@@ -4044,70 +4270,72 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				}
 				break;
 			case 4:
-				var stride2 = width * 4 * flipY1;
+				var stride3 = width * 4 * flipY1;
 				var cv2 = 0;
 				var ca2 = 0;
 				if(alpha) {
 					var _g39 = 0;
-					while(_g39 < width) {
-						var x = _g39++;
-						var b1 = y == 0 ? 0 : bgra.b[w - stride2];
-						var c = x == 0 || y == 0 ? 0 : bgra.b[w - stride2 - 4];
-						var k = cv2 + b1 - c;
+					var _g29 = width;
+					while(_g39 < _g29) {
+						var x8 = _g39++;
+						var b3 = y == 0 ? 0 : bgra.b[w - stride3];
+						var c1 = x8 == 0 || y == 0 ? 0 : bgra.b[w - stride3 - 4];
+						var k = cv2 + b3 - c1;
 						var pa = k - cv2;
 						if(pa < 0) {
 							pa = -pa;
 						}
-						var pb = k - b1;
+						var pb = k - b3;
 						if(pb < 0) {
 							pb = -pb;
 						}
-						var pc = k - c;
+						var pc = k - c1;
 						if(pc < 0) {
 							pc = -pc;
 						}
-						cv2 = (pa <= pb && pa <= pc ? cv2 : pb <= pc ? b1 : c) + data.b[r++] & 255;
+						cv2 = (pa <= pb && pa <= pc ? cv2 : pb <= pc ? b3 : c1) + data.b[r++] & 255;
 						bgra.b[w++] = cv2 & 255;
 						bgra.b[w++] = cv2 & 255;
 						bgra.b[w++] = cv2 & 255;
-						var b3 = y == 0 ? 0 : bgra.b[w - stride2];
-						var c1 = x == 0 || y == 0 ? 0 : bgra.b[w - stride2 - 4];
-						var k1 = ca2 + b3 - c1;
+						var b4 = y == 0 ? 0 : bgra.b[w - stride3];
+						var c2 = x8 == 0 || y == 0 ? 0 : bgra.b[w - stride3 - 4];
+						var k1 = ca2 + b4 - c2;
 						var pa1 = k1 - ca2;
 						if(pa1 < 0) {
 							pa1 = -pa1;
 						}
-						var pb1 = k1 - b3;
+						var pb1 = k1 - b4;
 						if(pb1 < 0) {
 							pb1 = -pb1;
 						}
-						var pc1 = k1 - c1;
+						var pc1 = k1 - c2;
 						if(pc1 < 0) {
 							pc1 = -pc1;
 						}
-						ca2 = (pa1 <= pb1 && pa1 <= pc1 ? ca2 : pb1 <= pc1 ? b3 : c1) + data.b[r++] & 255;
+						ca2 = (pa1 <= pb1 && pa1 <= pc1 ? ca2 : pb1 <= pc1 ? b4 : c2) + data.b[r++] & 255;
 						bgra.b[w++] = ca2 & 255;
 					}
 				} else {
 					var _g310 = 0;
-					while(_g310 < width) {
-						var x1 = _g310++;
-						var b4 = y == 0 ? 0 : bgra.b[w - stride2];
-						var c2 = x1 == 0 || y == 0 ? 0 : bgra.b[w - stride2 - 4];
-						var k2 = cv2 + b4 - c2;
+					var _g210 = width;
+					while(_g310 < _g210) {
+						var x9 = _g310++;
+						var b5 = y == 0 ? 0 : bgra.b[w - stride3];
+						var c3 = x9 == 0 || y == 0 ? 0 : bgra.b[w - stride3 - 4];
+						var k2 = cv2 + b5 - c3;
 						var pa2 = k2 - cv2;
 						if(pa2 < 0) {
 							pa2 = -pa2;
 						}
-						var pb2 = k2 - b4;
+						var pb2 = k2 - b5;
 						if(pb2 < 0) {
 							pb2 = -pb2;
 						}
-						var pc2 = k2 - c2;
+						var pc2 = k2 - c3;
 						if(pc2 < 0) {
 							pc2 = -pc2;
 						}
-						cv2 = (pa2 <= pb2 && pa2 <= pc2 ? cv2 : pb2 <= pc2 ? b4 : c2) + data.b[r++] & 255;
+						cv2 = (pa2 <= pb2 && pa2 <= pc2 ? cv2 : pb2 <= pc2 ? b5 : c3) + data.b[r++] & 255;
 						bgra.b[w++] = cv2 & 255;
 						bgra.b[w++] = cv2 & 255;
 						bgra.b[w++] = cv2 & 255;
@@ -4127,7 +4355,8 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			throw new js__$Boot_HaxeError("Unsupported color mode");
 		}
 		var width1 = h.width;
-		if(data.length < h.height * ((alpha1 ? 4 : 3) * width1 + 1)) {
+		var stride4 = (alpha1 ? 4 : 3) * width1 + 1;
+		if(data.length < h.height * stride4) {
 			throw new js__$Boot_HaxeError("Not enough data");
 		}
 		var alphaRed = -1;
@@ -4138,9 +4367,10 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			while(_g_head2 != null) {
 				var val2 = _g_head2.item;
 				_g_head2 = _g_head2.next;
-				if(val2[1] == 4) {
-					if(val2[2] == "tRNS") {
-						var data2 = val2[3];
+				var t1 = val2;
+				if(t1[1] == 4) {
+					if(t1[2] == "tRNS") {
+						var data2 = t1[3];
 						if(data2.length >= 6) {
 							alphaRed = data2.b[1];
 							alphaGreen = data2.b[3];
@@ -4164,8 +4394,9 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			case 0:
 				if(alpha1) {
 					var _g311 = 0;
-					while(_g311 < width1) {
-						++_g311;
+					var _g211 = width1;
+					while(_g311 < _g211) {
+						var x10 = _g311++;
 						bgra.b[w++] = data.b[r + 2] & 255;
 						bgra.b[w++] = data.b[r + 1] & 255;
 						bgra.b[w++] = data.b[r] & 255;
@@ -4174,8 +4405,9 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					}
 				} else {
 					var _g312 = 0;
-					while(_g312 < width1) {
-						++_g312;
+					var _g212 = width1;
+					while(_g312 < _g212) {
+						var x11 = _g312++;
 						cb = data.b[r + 2];
 						bgra.b[w++] = cb & 255;
 						cg = data.b[r + 1];
@@ -4189,13 +4421,14 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				break;
 			case 1:
 				ca3 = 0;
-				cb = 0;
-				cg = 0;
-				cr = 0;
+				cb = ca3;
+				cg = cb;
+				cr = cg;
 				if(alpha1) {
 					var _g313 = 0;
-					while(_g313 < width1) {
-						++_g313;
+					var _g213 = width1;
+					while(_g313 < _g213) {
+						var x12 = _g313++;
 						cb += data.b[r + 2];
 						bgra.b[w++] = cb & 255;
 						cg += data.b[r + 1];
@@ -4208,8 +4441,9 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 					}
 				} else {
 					var _g314 = 0;
-					while(_g314 < width1) {
-						++_g314;
+					var _g214 = width1;
+					while(_g314 < _g214) {
+						var x13 = _g314++;
 						cb += data.b[r + 2];
 						bgra.b[w++] = cb & 255;
 						cg += data.b[r + 1];
@@ -4222,32 +4456,34 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				}
 				break;
 			case 2:
-				var stride3 = y1 == 0 ? 0 : width1 * 4 * flipY1;
+				var stride5 = y1 == 0 ? 0 : width1 * 4 * flipY1;
 				if(alpha1) {
 					var _g315 = 0;
-					while(_g315 < width1) {
-						++_g315;
-						bgra.b[w] = data.b[r + 2] + bgra.b[w - stride3] & 255;
+					var _g215 = width1;
+					while(_g315 < _g215) {
+						var x14 = _g315++;
+						bgra.b[w] = data.b[r + 2] + bgra.b[w - stride5] & 255;
 						++w;
-						bgra.b[w] = data.b[r + 1] + bgra.b[w - stride3] & 255;
+						bgra.b[w] = data.b[r + 1] + bgra.b[w - stride5] & 255;
 						++w;
-						bgra.b[w] = data.b[r] + bgra.b[w - stride3] & 255;
+						bgra.b[w] = data.b[r] + bgra.b[w - stride5] & 255;
 						++w;
-						bgra.b[w] = data.b[r + 3] + bgra.b[w - stride3] & 255;
+						bgra.b[w] = data.b[r + 3] + bgra.b[w - stride5] & 255;
 						++w;
 						r += 4;
 					}
 				} else {
 					var _g316 = 0;
-					while(_g316 < width1) {
-						++_g316;
-						cb = data.b[r + 2] + bgra.b[w - stride3];
+					var _g216 = width1;
+					while(_g316 < _g216) {
+						var x15 = _g316++;
+						cb = data.b[r + 2] + bgra.b[w - stride5];
 						bgra.b[w] = cb & 255;
 						++w;
-						cg = data.b[r + 1] + bgra.b[w - stride3];
+						cg = data.b[r + 1] + bgra.b[w - stride5];
 						bgra.b[w] = cg & 255;
 						++w;
-						cr = data.b[r] + bgra.b[w - stride3];
+						cr = data.b[r] + bgra.b[w - stride5];
 						bgra.b[w] = cr & 255;
 						++w;
 						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue ? 0 : 255) & 255;
@@ -4257,33 +4493,35 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				break;
 			case 3:
 				ca3 = 0;
-				cb = 0;
-				cg = 0;
-				cr = 0;
-				var stride4 = y1 == 0 ? 0 : width1 * 4 * flipY1;
+				cb = ca3;
+				cg = cb;
+				cr = cg;
+				var stride6 = y1 == 0 ? 0 : width1 * 4 * flipY1;
 				if(alpha1) {
 					var _g317 = 0;
-					while(_g317 < width1) {
-						++_g317;
-						cb = data.b[r + 2] + (cb + bgra.b[w - stride4] >> 1) & 255;
+					var _g217 = width1;
+					while(_g317 < _g217) {
+						var x16 = _g317++;
+						cb = data.b[r + 2] + (cb + bgra.b[w - stride6] >> 1) & 255;
 						bgra.b[w++] = cb & 255;
-						cg = data.b[r + 1] + (cg + bgra.b[w - stride4] >> 1) & 255;
+						cg = data.b[r + 1] + (cg + bgra.b[w - stride6] >> 1) & 255;
 						bgra.b[w++] = cg & 255;
-						cr = data.b[r] + (cr + bgra.b[w - stride4] >> 1) & 255;
+						cr = data.b[r] + (cr + bgra.b[w - stride6] >> 1) & 255;
 						bgra.b[w++] = cr & 255;
-						ca3 = data.b[r + 3] + (ca3 + bgra.b[w - stride4] >> 1) & 255;
+						ca3 = data.b[r + 3] + (ca3 + bgra.b[w - stride6] >> 1) & 255;
 						bgra.b[w++] = ca3 & 255;
 						r += 4;
 					}
 				} else {
 					var _g318 = 0;
-					while(_g318 < width1) {
-						++_g318;
-						cb = data.b[r + 2] + (cb + bgra.b[w - stride4] >> 1) & 255;
+					var _g218 = width1;
+					while(_g318 < _g218) {
+						var x17 = _g318++;
+						cb = data.b[r + 2] + (cb + bgra.b[w - stride6] >> 1) & 255;
 						bgra.b[w++] = cb & 255;
-						cg = data.b[r + 1] + (cg + bgra.b[w - stride4] >> 1) & 255;
+						cg = data.b[r + 1] + (cg + bgra.b[w - stride6] >> 1) & 255;
 						bgra.b[w++] = cg & 255;
-						cr = data.b[r] + (cr + bgra.b[w - stride4] >> 1) & 255;
+						cr = data.b[r] + (cr + bgra.b[w - stride6] >> 1) & 255;
 						bgra.b[w++] = cr & 255;
 						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue ? 0 : 255) & 255;
 						r += 3;
@@ -4291,139 +4529,141 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 				}
 				break;
 			case 4:
-				var stride5 = width1 * 4 * flipY1;
+				var stride7 = width1 * 4 * flipY1;
 				ca3 = 0;
-				cb = 0;
-				cg = 0;
-				cr = 0;
+				cb = ca3;
+				cg = cb;
+				cr = cg;
 				if(alpha1) {
 					var _g319 = 0;
-					while(_g319 < width1) {
-						var x2 = _g319++;
-						var b5 = y1 == 0 ? 0 : bgra.b[w - stride5];
-						var c3 = x2 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
-						var k3 = cb + b5 - c3;
+					var _g219 = width1;
+					while(_g319 < _g219) {
+						var x18 = _g319++;
+						var b6 = y1 == 0 ? 0 : bgra.b[w - stride7];
+						var c4 = x18 == 0 || y1 == 0 ? 0 : bgra.b[w - stride7 - 4];
+						var k3 = cb + b6 - c4;
 						var pa3 = k3 - cb;
 						if(pa3 < 0) {
 							pa3 = -pa3;
 						}
-						var pb3 = k3 - b5;
+						var pb3 = k3 - b6;
 						if(pb3 < 0) {
 							pb3 = -pb3;
 						}
-						var pc3 = k3 - c3;
+						var pc3 = k3 - c4;
 						if(pc3 < 0) {
 							pc3 = -pc3;
 						}
-						cb = (pa3 <= pb3 && pa3 <= pc3 ? cb : pb3 <= pc3 ? b5 : c3) + data.b[r + 2] & 255;
+						cb = (pa3 <= pb3 && pa3 <= pc3 ? cb : pb3 <= pc3 ? b6 : c4) + data.b[r + 2] & 255;
 						bgra.b[w++] = cb & 255;
-						var b6 = y1 == 0 ? 0 : bgra.b[w - stride5];
-						var c4 = x2 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
-						var k4 = cg + b6 - c4;
+						var b7 = y1 == 0 ? 0 : bgra.b[w - stride7];
+						var c5 = x18 == 0 || y1 == 0 ? 0 : bgra.b[w - stride7 - 4];
+						var k4 = cg + b7 - c5;
 						var pa4 = k4 - cg;
 						if(pa4 < 0) {
 							pa4 = -pa4;
 						}
-						var pb4 = k4 - b6;
+						var pb4 = k4 - b7;
 						if(pb4 < 0) {
 							pb4 = -pb4;
 						}
-						var pc4 = k4 - c4;
+						var pc4 = k4 - c5;
 						if(pc4 < 0) {
 							pc4 = -pc4;
 						}
-						cg = (pa4 <= pb4 && pa4 <= pc4 ? cg : pb4 <= pc4 ? b6 : c4) + data.b[r + 1] & 255;
+						cg = (pa4 <= pb4 && pa4 <= pc4 ? cg : pb4 <= pc4 ? b7 : c5) + data.b[r + 1] & 255;
 						bgra.b[w++] = cg & 255;
-						var b7 = y1 == 0 ? 0 : bgra.b[w - stride5];
-						var c5 = x2 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
-						var k5 = cr + b7 - c5;
+						var b8 = y1 == 0 ? 0 : bgra.b[w - stride7];
+						var c6 = x18 == 0 || y1 == 0 ? 0 : bgra.b[w - stride7 - 4];
+						var k5 = cr + b8 - c6;
 						var pa5 = k5 - cr;
 						if(pa5 < 0) {
 							pa5 = -pa5;
 						}
-						var pb5 = k5 - b7;
+						var pb5 = k5 - b8;
 						if(pb5 < 0) {
 							pb5 = -pb5;
 						}
-						var pc5 = k5 - c5;
+						var pc5 = k5 - c6;
 						if(pc5 < 0) {
 							pc5 = -pc5;
 						}
-						cr = (pa5 <= pb5 && pa5 <= pc5 ? cr : pb5 <= pc5 ? b7 : c5) + data.b[r] & 255;
+						cr = (pa5 <= pb5 && pa5 <= pc5 ? cr : pb5 <= pc5 ? b8 : c6) + data.b[r] & 255;
 						bgra.b[w++] = cr & 255;
-						var b8 = y1 == 0 ? 0 : bgra.b[w - stride5];
-						var c6 = x2 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
-						var k6 = ca3 + b8 - c6;
+						var b9 = y1 == 0 ? 0 : bgra.b[w - stride7];
+						var c7 = x18 == 0 || y1 == 0 ? 0 : bgra.b[w - stride7 - 4];
+						var k6 = ca3 + b9 - c7;
 						var pa6 = k6 - ca3;
 						if(pa6 < 0) {
 							pa6 = -pa6;
 						}
-						var pb6 = k6 - b8;
+						var pb6 = k6 - b9;
 						if(pb6 < 0) {
 							pb6 = -pb6;
 						}
-						var pc6 = k6 - c6;
+						var pc6 = k6 - c7;
 						if(pc6 < 0) {
 							pc6 = -pc6;
 						}
-						ca3 = (pa6 <= pb6 && pa6 <= pc6 ? ca3 : pb6 <= pc6 ? b8 : c6) + data.b[r + 3] & 255;
+						ca3 = (pa6 <= pb6 && pa6 <= pc6 ? ca3 : pb6 <= pc6 ? b9 : c7) + data.b[r + 3] & 255;
 						bgra.b[w++] = ca3 & 255;
 						r += 4;
 					}
 				} else {
 					var _g320 = 0;
-					while(_g320 < width1) {
-						var x3 = _g320++;
-						var b9 = y1 == 0 ? 0 : bgra.b[w - stride5];
-						var c7 = x3 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
-						var k7 = cb + b9 - c7;
+					var _g220 = width1;
+					while(_g320 < _g220) {
+						var x19 = _g320++;
+						var b10 = y1 == 0 ? 0 : bgra.b[w - stride7];
+						var c8 = x19 == 0 || y1 == 0 ? 0 : bgra.b[w - stride7 - 4];
+						var k7 = cb + b10 - c8;
 						var pa7 = k7 - cb;
 						if(pa7 < 0) {
 							pa7 = -pa7;
 						}
-						var pb7 = k7 - b9;
+						var pb7 = k7 - b10;
 						if(pb7 < 0) {
 							pb7 = -pb7;
 						}
-						var pc7 = k7 - c7;
+						var pc7 = k7 - c8;
 						if(pc7 < 0) {
 							pc7 = -pc7;
 						}
-						cb = (pa7 <= pb7 && pa7 <= pc7 ? cb : pb7 <= pc7 ? b9 : c7) + data.b[r + 2] & 255;
+						cb = (pa7 <= pb7 && pa7 <= pc7 ? cb : pb7 <= pc7 ? b10 : c8) + data.b[r + 2] & 255;
 						bgra.b[w++] = cb & 255;
-						var b10 = y1 == 0 ? 0 : bgra.b[w - stride5];
-						var c8 = x3 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
-						var k8 = cg + b10 - c8;
+						var b13 = y1 == 0 ? 0 : bgra.b[w - stride7];
+						var c9 = x19 == 0 || y1 == 0 ? 0 : bgra.b[w - stride7 - 4];
+						var k8 = cg + b13 - c9;
 						var pa8 = k8 - cg;
 						if(pa8 < 0) {
 							pa8 = -pa8;
 						}
-						var pb8 = k8 - b10;
+						var pb8 = k8 - b13;
 						if(pb8 < 0) {
 							pb8 = -pb8;
 						}
-						var pc8 = k8 - c8;
+						var pc8 = k8 - c9;
 						if(pc8 < 0) {
 							pc8 = -pc8;
 						}
-						cg = (pa8 <= pb8 && pa8 <= pc8 ? cg : pb8 <= pc8 ? b10 : c8) + data.b[r + 1] & 255;
+						cg = (pa8 <= pb8 && pa8 <= pc8 ? cg : pb8 <= pc8 ? b13 : c9) + data.b[r + 1] & 255;
 						bgra.b[w++] = cg & 255;
-						var b11 = y1 == 0 ? 0 : bgra.b[w - stride5];
-						var c9 = x3 == 0 || y1 == 0 ? 0 : bgra.b[w - stride5 - 4];
-						var k9 = cr + b11 - c9;
+						var b14 = y1 == 0 ? 0 : bgra.b[w - stride7];
+						var c10 = x19 == 0 || y1 == 0 ? 0 : bgra.b[w - stride7 - 4];
+						var k9 = cr + b14 - c10;
 						var pa9 = k9 - cr;
 						if(pa9 < 0) {
 							pa9 = -pa9;
 						}
-						var pb9 = k9 - b11;
+						var pb9 = k9 - b14;
 						if(pb9 < 0) {
 							pb9 = -pb9;
 						}
-						var pc9 = k9 - c9;
+						var pc9 = k9 - c10;
 						if(pc9 < 0) {
 							pc9 = -pc9;
 						}
-						cr = (pa9 <= pb9 && pa9 <= pc9 ? cr : pb9 <= pc9 ? b11 : c9) + data.b[r] & 255;
+						cr = (pa9 <= pb9 && pa9 <= pc9 ? cr : pb9 <= pc9 ? b14 : c10) + data.b[r] & 255;
 						bgra.b[w++] = cr & 255;
 						bgra.b[w++] = (cr == alphaRed && cg == alphaGreen && cb == alphaBlue ? 0 : 255) & 255;
 						r += 3;
@@ -4446,9 +4686,11 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 		while(_g_head3 != null) {
 			var val3 = _g_head3.item;
 			_g_head3 = _g_head3.next;
-			if(val3[1] == 4) {
-				if(val3[2] == "tRNS") {
-					alpha2 = val3[3];
+			var t2 = val3;
+			if(t2[1] == 4) {
+				if(t2[2] == "tRNS") {
+					var data3 = t2[3];
+					alpha2 = data3;
 					break;
 				}
 			}
@@ -4460,7 +4702,8 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			alpha2 = alpha21;
 		}
 		var width2 = h.width;
-		if(data.length < h.height * (Math.ceil(width2 * h.colbits / 8) + 1)) {
+		var stride8 = Math.ceil(width2 * h.colbits / 8) + 1;
+		if(data.length < h.height * stride8) {
 			throw new js__$Boot_HaxeError("Not enough data");
 		}
 		var rline = h.width * h.colbits >> 3;
@@ -4475,56 +4718,64 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			}
 			switch(f2) {
 			case 1:
-				var c10 = 0;
+				var c11 = 0;
 				var _g321 = 0;
-				while(_g321 < width2) {
-					++_g321;
-					c10 += data.b[r];
-					data.b[r++] = c10 & 255 & 255;
+				var _g221 = width2;
+				while(_g321 < _g221) {
+					var x20 = _g321++;
+					var v4 = data.b[r];
+					c11 += v4;
+					data.b[r++] = c11 & 255 & 255;
 				}
 				break;
 			case 2:
-				var stride6 = y2 == 0 ? 0 : rline + 1;
+				var stride9 = y2 == 0 ? 0 : rline + 1;
 				var _g322 = 0;
-				while(_g322 < width2) {
-					++_g322;
-					data.b[r] = data.b[r] + data.b[r - stride6] & 255;
+				var _g222 = width2;
+				while(_g322 < _g222) {
+					var x21 = _g322++;
+					var v5 = data.b[r];
+					data.b[r] = v5 + data.b[r - stride9] & 255;
 					++r;
 				}
 				break;
 			case 3:
-				var c11 = 0;
-				var stride7 = y2 == 0 ? 0 : rline + 1;
+				var c12 = 0;
+				var stride10 = y2 == 0 ? 0 : rline + 1;
 				var _g323 = 0;
-				while(_g323 < width2) {
-					++_g323;
-					c11 = data.b[r] + (c11 + data.b[r - stride7] >> 1) & 255;
-					data.b[r++] = c11 & 255;
+				var _g223 = width2;
+				while(_g323 < _g223) {
+					var x22 = _g323++;
+					var v6 = data.b[r];
+					c12 = v6 + (c12 + data.b[r - stride10] >> 1) & 255;
+					data.b[r++] = c12 & 255;
 				}
 				break;
 			case 4:
-				var stride8 = rline + 1;
-				var c12 = 0;
+				var stride11 = rline + 1;
+				var c13 = 0;
 				var _g324 = 0;
-				while(_g324 < width2) {
-					var x4 = _g324++;
-					var b12 = y2 == 0 ? 0 : data.b[r - stride8];
-					var c13 = x4 == 0 || y2 == 0 ? 0 : data.b[r - stride8 - 1];
-					var k10 = c12 + b12 - c13;
-					var pa10 = k10 - c12;
+				var _g224 = width2;
+				while(_g324 < _g224) {
+					var x23 = _g324++;
+					var v7 = data.b[r];
+					var b15 = y2 == 0 ? 0 : data.b[r - stride11];
+					var c14 = x23 == 0 || y2 == 0 ? 0 : data.b[r - stride11 - 1];
+					var k10 = c13 + b15 - c14;
+					var pa10 = k10 - c13;
 					if(pa10 < 0) {
 						pa10 = -pa10;
 					}
-					var pb10 = k10 - b12;
+					var pb10 = k10 - b15;
 					if(pb10 < 0) {
 						pb10 = -pb10;
 					}
-					var pc10 = k10 - c13;
+					var pc10 = k10 - c14;
 					if(pc10 < 0) {
 						pc10 = -pc10;
 					}
-					c12 = (pa10 <= pb10 && pa10 <= pc10 ? c12 : pb10 <= pc10 ? b12 : c13) + data.b[r] & 255;
-					data.b[r++] = c12 & 255;
+					c13 = (pa10 <= pb10 && pa10 <= pc10 ? c13 : pb10 <= pc10 ? b15 : c14) + v7 & 255;
+					data.b[r++] = c13 & 255;
 				}
 				break;
 			default:
@@ -4536,17 +4787,17 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			var _g16 = 0;
 			var _g8 = h.height;
 			while(_g16 < _g8) {
-				++_g16;
+				var y3 = _g16++;
 				++r1;
 				var _g325 = 0;
-				var _g21 = h.width;
-				while(_g325 < _g21) {
-					++_g325;
-					var c14 = data.b[r1++];
-					bgra.b[w++] = pal.b[c14 * 3 + 2] & 255;
-					bgra.b[w++] = pal.b[c14 * 3 + 1] & 255;
-					bgra.b[w++] = pal.b[c14 * 3] & 255;
-					bgra.b[w++] = (alpha2 != null ? alpha2.b[c14] : 255) & 255;
+				var _g225 = h.width;
+				while(_g325 < _g225) {
+					var x24 = _g325++;
+					var c15 = data.b[r1++];
+					bgra.b[w++] = pal.b[c15 * 3 + 2] & 255;
+					bgra.b[w++] = pal.b[c15 * 3 + 1] & 255;
+					bgra.b[w++] = pal.b[c15 * 3] & 255;
+					bgra.b[w++] = (alpha2 != null ? alpha2.b[c15] : 255) & 255;
 				}
 				w += lineDelta;
 			}
@@ -4556,24 +4807,25 @@ format_png_Tools.extract32 = function(d,bytes,flipY) {
 			var _g17 = 0;
 			var _g9 = h.height;
 			while(_g17 < _g9) {
-				++_g17;
+				var y4 = _g17++;
 				++r1;
 				var bits = 0;
 				var nbits = 0;
+				var v8;
 				var _g326 = 0;
-				var _g22 = h.width;
-				while(_g326 < _g22) {
-					++_g326;
+				var _g226 = h.width;
+				while(_g326 < _g226) {
+					var x25 = _g326++;
 					if(nbits < req) {
 						bits = bits << 8 | data.b[r1++];
 						nbits += 8;
 					}
-					var c15 = bits >>> nbits - req & mask;
+					var c16 = bits >>> nbits - req & mask;
 					nbits -= req;
-					bgra.b[w++] = pal.b[c15 * 3 + 2] & 255;
-					bgra.b[w++] = pal.b[c15 * 3 + 1] & 255;
-					bgra.b[w++] = pal.b[c15 * 3] & 255;
-					bgra.b[w++] = (alpha2 != null ? alpha2.b[c15] : 255) & 255;
+					bgra.b[w++] = pal.b[c16 * 3 + 2] & 255;
+					bgra.b[w++] = pal.b[c16 * 3 + 1] & 255;
+					bgra.b[w++] = pal.b[c16 * 3] & 255;
+					bgra.b[w++] = (alpha2 != null ? alpha2.b[c16] : 255) & 255;
 				}
 				w += lineDelta;
 			}
@@ -4592,12 +4844,14 @@ format_png_Tools.buildGrey = function(width,height,data,level) {
 	var w = 0;
 	var r = 0;
 	var _g1 = 0;
-	while(_g1 < height) {
-		++_g1;
+	var _g = height;
+	while(_g1 < _g) {
+		var y = _g1++;
 		rgb.b[w++] = 0;
 		var _g3 = 0;
-		while(_g3 < width) {
-			++_g3;
+		var _g2 = width;
+		while(_g3 < _g2) {
+			var x = _g3++;
 			rgb.b[w++] = data.b[r++] & 255;
 		}
 	}
@@ -4615,12 +4869,14 @@ format_png_Tools.buildRGB = function(width,height,data,level) {
 	var w = 0;
 	var r = 0;
 	var _g1 = 0;
-	while(_g1 < height) {
-		++_g1;
+	var _g = height;
+	while(_g1 < _g) {
+		var y = _g1++;
 		rgb.b[w++] = 0;
 		var _g3 = 0;
-		while(_g3 < width) {
-			++_g3;
+		var _g2 = width;
+		while(_g3 < _g2) {
+			var x = _g3++;
 			rgb.b[w++] = data.b[r + 2] & 255;
 			rgb.b[w++] = data.b[r + 1] & 255;
 			rgb.b[w++] = data.b[r] & 255;
@@ -4641,12 +4897,14 @@ format_png_Tools.build32ARGB = function(width,height,data,level) {
 	var w = 0;
 	var r = 0;
 	var _g1 = 0;
-	while(_g1 < height) {
-		++_g1;
+	var _g = height;
+	while(_g1 < _g) {
+		var y = _g1++;
 		rgba.b[w++] = 0;
 		var _g3 = 0;
-		while(_g3 < width) {
-			++_g3;
+		var _g2 = width;
+		while(_g3 < _g2) {
+			var x = _g3++;
 			rgba.b[w++] = data.b[r + 1] & 255;
 			rgba.b[w++] = data.b[r + 2] & 255;
 			rgba.b[w++] = data.b[r + 3] & 255;
@@ -4668,12 +4926,14 @@ format_png_Tools.build32BGRA = function(width,height,data,level) {
 	var w = 0;
 	var r = 0;
 	var _g1 = 0;
-	while(_g1 < height) {
-		++_g1;
+	var _g = height;
+	while(_g1 < _g) {
+		var y = _g1++;
 		rgba.b[w++] = 0;
 		var _g3 = 0;
-		while(_g3 < width) {
-			++_g3;
+		var _g2 = width;
+		while(_g3 < _g2) {
+			var x = _g3++;
 			rgba.b[w++] = data.b[r + 2] & 255;
 			rgba.b[w++] = data.b[r + 1] & 255;
 			rgba.b[w++] = data.b[r] & 255;
@@ -4706,12 +4966,13 @@ format_png_Writer.prototype = {
 		while(_g_head != null) {
 			var val = _g_head.item;
 			_g_head = _g_head.next;
-			switch(val[1]) {
+			var c = val;
+			switch(c[1]) {
 			case 0:
 				this.writeChunk("IEND",new haxe_io_Bytes(new ArrayBuffer(0)));
 				break;
 			case 1:
-				var h = val[2];
+				var h = c[2];
 				var b1 = new haxe_io_BytesOutput();
 				b1.set_bigEndian(true);
 				b1.writeInt32(h.width);
@@ -4721,14 +4982,16 @@ format_png_Writer.prototype = {
 				var tmp;
 				switch(_g2[1]) {
 				case 0:
-					if(_g2[2]) {
+					var alpha = _g2[2];
+					if(alpha) {
 						tmp = 4;
 					} else {
 						tmp = 0;
 					}
 					break;
 				case 1:
-					if(_g2[2]) {
+					var alpha1 = _g2[2];
+					if(alpha1) {
 						tmp = 6;
 					} else {
 						tmp = 2;
@@ -4745,13 +5008,17 @@ format_png_Writer.prototype = {
 				this.writeChunk("IHDR",b1.getBytes());
 				break;
 			case 2:
-				this.writeChunk("IDAT",val[2]);
+				var d = c[2];
+				this.writeChunk("IDAT",d);
 				break;
 			case 3:
-				this.writeChunk("PLTE",val[2]);
+				var b2 = c[2];
+				this.writeChunk("PLTE",b2);
 				break;
 			case 4:
-				this.writeChunk(val[2],val[3]);
+				var data = c[3];
+				var id = c[2];
+				this.writeChunk(id,data);
 				break;
 			}
 		}
@@ -4762,7 +5029,10 @@ format_png_Writer.prototype = {
 		this.o.write(data);
 		var crc = new haxe_crypto_Crc32();
 		var _g = 0;
-		while(_g < 4) crc["byte"](HxOverrides.cca(id,_g++));
+		while(_g < 4) {
+			var i = _g++;
+			crc["byte"](HxOverrides.cca(id,i));
+		}
 		crc.update(data,0,data.length);
 		this.o.writeInt32(crc.get());
 	}
@@ -4779,22 +5049,23 @@ format_tools_BitsInput.prototype = {
 	readBits: function(n) {
 		if(this.nbits >= n) {
 			var c = this.nbits - n;
+			var k = this.bits >>> c & (1 << n) - 1;
 			this.nbits = c;
-			return this.bits >>> c & (1 << n) - 1;
+			return k;
 		}
-		var k = this.i.readByte();
+		var k1 = this.i.readByte();
 		if(this.nbits >= 24) {
 			if(n >= 31) {
 				throw new js__$Boot_HaxeError("Bits error");
 			}
 			var c1 = 8 + this.nbits - n;
 			var d = this.bits & (1 << this.nbits) - 1;
-			d = d << 8 - c1 | k << c1;
-			this.bits = k;
+			d = d << 8 - c1 | k1 << c1;
+			this.bits = k1;
 			this.nbits = c1;
 			return d;
 		}
-		this.bits = this.bits << 8 | k;
+		this.bits = this.bits << 8 | k1;
 		this.nbits += 8;
 		return this.readBits(n);
 	}
@@ -4845,7 +5116,7 @@ format_wav_Reader.prototype = {
 		if(this.i.readString(4) != "RIFF") {
 			throw new js__$Boot_HaxeError("RIFF header expected");
 		}
-		this.i.readInt32();
+		var len = this.i.readInt32();
 		if(this.i.readString(4) != "WAVE") {
 			throw new js__$Boot_HaxeError("WAVE signature not found");
 		}
@@ -4871,7 +5142,8 @@ format_wav_Reader.prototype = {
 		}
 		var fmtlen = this.i.readInt32();
 		var format1;
-		switch(this.i.readUInt16()) {
+		var _g = this.i.readUInt16();
+		switch(_g) {
 		case 1:case 3:
 			format1 = format_wav_WAVEFormat.WF_PCM;
 			break;
@@ -5047,22 +5319,10 @@ h2d_Sprite.prototype = {
 			return;
 		}
 		if(relativeTo == null) {
-			var x = dx * this.matA + dy * this.matC + this.absX;
-			var y = dx * this.matB + dy * this.matD + this.absY;
-			if(x < out.xMin) {
-				out.xMin = x;
-			}
-			if(x > out.xMax) {
-				out.xMax = x;
-			}
-			if(y < out.yMin) {
-				out.yMin = y;
-			}
-			if(y > out.yMax) {
-				out.yMax = y;
-			}
-			var x1 = (dx + width) * this.matA + dy * this.matC + this.absX;
-			var y1 = (dx + width) * this.matB + dy * this.matD + this.absY;
+			var x;
+			var y;
+			var x1 = dx * this.matA + dy * this.matC + this.absX;
+			var y1 = dx * this.matB + dy * this.matD + this.absY;
 			if(x1 < out.xMin) {
 				out.xMin = x1;
 			}
@@ -5075,8 +5335,8 @@ h2d_Sprite.prototype = {
 			if(y1 > out.yMax) {
 				out.yMax = y1;
 			}
-			var x2 = dx * this.matA + (dy + height) * this.matC + this.absX;
-			var y2 = dx * this.matB + (dy + height) * this.matD + this.absY;
+			var x2 = (dx + width) * this.matA + dy * this.matC + this.absX;
+			var y2 = (dx + width) * this.matB + dy * this.matD + this.absY;
 			if(x2 < out.xMin) {
 				out.xMin = x2;
 			}
@@ -5089,8 +5349,8 @@ h2d_Sprite.prototype = {
 			if(y2 > out.yMax) {
 				out.yMax = y2;
 			}
-			var x3 = (dx + width) * this.matA + (dy + height) * this.matC + this.absX;
-			var y3 = (dx + width) * this.matB + (dy + height) * this.matD + this.absY;
+			var x3 = dx * this.matA + (dy + height) * this.matC + this.absX;
+			var y3 = dx * this.matB + (dy + height) * this.matD + this.absY;
 			if(x3 < out.xMin) {
 				out.xMin = x3;
 			}
@@ -5102,6 +5362,20 @@ h2d_Sprite.prototype = {
 			}
 			if(y3 > out.yMax) {
 				out.yMax = y3;
+			}
+			var x4 = (dx + width) * this.matA + (dy + height) * this.matC + this.absX;
+			var y4 = (dx + width) * this.matB + (dy + height) * this.matD + this.absY;
+			if(x4 < out.xMin) {
+				out.xMin = x4;
+			}
+			if(x4 > out.xMax) {
+				out.xMax = x4;
+			}
+			if(y4 < out.yMin) {
+				out.yMin = y4;
+			}
+			if(y4 > out.yMax) {
+				out.yMax = y4;
 			}
 			return;
 		}
@@ -5127,28 +5401,12 @@ h2d_Sprite.prototype = {
 		var rD = relativeTo.matA * det;
 		var rX = this.absX - relativeTo.absX;
 		var rY = this.absY - relativeTo.absY;
-		var x4;
-		var y4;
-		x4 = dx * this.matA + dy * this.matC + rX;
-		y4 = dx * this.matB + dy * this.matD + rY;
-		var x5 = x4 * rA + y4 * rC;
-		var y5 = x4 * rB + y4 * rD;
-		if(x5 < out.xMin) {
-			out.xMin = x5;
-		}
-		if(x5 > out.xMax) {
-			out.xMax = x5;
-		}
-		if(y5 < out.yMin) {
-			out.yMin = y5;
-		}
-		if(y5 > out.yMax) {
-			out.yMax = y5;
-		}
-		x4 = (dx + width) * this.matA + dy * this.matC + rX;
-		y4 = (dx + width) * this.matB + dy * this.matD + rY;
-		var x6 = x4 * rA + y4 * rC;
-		var y6 = x4 * rB + y4 * rD;
+		var x5;
+		var y5;
+		x5 = dx * this.matA + dy * this.matC + rX;
+		y5 = dx * this.matB + dy * this.matD + rY;
+		var x6 = x5 * rA + y5 * rC;
+		var y6 = x5 * rB + y5 * rD;
 		if(x6 < out.xMin) {
 			out.xMin = x6;
 		}
@@ -5161,10 +5419,10 @@ h2d_Sprite.prototype = {
 		if(y6 > out.yMax) {
 			out.yMax = y6;
 		}
-		x4 = dx * this.matA + (dy + height) * this.matC + rX;
-		y4 = dx * this.matB + (dy + height) * this.matD + rY;
-		var x7 = x4 * rA + y4 * rC;
-		var y7 = x4 * rB + y4 * rD;
+		x5 = (dx + width) * this.matA + dy * this.matC + rX;
+		y5 = (dx + width) * this.matB + dy * this.matD + rY;
+		var x7 = x5 * rA + y5 * rC;
+		var y7 = x5 * rB + y5 * rD;
 		if(x7 < out.xMin) {
 			out.xMin = x7;
 		}
@@ -5177,10 +5435,10 @@ h2d_Sprite.prototype = {
 		if(y7 > out.yMax) {
 			out.yMax = y7;
 		}
-		x4 = (dx + width) * this.matA + (dy + height) * this.matC + rX;
-		y4 = (dx + width) * this.matB + (dy + height) * this.matD + rY;
-		var x8 = x4 * rA + y4 * rC;
-		var y8 = x4 * rB + y4 * rD;
+		x5 = dx * this.matA + (dy + height) * this.matC + rX;
+		y5 = dx * this.matB + (dy + height) * this.matD + rY;
+		var x8 = x5 * rA + y5 * rC;
+		var y8 = x5 * rB + y5 * rD;
 		if(x8 < out.xMin) {
 			out.xMin = x8;
 		}
@@ -5192,6 +5450,22 @@ h2d_Sprite.prototype = {
 		}
 		if(y8 > out.yMax) {
 			out.yMax = y8;
+		}
+		x5 = (dx + width) * this.matA + (dy + height) * this.matC + rX;
+		y5 = (dx + width) * this.matB + (dy + height) * this.matD + rY;
+		var x9 = x5 * rA + y5 * rC;
+		var y9 = x5 * rB + y5 * rD;
+		if(x9 < out.xMin) {
+			out.xMin = x9;
+		}
+		if(x9 > out.xMax) {
+			out.xMax = x9;
+		}
+		if(y9 < out.yMin) {
+			out.yMin = y9;
+		}
+		if(y9 > out.yMax) {
+			out.yMax = y9;
 		}
 	}
 	,getSpritesCount: function() {
@@ -5210,8 +5484,9 @@ h2d_Sprite.prototype = {
 		if(pt == null) {
 			pt = new h2d_col_Point();
 		}
+		var px = pt.x * this.matA + pt.y * this.matC + this.absX;
 		var py = pt.x * this.matB + pt.y * this.matD + this.absY;
-		pt.x = pt.x * this.matA + pt.y * this.matC + this.absX;
+		pt.x = px;
 		pt.y = py;
 		return pt;
 	}
@@ -5220,8 +5495,9 @@ h2d_Sprite.prototype = {
 		pt.x -= this.absX;
 		pt.y -= this.absY;
 		var invDet = 1 / (this.matA * this.matD - this.matB * this.matC);
+		var px = (pt.x * this.matD - pt.y * this.matC) * invDet;
 		var py = (-pt.x * this.matB + pt.y * this.matA) * invDet;
-		pt.x = (pt.x * this.matD - pt.y * this.matC) * invDet;
+		pt.x = px;
 		pt.y = py;
 		return pt;
 	}
@@ -5588,8 +5864,8 @@ h2d_Sprite.prototype = {
 		view.yMax = -1e20;
 		var x8 = sxMin;
 		var y8 = syMin;
-		x8 = sxMin - absX;
-		y8 = syMin - absY;
+		x8 -= absX;
+		y8 -= absY;
 		var x9 = (x8 * matD - y8 * matC) * invDet;
 		var y9 = (-x8 * matB + y8 * matA) * invDet;
 		if(x9 < view.xMin) {
@@ -5606,8 +5882,8 @@ h2d_Sprite.prototype = {
 		}
 		var x10 = sxMax;
 		var y10 = syMin;
-		x10 = sxMax - absX;
-		y10 = syMin - absY;
+		x10 -= absX;
+		y10 -= absY;
 		var x11 = (x10 * matD - y10 * matC) * invDet;
 		var y11 = (-x10 * matB + y10 * matA) * invDet;
 		if(x11 < view.xMin) {
@@ -5624,8 +5900,8 @@ h2d_Sprite.prototype = {
 		}
 		var x12 = sxMin;
 		var y12 = syMax;
-		x12 = sxMin - absX;
-		y12 = syMax - absY;
+		x12 -= absX;
+		y12 -= absY;
 		var x13 = (x12 * matD - y12 * matC) * invDet;
 		var y13 = (-x12 * matB + y12 * matA) * invDet;
 		if(x13 < view.xMin) {
@@ -5642,8 +5918,8 @@ h2d_Sprite.prototype = {
 		}
 		var x14 = sxMax;
 		var y14 = syMax;
-		x14 = sxMax - absX;
-		y14 = syMax - absY;
+		x14 -= absX;
+		y14 -= absY;
 		var x15 = (x14 * matD - y14 * matC) * invDet;
 		var y15 = (-x14 * matB + y14 * matA) * invDet;
 		if(x15 < view.xMin) {
@@ -5683,6 +5959,7 @@ h2d_Sprite.prototype = {
 		while(_g < _g1.length) {
 			var f = _g1[_g];
 			++_g;
+			f.sync(ctx,this);
 			if(f.autoBounds) {
 				if(f.boundsExtend > maxExtent) {
 					maxExtent = f.boundsExtend;
@@ -5735,30 +6012,41 @@ h2d_Sprite.prototype = {
 		ctx.engine.clear(0);
 		var oldAlpha = ctx.globalAlpha;
 		var shader = ctx.baseShader;
+		var oldA_z;
+		var oldA_y;
+		var oldA_x;
+		var oldA_w;
 		var _this = shader.filterMatrixA__;
-		var x = _this.x;
-		var y = _this.y;
-		var z = _this.z;
-		var w = _this.w;
+		oldA_x = _this.x;
+		oldA_y = _this.y;
+		oldA_z = _this.z;
+		oldA_w = _this.w;
+		var oldB_z;
+		var oldB_y;
+		var oldB_x;
+		var oldB_w;
 		var _this1 = shader.filterMatrixB__;
-		var x1 = _this1.x;
-		var y1 = _this1.y;
-		var z1 = _this1.z;
-		var w1 = _this1.w;
+		oldB_x = _this1.x;
+		oldB_y = _this1.y;
+		oldB_z = _this1.z;
+		oldB_w = _this1.w;
+		var oldF = ctx.inFilter;
 		var invDet = 1 / (this.matA * this.matD - this.matB * this.matC);
 		var invA = this.matD * invDet;
 		var invB = -this.matB * invDet;
 		var invC = -this.matC * invDet;
 		var invD = this.matA * invDet;
+		var invX = -(this.absX * invA + this.absY * invC);
+		var invY = -(this.absX * invB + this.absY * invD);
 		var _this2 = shader.filterMatrixA__;
 		_this2.x = invA;
 		_this2.y = invC;
-		_this2.z = -(this.absX * invA + this.absY * invC);
+		_this2.z = invX;
 		_this2.w = 1.;
 		var _this3 = shader.filterMatrixB__;
 		_this3.x = invB;
 		_this3.y = invD;
-		_this3.z = -(this.absX * invB + this.absY * invD);
+		_this3.z = invY;
 		_this3.w = 1.;
 		ctx.globalAlpha = 1;
 		this.draw(ctx);
@@ -5789,15 +6077,15 @@ h2d_Sprite.prototype = {
 			}
 		}
 		var _this4 = shader.filterMatrixA__;
-		_this4.x = x;
-		_this4.y = y;
-		_this4.z = z;
-		_this4.w = w;
+		_this4.x = oldA_x;
+		_this4.y = oldA_y;
+		_this4.z = oldA_z;
+		_this4.w = oldA_w;
 		var _this5 = shader.filterMatrixB__;
-		_this5.x = x1;
-		_this5.y = y1;
-		_this5.z = z1;
-		_this5.w = w1;
+		_this5.x = oldB_x;
+		_this5.y = oldB_y;
+		_this5.z = oldB_z;
+		_this5.w = oldB_w;
 		ctx.popTarget();
 		ctx.popFilter();
 		ctx.globalAlpha = oldAlpha * this.alpha;
@@ -5827,15 +6115,19 @@ h2d_Sprite.prototype = {
 			if(ctx.front2back) {
 				var nchilds = this.childs.length;
 				var _g11 = 0;
-				while(_g11 < nchilds) this.childs[nchilds - 1 - _g11++].drawRec(ctx);
+				var _g2 = nchilds;
+				while(_g11 < _g2) {
+					var i = _g11++;
+					this.childs[nchilds - 1 - i].drawRec(ctx);
+				}
 				this.draw(ctx);
 			} else {
 				this.draw(ctx);
-				var _g2 = 0;
+				var _g3 = 0;
 				var _g12 = this.childs;
-				while(_g2 < _g12.length) {
-					var c1 = _g12[_g2];
-					++_g2;
+				while(_g3 < _g12.length) {
+					var c1 = _g12[_g3];
+					++_g3;
 					c1.drawRec(ctx);
 				}
 			}
@@ -5976,10 +6268,11 @@ h2d_Drawable.prototype = $extend(h2d_Sprite.prototype,{
 		} else {
 			var _this = s.colorKey__;
 			var c = -16777216 | v;
-			_this.x = (c >> 16 & 255) * 0.00392156862745098;
-			_this.y = (c >> 8 & 255) * 0.00392156862745098;
-			_this.z = (c & 255) * 0.00392156862745098;
-			_this.w = (c >>> 24) * 0.00392156862745098;
+			var s1 = 0.00392156862745098;
+			_this.x = (c >> 16 & 255) * s1;
+			_this.y = (c >> 8 & 255) * s1;
+			_this.z = (c & 255) * s1;
+			_this.w = (c >>> 24) * s1;
 		}
 		return this.colorKey = v;
 	}
@@ -6125,7 +6418,7 @@ h2d_Bitmap.create = function(bmp,allocPos) {
 h2d_Bitmap.__super__ = h2d_Drawable;
 h2d_Bitmap.prototype = $extend(h2d_Drawable.prototype,{
 	set_tileWrap: function(b) {
-		if(b && this.tile != null && (this.tile.innerTex.flags & 8) != 0) {
+		if(b && this.tile != null && (this.tile.innerTex.flags & 1 << h3d_mat_TextureFlags.IsNPOT[1]) != 0) {
 			throw new js__$Boot_HaxeError("Cannot set tileWrap on a non power-of-two texture");
 		}
 		return this.tileWrap = b;
@@ -6994,7 +7287,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 						maxLineHeight = minLineHeight;
 					}
 					var _g11 = lastIndex;
-					while(_g11 < i) {
+					var _g2 = i;
+					while(_g11 < _g2) {
 						var i1 = _g11++;
 						var p1 = _gthis.properties[i1];
 						if(p1.isAbsolute) {
@@ -7004,16 +7298,19 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 						if(!c1.visible) {
 							continue;
 						}
+						var a = p1.verticalAlign != null ? p1.verticalAlign : valign;
 						c1.posChanged = true;
 						c1.y = y + p1.offsetY + p1.paddingTop;
-						switch((p1.verticalAlign != null ? p1.verticalAlign : valign)[1]) {
+						switch(a[1]) {
 						case 3:
-							c1.posChanged = true;
-							c1.y += (maxLineHeight - p1.calculatedHeight) * 0.5 | 0;
+							var _g21 = c1;
+							_g21.posChanged = true;
+							_g21.y += (maxLineHeight - p1.calculatedHeight) * 0.5 | 0;
 							break;
 						case 4:
-							c1.posChanged = true;
-							c1.y += maxLineHeight - p1.calculatedHeight;
+							var _g22 = c1;
+							_g22.posChanged = true;
+							_g22.y += maxLineHeight - p1.calculatedHeight;
 							break;
 						default:
 						}
@@ -7040,7 +7337,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				maxLineHeight = minLineHeight;
 			}
 			var _g12 = lastIndex;
-			while(_g12 < maxIndex) {
+			var _g3 = maxIndex;
+			while(_g12 < _g3) {
 				var i2 = _g12++;
 				var p2 = _gthis.properties[i2];
 				if(p2.isAbsolute) {
@@ -7050,20 +7348,24 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				if(!c2.visible) {
 					continue;
 				}
+				var a1 = p2.verticalAlign != null ? p2.verticalAlign : valign;
 				c2.posChanged = true;
 				c2.y = y + p2.offsetY + p2.paddingTop;
-				switch((p2.verticalAlign != null ? p2.verticalAlign : valign)[1]) {
+				switch(a1[1]) {
 				case 3:
-					c2.posChanged = true;
-					c2.y += (maxLineHeight - p2.calculatedHeight) * 0.5 | 0;
+					var _g23 = c2;
+					_g23.posChanged = true;
+					_g23.y += (maxLineHeight - p2.calculatedHeight) * 0.5 | 0;
 					break;
 				case 4:
-					c2.posChanged = true;
-					c2.y += maxLineHeight - p2.calculatedHeight;
+					var _g24 = c2;
+					_g24.posChanged = true;
+					_g24.y += maxLineHeight - p2.calculatedHeight;
 					break;
 				default:
 				}
 			}
+			lastIndex = maxIndex;
 			cw += this.paddingRight + this.borderWidth;
 			ch = y + maxLineHeight + this.paddingBottom + this.borderHeight;
 			if(this.minWidth != null && cw < this.minWidth) {
@@ -7074,8 +7376,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 			var xmax = endX;
 			var midSpace = 0;
 			var _g13 = 0;
-			var _g2 = this.childs.length;
-			while(_g13 < _g2) {
+			var _g4 = this.childs.length;
+			while(_g13 < _g4) {
 				var i3 = _g13++;
 				var p3 = this.properties[i3];
 				if(p3.isAbsolute || !this.childs[i3].visible) {
@@ -7087,7 +7389,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 					midSpace = 0;
 				}
 				var px;
-				switch((p3.horizontalAlign == null ? halign : p3.horizontalAlign)[1]) {
+				var align = p3.horizontalAlign == null ? halign : p3.horizontalAlign;
+				switch(align[1]) {
 				case 2:
 					if(midSpace != 0) {
 						xmin += midSpace;
@@ -7100,10 +7403,10 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				case 3:
 					if(midSpace == 0) {
 						var remSize = p3.calculatedWidth;
-						var _g3 = i3 + 1;
-						var _g21 = this.childs.length;
-						while(_g3 < _g21) {
-							var j = _g3++;
+						var _g31 = i3 + 1;
+						var _g25 = this.childs.length;
+						while(_g31 < _g25) {
+							var j = _g31++;
 							var p4 = this.properties[j];
 							if(p4.isAbsolute || !this.childs[j].visible) {
 								continue;
@@ -7143,8 +7446,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 			var tmpBounds1 = h2d_Flow.tmpBounds;
 			var lastIndex1 = 0;
 			var _g14 = 0;
-			var _g4 = this.childs.length;
-			while(_g14 < _g4) {
+			var _g5 = this.childs.length;
+			while(_g14 < _g5) {
 				var i4 = _g14++;
 				var p5 = this.properties[i4];
 				if(p5.isAbsolute) {
@@ -7173,7 +7476,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 						maxColWidth = minColWidth;
 					}
 					var _g15 = lastIndex1;
-					while(_g15 < i4) {
+					var _g6 = i4;
+					while(_g15 < _g6) {
 						var i5 = _g15++;
 						var p6 = _gthis.properties[i5];
 						if(p6.isAbsolute) {
@@ -7183,16 +7487,19 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 						if(!c4.visible) {
 							continue;
 						}
+						var a2 = p6.horizontalAlign != null ? p6.horizontalAlign : halign1;
 						c4.posChanged = true;
 						c4.x = x1 + p6.offsetX + p6.paddingLeft;
-						switch((p6.horizontalAlign != null ? p6.horizontalAlign : halign1)[1]) {
+						switch(a2[1]) {
 						case 2:
-							c4.posChanged = true;
-							c4.x += maxColWidth - p6.calculatedWidth;
+							var _g26 = c4;
+							_g26.posChanged = true;
+							_g26.x += maxColWidth - p6.calculatedWidth;
 							break;
 						case 3:
-							c4.posChanged = true;
-							c4.x += (maxColWidth - p6.calculatedWidth) * 0.5 | 0;
+							var _g27 = c4;
+							_g27.posChanged = true;
+							_g27.x += (maxColWidth - p6.calculatedWidth) * 0.5 | 0;
 							break;
 						default:
 						}
@@ -7221,7 +7528,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				maxColWidth = minColWidth;
 			}
 			var _g16 = lastIndex1;
-			while(_g16 < maxIndex1) {
+			var _g7 = maxIndex1;
+			while(_g16 < _g7) {
 				var i6 = _g16++;
 				var p7 = _gthis.properties[i6];
 				if(p7.isAbsolute) {
@@ -7231,20 +7539,24 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 				if(!c5.visible) {
 					continue;
 				}
+				var a3 = p7.horizontalAlign != null ? p7.horizontalAlign : halign1;
 				c5.posChanged = true;
 				c5.x = x1 + p7.offsetX + p7.paddingLeft;
-				switch((p7.horizontalAlign != null ? p7.horizontalAlign : halign1)[1]) {
+				switch(a3[1]) {
 				case 2:
-					c5.posChanged = true;
-					c5.x += maxColWidth - p7.calculatedWidth;
+					var _g28 = c5;
+					_g28.posChanged = true;
+					_g28.x += maxColWidth - p7.calculatedWidth;
 					break;
 				case 3:
-					c5.posChanged = true;
-					c5.x += (maxColWidth - p7.calculatedWidth) * 0.5 | 0;
+					var _g29 = c5;
+					_g29.posChanged = true;
+					_g29.x += (maxColWidth - p7.calculatedWidth) * 0.5 | 0;
 					break;
 				default:
 				}
 			}
+			lastIndex1 = maxIndex1;
 			ch += this.paddingBottom + this.borderHeight;
 			cw = x1 + maxColWidth + this.paddingRight + this.borderWidth;
 			if(this.minHeight != null && ch < this.minHeight) {
@@ -7255,8 +7567,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 			var ymax = endY;
 			var midSpace1 = 0;
 			var _g17 = 0;
-			var _g5 = this.childs.length;
-			while(_g17 < _g5) {
+			var _g8 = this.childs.length;
+			while(_g17 < _g8) {
 				var i7 = _g17++;
 				var p8 = this.properties[i7];
 				if(p8.isAbsolute || !this.childs[i7].visible) {
@@ -7268,14 +7580,15 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 					midSpace1 = 0;
 				}
 				var py;
-				switch((p8.verticalAlign == null ? valign1 : p8.verticalAlign)[1]) {
+				var align1 = p8.verticalAlign == null ? valign1 : p8.verticalAlign;
+				switch(align1[1]) {
 				case 3:
 					if(midSpace1 == 0) {
 						var remSize1 = p8.calculatedHeight;
-						var _g31 = i7 + 1;
-						var _g22 = this.childs.length;
-						while(_g31 < _g22) {
-							var j1 = _g31++;
+						var _g32 = i7 + 1;
+						var _g210 = this.childs.length;
+						while(_g32 < _g210) {
+							var j1 = _g32++;
 							var p9 = this.properties[j1];
 							if(p9.isAbsolute || !this.childs[j1].visible) {
 								continue;
@@ -7350,8 +7663,8 @@ h2d_Flow.prototype = $extend(h2d_Sprite.prototype,{
 			}
 			this.debugGraphics.lineStyle(1,33023);
 			var _g18 = 0;
-			var _g6 = this.childs.length;
-			while(_g18 < _g6) {
+			var _g9 = this.childs.length;
+			while(_g18 < _g9) {
 				var i8 = _g18++;
 				var p10 = this.properties[i8];
 				var c6 = this.childs[i8];
@@ -7518,7 +7831,7 @@ h3d_prim_Primitive.prototype = {
 			this.alloc(engine);
 		}
 		if(this.indexes == null) {
-			if((this.buffer.flags & 4) != 0) {
+			if((this.buffer.flags & 1 << h3d_BufferFlag.Quads[1]) != 0) {
 				engine.renderBuffer(this.buffer,engine.mem.quadIndexes,2,0,-1);
 			} else {
 				engine.renderBuffer(this.buffer,engine.mem.triIndexes,3,0,-1);
@@ -7560,12 +7873,15 @@ h2d__$Graphics_GraphicsContent.prototype = $extend(h3d_prim_Primitive.prototype,
 		this.tmp.push(a);
 	}
 	,next: function() {
-		if(this.tmp.length >> 3 < 32768) {
+		var nvect = this.tmp.length >> 3;
+		if(nvect < 32768) {
 			return false;
 		}
 		this.buffers.push({ buf : this.tmp, idx : this.index, vbuf : null, ibuf : null});
-		this.tmp = new Array(0);
-		this.index = new Array(0);
+		var this1 = new Array(0);
+		this.tmp = this1;
+		var this2 = new Array(0);
+		this.index = this2;
 		h3d_prim_Primitive.prototype.dispose.call(this);
 		return true;
 	}
@@ -7628,8 +7944,10 @@ h2d__$Graphics_GraphicsContent.prototype = $extend(h3d_prim_Primitive.prototype,
 	}
 	,clear: function() {
 		this.dispose();
-		this.tmp = new Array(0);
-		this.index = new Array(0);
+		var this1 = new Array(0);
+		this.tmp = this1;
+		var this2 = new Array(0);
+		this.index = this2;
 		this.buffers = [];
 	}
 	,__class__: h2d__$Graphics_GraphicsContent
@@ -7777,13 +8095,17 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 				}
 				this.pindex += 2;
 			} else {
+				var n0x = next.x - p.x;
+				var n0y = next.y - p.y;
+				var sign = n0x * nx + n0y * ny;
 				var nnx = -ny;
 				var nny = nx;
-				var d1 = this.lineSize * 0.5 / (nnx * nx1 * ns1 + nny * ny1 * ns1);
+				var size1 = nnx * nx1 * ns1 + nny * ny1 * ns1;
+				var d1 = this.lineSize * 0.5 / size1;
 				nnx *= d1;
 				nny *= d1;
 				var pnext1 = i == last ? start : this.pindex + 3;
-				if((next.x - p.x) * nx + (next.y - p.y) * ny > 0) {
+				if(sign > 0) {
 					var _this2 = this.content;
 					var y2 = p.y + ny;
 					var r2 = p.r;
@@ -7999,10 +8321,12 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 			scaleY = 1;
 		}
 		var tex1 = tile.innerTex;
-		this.ma = 1 / tex1.width / scaleX;
+		var pixWidth = 1 / tex1.width;
+		var pixHeight = 1 / tex1.height;
+		this.ma = pixWidth / scaleX;
 		this.mb = 0;
 		this.mc = 0;
-		this.md = 1 / tex1.height / scaleY;
+		this.md = pixHeight / scaleY;
 		this.mx = -dx * this.ma;
 		this.my = -dy * this.md;
 	}
@@ -8068,7 +8392,8 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 		var _g1 = 0;
 		var _g = nsegments + 1;
 		while(_g1 < _g) {
-			var a = _g1++ * angle;
+			var i = _g1++;
+			var a = i * angle;
 			var x = cx + Math.cos(a) * ray;
 			var y = cy + Math.sin(a) * ray;
 			this.addVertex(x,y,this.curR,this.curG,this.curB,this.curA,x * this.ma + y * this.mc + this.mx,x * this.mb + y * this.md + this.my);
@@ -8091,7 +8416,8 @@ h2d_Graphics.prototype = $extend(h2d_Drawable.prototype,{
 		var _g1 = 0;
 		var _g = nsegments;
 		while(_g1 < _g) {
-			var a = _g1++ * angle + angleStart;
+			var i = _g1++;
+			var a = i * angle + angleStart;
 			var x = cx + Math.cos(a) * ray;
 			var y = cy + Math.sin(a) * ray;
 			this.addVertex(x,y,this.curR,this.curG,this.curB,this.curA,x * this.ma + y * this.mc + this.mx,x * this.mb + y * this.md + this.my);
@@ -8216,8 +8542,9 @@ h2d_Interactive.prototype = $extend(h2d_Drawable.prototype,{
 		h2d_Drawable.prototype.onDelete.call(this);
 	}
 	,checkBounds: function(e) {
-		switch(e.kind[1]) {
-		case 4:case 6:case 7:
+		var _g = e.kind;
+		switch(_g[1]) {
+		case 4:case 6:case 7:case 10:
 			return false;
 		default:
 			return true;
@@ -8263,7 +8590,8 @@ h2d_Interactive.prototype = $extend(h2d_Drawable.prototype,{
 		if(this.cancelEvents) {
 			e.cancel = true;
 		}
-		switch(e.kind[1]) {
+		var _g = e.kind;
+		switch(_g[1]) {
 		case 0:
 			if(this.enableRightButton || e.button == 0) {
 				this.mouseDownButton = e.button;
@@ -8331,16 +8659,20 @@ h2d_Interactive.prototype = $extend(h2d_Drawable.prototype,{
 		return c;
 	}
 	,eventToLocal: function(e) {
+		var rx = e.relX;
+		var ry = e.relY;
 		var i = this;
-		var dx = e.relX - i.absX;
-		var dy = e.relY - i.absY;
+		var dx = rx - i.absX;
+		var dy = ry - i.absY;
 		var w1 = i.width * i.matA;
 		var h1 = i.width * i.matC;
+		var ky = h1 * dx - w1 * dy;
 		var w2 = i.height * i.matB;
 		var h2 = i.height * i.matD;
+		var kx = w2 * dy - h2 * dx;
 		var max = h1 * w2 - w1 * h2;
-		e.relX = (w2 * dy - h2 * dx) / max * i.width;
-		e.relY = (h1 * dx - w1 * dy) / max * i.height;
+		e.relX = kx / max * i.width;
+		e.relY = ky / max * i.height;
 	}
 	,startDrag: function(callb,onCancel) {
 		var _gthis = this;
@@ -8434,7 +8766,10 @@ h2d_Layers.prototype = $extend(h2d_Sprite.prototype,{
 		h2d_Sprite.prototype.addChildAt.call(this,s,this.layersIndexes[layer]);
 		var _g1 = layer;
 		var _g = this.layerCount;
-		while(_g1 < _g) this.layersIndexes[_g1++]++;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.layersIndexes[i]++;
+		}
 	}
 	,removeChild: function(s) {
 		var _g1 = 0;
@@ -8515,7 +8850,9 @@ h2d_Layers.prototype = $extend(h2d_Sprite.prototype,{
 		if(layer >= this.layerCount) {
 			a = [];
 		} else {
-			a = this.childs.slice(layer == 0 ? 0 : this.layersIndexes[layer - 1],this.layersIndexes[layer]);
+			var start = layer == 0 ? 0 : this.layersIndexes[layer - 1];
+			var max = this.layersIndexes[layer];
+			a = this.childs.slice(start,max);
 		}
 		return new hxd_impl_ArrayIterator_$h2d_$Sprite(a);
 	}
@@ -8866,10 +9203,12 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 			var y2 = y + h;
 			var rx1 = x * fa.x + y * fa.y + fa.z;
 			var ry1 = x * fb.x + y * fb.y + fb.z;
+			var rx2 = x2 * fa.x + y2 * fa.y + fa.z;
+			var ry2 = x2 * fb.x + y2 * fb.y + fb.z;
 			x = rx1;
 			y = ry1;
-			w = x2 * fa.x + y2 * fa.y + fa.z - rx1;
-			h = x2 * fb.x + y2 * fb.y + fb.z - ry1;
+			w = rx2 - rx1;
+			h = ry2 - ry1;
 		}
 		this.engine.setRenderZone((x - this.curX) * scaleX + 1e-10 | 0,(y - this.curY) * scaleY + 1e-10 | 0,w * scaleX + 1e-10 | 0,h * scaleY + 1e-10 | 0);
 	}
@@ -8901,6 +9240,7 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 			this.texture = h3d_mat_Texture.fromColor(16711935);
 		}
 		this.baseShader.texture__ = this.texture;
+		var f = this.currentObj.filter;
 		this.texture.set_filter((this.currentObj.filter == null ? this.defaultFilter : this.currentObj.filter) ? h3d_mat_Filter.Linear : h3d_mat_Filter.Nearest);
 		this.texture.set_wrap(this.currentObj.tileWrap ? h3d_mat_Wrap.Repeat : h3d_mat_Wrap.Clamp);
 		var blend = this.currentObj.blendMode;
@@ -8971,13 +9311,15 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 			absY = obj.absY;
 		}
 		if(matB == 0 && matC == 0) {
+			var tx = tile.dx + tile.width * 0.5;
+			var ty = tile.dy + tile.height * 0.5;
 			var f = obj.matA;
 			var a = f < 0 ? -f : f;
 			var f3 = obj.matD;
 			var b = f3 < 0 ? -f3 : f3;
 			var tr = (tile.width > tile.height ? tile.width : tile.height) * 1.5 * (a < b ? b : a);
-			var cx = absX + (tile.dx + tile.width * 0.5) * matA - this.curX;
-			var cy = absY + (tile.dy + tile.height * 0.5) * matD - this.curY;
+			var cx = absX + tx * matA - this.curX;
+			var cy = absY + ty * matD - this.curY;
 			if(cx < -tr || cy < -tr || cx - tr > this.curWidth || cy - tr > this.curHeight) {
 				return false;
 			}
@@ -8986,6 +9328,8 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 			var yMin = 1e20;
 			var xMax = -1e20;
 			var yMax = -1e20;
+			var hw = tile.width * 0.5;
+			var hh = tile.height * 0.5;
 			var px = tile.dx * matA + tile.dy * matC;
 			var py = tile.dx * matB + tile.dy * matD;
 			if(px < xMin) {
@@ -9086,7 +9430,8 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 		this.beforeDraw();
 		if(this.fixedBuffer == null || this.fixedBuffer.isDisposed()) {
 			this.fixedBuffer = new h3d_Buffer(4,8,[h3d_BufferFlag.Quads,h3d_BufferFlag.RawFormat]);
-			var k = new Array(0);
+			var this1 = new Array(0);
+			var k = this1;
 			var _g = 0;
 			var _g1 = [0,0,0,0,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1];
 			while(_g < _g1.length) {
@@ -9107,6 +9452,7 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 		if(this.onBeginDraw != null && !this.onBeginDraw(obj)) {
 			return false;
 		}
+		var stride = 8;
 		var shaderChanged = false;
 		var paramsChanged = false;
 		var objShaders = obj.shaders;
@@ -9148,7 +9494,7 @@ h2d_RenderContext.prototype = $extend(h3d_impl_RenderContext.prototype,{
 			this.currentShaders.next = obj.shaders;
 		}
 		this.texture = texture;
-		this.stride = 8;
+		this.stride = stride;
 		this.currentObj = obj;
 		return true;
 	}
@@ -9327,7 +9673,8 @@ h2d_ScaleGrid.prototype = $extend(h2d_TileGroup.prototype,{
 		} else {
 			var rw = (this.width - bw * 2) / sizeX | 0;
 			var _g1 = 0;
-			while(_g1 < rw) {
+			var _g = rw;
+			while(_g1 < _g) {
 				var x2 = _g1++;
 				var _this4 = this.content;
 				var color8 = this.curColor;
@@ -9353,7 +9700,8 @@ h2d_ScaleGrid.prototype = $extend(h2d_TileGroup.prototype,{
 			}
 			var rh = (this.height - bh * 2) / sizeY | 0;
 			var _g11 = 0;
-			while(_g11 < rh) {
+			var _g2 = rh;
+			while(_g11 < _g2) {
 				var y4 = _g11++;
 				var _this8 = this.content;
 				var color12 = this.curColor;
@@ -9633,31 +9981,39 @@ h2d_Scene.prototype = $extend(h2d_Layers.prototype,{
 	,screenToLocal: function(e) {
 		var x = e.relX * this.width / (this.stage.get_width() * this.scaleX) - this.x;
 		var y = e.relY * this.height / (this.stage.get_height() * this.scaleY) - this.y;
-		e.relX = x * this.matA + y * this.matB + this.absX;
-		e.relY = x * this.matC + y * this.matD + this.absY;
+		var rx = x * this.matA + y * this.matB + this.absX;
+		var ry = x * this.matC + y * this.matD + this.absY;
+		e.relX = rx;
+		e.relY = ry;
 	}
 	,dispatchEvent: function(event,to) {
 		var i = to;
 		this.screenToLocal(event);
-		var dx = event.relX - i.absX;
-		var dy = event.relY - i.absY;
+		var rx = event.relX;
+		var ry = event.relY;
+		var dx = rx - i.absX;
+		var dy = ry - i.absY;
 		var w1 = i.width * i.matA;
 		var h1 = i.width * i.matC;
+		var ky = h1 * dx + w1 * dy;
 		var w2 = i.height * i.matB;
 		var h2 = i.height * i.matD;
+		var kx = w2 * dy + h2 * dx;
 		var max = w1 * h2 - h1 * w2;
-		event.relX = (w2 * dy + h2 * dx) / max * i.width;
-		event.relY = (h1 * dx + w1 * dy) / max * i.height;
+		event.relX = kx / max * i.width;
+		event.relY = ky / max * i.height;
 		i.handleEvent(event);
 	}
 	,handleEvent: function(event,last) {
 		this.screenToLocal(event);
 		var rx = event.relX;
 		var ry = event.relY;
-		var _g1 = last == null ? 0 : this.interactive.indexOf(last) + 1;
+		var index = last == null ? 0 : this.interactive.indexOf(last) + 1;
+		var _g1 = index;
 		var _g = this.interactive.length;
 		while(_g1 < _g) {
-			var i = this.interactive[_g1++];
+			var idx = _g1++;
+			var i = this.interactive[idx];
 			if(i == null) {
 				break;
 			}
@@ -9830,7 +10186,7 @@ h2d_Scene.prototype = $extend(h2d_Layers.prototype,{
 		this.ctx.elapsedTime = v;
 	}
 	,drawImplTo: function(s,t) {
-		if((t.flags & 1) == 0) {
+		if((t.flags & 1 << h3d_mat_TextureFlags.Target[1]) == 0) {
 			throw new js__$Boot_HaxeError("Can only draw to texture created with Target flag");
 		}
 		this.ctx.engine = h3d_Engine.CURRENT;
@@ -9838,7 +10194,7 @@ h2d_Scene.prototype = $extend(h2d_Layers.prototype,{
 		this.ctx.globalAlpha = this.alpha;
 		this.ctx.begin();
 		this.ctx.pushTarget(t);
-		if((t.flags & 128) == 0) {
+		if((t.flags & 1 << h3d_mat_TextureFlags.WasCleared[1]) == 0) {
 			this.ctx.engine.driver.clear(new h3d_Vector(0,0,0,0),1,0);
 		}
 		s.drawRec(this.ctx);
@@ -9872,16 +10228,17 @@ h2d_Scene.prototype = $extend(h2d_Layers.prototype,{
 	,captureBitmap: function(target) {
 		var engine = h3d_Engine.CURRENT;
 		if(target == null) {
-			target = new h2d_Tile(new h3d_mat_Texture(this.width,this.height,[h3d_mat_TextureFlags.Target]),0,0,this.width,this.height);
+			var tex = new h3d_mat_Texture(this.width,this.height,[h3d_mat_TextureFlags.Target]);
+			target = new h2d_Tile(tex,0,0,this.width,this.height);
 		}
 		engine.begin();
 		engine.setRenderZone(target.x,target.y,target.width,target.height);
-		var tex = target.innerTex;
-		engine.pushTarget(tex);
+		var tex1 = target.innerTex;
+		engine.pushTarget(tex1);
 		var ow = this.width;
 		var oh = this.height;
 		var of = this.fixedSize;
-		this.setFixedSize(tex.width,tex.height);
+		this.setFixedSize(tex1.width,tex1.height);
 		this.render(engine);
 		engine.popTarget();
 		this.width = ow;
@@ -9930,7 +10287,8 @@ h2d_Tile.fromColor = function(color,width,height,alpha,allocPos) {
 	return t;
 };
 h2d_Tile.fromBitmap = function(bmp,allocPos) {
-	return new h2d_Tile(h3d_mat_Texture.fromBitmap(bmp,allocPos),0,0,bmp.ctx.canvas.width,bmp.ctx.canvas.height);
+	var tex = h3d_mat_Texture.fromBitmap(bmp,allocPos);
+	return new h2d_Tile(tex,0,0,bmp.ctx.canvas.width,bmp.ctx.canvas.height);
 };
 h2d_Tile.autoCut = function(bmp,width,height,allocPos) {
 	bmp.lock();
@@ -9984,10 +10342,12 @@ h2d_Tile.isEmpty = function(b,px,py,width,height,bg) {
 	var xmax = 0;
 	var ymax = 0;
 	var _g1 = 0;
-	while(_g1 < width) {
+	var _g = width;
+	while(_g1 < _g) {
 		var x = _g1++;
 		var _g3 = 0;
-		while(_g3 < height) {
+		var _g2 = height;
+		while(_g3 < _g2) {
 			var y = _g3++;
 			var color = b.getPixel(x + px,y + py);
 			if(color != bg) {
@@ -10141,7 +10501,10 @@ h2d_Tile.prototype = {
 			var stride = this.height / frames | 0;
 			var _g1 = 0;
 			var _g = frames;
-			while(_g1 < _g) tl.push(this.sub(0,_g1++ * stride,this.width,stride));
+			while(_g1 < _g) {
+				var i = _g1++;
+				tl.push(this.sub(0,i * stride,this.width,stride));
+			}
 		} else {
 			if(frames == 0) {
 				frames = this.width / this.height | 0;
@@ -10149,7 +10512,10 @@ h2d_Tile.prototype = {
 			var stride1 = this.width / frames | 0;
 			var _g11 = 0;
 			var _g2 = frames;
-			while(_g11 < _g2) tl.push(this.sub(_g11++ * stride1,0,stride1,this.height));
+			while(_g11 < _g2) {
+				var i1 = _g11++;
+				tl.push(this.sub(i1 * stride1,0,stride1,this.height));
+			}
 		}
 		return tl;
 	}
@@ -10167,7 +10533,10 @@ h2d_Tile.prototype = {
 			var y = _g2++;
 			var _g4 = 0;
 			var _g3 = this.width / size | 0;
-			while(_g4 < _g3) _g.push(this.sub(_g4++ * size,y * size,size,size,dx,dy));
+			while(_g4 < _g3) {
+				var x = _g4++;
+				_g.push(this.sub(x * size,y * size,size,size,dx,dy));
+			}
 		}
 		return _g;
 	}
@@ -10175,6 +10544,8 @@ h2d_Tile.prototype = {
 		return "Tile(" + this.x + "," + this.y + "," + this.width + "x" + this.height + (this.dx != 0 || this.dy != 0 ? "," + this.dx + ":" + this.dy : "") + ")";
 	}
 	,upload: function(bmp) {
+		var w = this.innerTex.width;
+		var h = this.innerTex.height;
 		this.innerTex.uploadBitmap(bmp);
 	}
 	,__class__: h2d_Tile
@@ -10187,7 +10558,8 @@ h2d__$TileGroup_TileLayerContent.__name__ = ["h2d","_TileGroup","TileLayerConten
 h2d__$TileGroup_TileLayerContent.__super__ = h3d_prim_Primitive;
 h2d__$TileGroup_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototype,{
 	clear: function() {
-		this.tmp = new Array(0);
+		var this1 = new Array(0);
+		this.tmp = this1;
 		if(this.buffer != null) {
 			this.buffer.dispose();
 		}
@@ -10493,11 +10865,12 @@ h2d__$TileGroup_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototyp
 		if(end <= start) {
 			return;
 		}
+		var arcLength = end - start;
 		var nsegments = Math.ceil(ray * 3.14 * 2 / 4);
 		if(nsegments < 4) {
 			nsegments = 4;
 		}
-		var angle = (end - start) / nsegments;
+		var angle = arcLength / nsegments;
 		var prevX = -Infinity;
 		var prevY = -Infinity;
 		var _x = 0.;
@@ -10517,8 +10890,9 @@ h2d__$TileGroup_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototyp
 			prevY = _y;
 			++i;
 		}
-		_x = x + Math.cos(end) * ray;
-		_y = y + Math.sin(end) * ray;
+		var a1 = end;
+		_x = x + Math.cos(a1) * ray;
+		_y = y + Math.sin(a1) * ray;
 		this.addPoint(x,y,c);
 		this.addPoint(_x,_y,c);
 		this.addPoint(prevX,prevY,c);
@@ -10539,7 +10913,8 @@ h2d__$TileGroup_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototyp
 		var _g1 = 0;
 		var _g = nsegments;
 		while(_g1 < _g) {
-			var a = _g1++ * angle;
+			var i = _g1++;
+			var a = i * angle;
 			curX = x + Math.cos(a) * radius;
 			curY = y + Math.sin(a) * radius;
 			if(prevX != -Infinity) {
@@ -10577,7 +10952,8 @@ h2d__$TileGroup_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototyp
 		var _g1 = 0;
 		var _g = nsegments;
 		while(_g1 < _g) {
-			var a = _g1++ * angle;
+			var i = _g1++;
+			var a = i * angle;
 			var _x = x + Math.cos(a) * ray;
 			var _y = y + Math.sin(a) * ray;
 			var _x1 = x + Math.cos(a) * ray1;
@@ -10601,12 +10977,13 @@ h2d__$TileGroup_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototyp
 		if(end <= start) {
 			return;
 		}
+		var arcLength = end - start;
 		var nsegments = Math.ceil(ray * 3.14 * 2 / 4);
 		if(nsegments < 3) {
 			nsegments = 3;
 		}
 		var ray1 = ray - size;
-		var angle = (end - start) / nsegments;
+		var angle = arcLength / nsegments;
 		var prevX = -Infinity;
 		var prevY = -Infinity;
 		var prevX1 = -Infinity;
@@ -10618,7 +10995,8 @@ h2d__$TileGroup_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototyp
 		var _g1 = 0;
 		var _g = nsegments;
 		while(_g1 < _g) {
-			var a = start + _g1++ * angle;
+			var i = _g1++;
+			var a = start + i * angle;
 			_x = x + Math.cos(a) * ray;
 			_y = y + Math.sin(a) * ray;
 			_x1 = x + Math.cos(a) * ray1;
@@ -10634,10 +11012,11 @@ h2d__$TileGroup_TileLayerContent.prototype = $extend(h3d_prim_Primitive.prototyp
 			prevX1 = _x1;
 			prevY1 = _y1;
 		}
-		_x = x + Math.cos(end) * ray;
-		_y = y + Math.sin(end) * ray;
-		_x1 = x + Math.cos(end) * ray1;
-		_y1 = y + Math.sin(end) * ray1;
+		var a1 = end;
+		_x = x + Math.cos(a1) * ray;
+		_y = y + Math.sin(a1) * ray;
+		_x1 = x + Math.cos(a1) * ray1;
+		_y1 = y + Math.sin(a1) * ray1;
 		this.addPoint(_x,_y,c);
 		this.addPoint(prevX,prevY,c);
 		this.addPoint(_x1,_y1,c);
@@ -11036,12 +11415,14 @@ h2d_col_Matrix.prototype = {
 		var bb = b.b;
 		var bc = b.c;
 		var bd = b.d;
+		var bx = b.x;
+		var by = b.y;
 		this.a = aa * ba + ab * bc;
 		this.b = aa * bb + ab * bd;
 		this.c = ac * ba + ad * bc;
 		this.d = ac * bb + ad * bd;
-		this.x = ax * ba + ay * bc + b.x;
-		this.y = ax * bb + ay * bd + b.y;
+		this.x = ax * ba + ay * bc + bx;
+		this.y = ax * bb + ay * bd + by;
 	}
 	,scale: function(sx,sy) {
 		this.a *= sx;
@@ -11100,8 +11481,9 @@ h2d_col_Point.prototype = {
 	,rotate: function(angle) {
 		var c = Math.cos(angle);
 		var s = Math.sin(angle);
+		var x2 = this.x * c - this.y * s;
 		var y2 = this.x * s + this.y * c;
-		this.x = this.x * c - this.y * s;
+		this.x = x2;
 		this.y = y2;
 	}
 	,lengthSq: function() {
@@ -11184,7 +11566,8 @@ h3d_BufferFlag.__empty_constructs__ = [h3d_BufferFlag.Dynamic,h3d_BufferFlag.Tri
 var h3d_Buffer = function(vertices,stride,flags,allocPos) {
 	this.id = h3d_Buffer.GUID++;
 	this.vertices = vertices;
-	this.flags = 0;
+	var this1 = 0;
+	this.flags = this1;
 	if(flags != null) {
 		var _g = 0;
 		while(_g < flags.length) {
@@ -11193,7 +11576,7 @@ var h3d_Buffer = function(vertices,stride,flags,allocPos) {
 			this.flags |= 1 << f[1];
 		}
 	}
-	if((this.flags & 32) == 0) {
+	if((this.flags & 1 << h3d_BufferFlag.NoAlloc[1]) == 0) {
 		h3d_Engine.CURRENT.mem.allocBuffer(this,stride);
 	}
 };
@@ -11333,7 +11716,9 @@ h3d_Camera.prototype = {
 	}
 	,getFovX: function() {
 		var degToRad = Math.PI / 180;
-		return Math.atan(Math.tan(this.fovY * 0.5 * degToRad) * this.screenRatio) * 2 / degToRad;
+		var halfFovX = Math.atan(Math.tan(this.fovY * 0.5 * degToRad) * this.screenRatio);
+		var fovX = halfFovX * 2 / degToRad;
+		return fovX;
 	}
 	,clone: function() {
 		var c = new h3d_Camera(this.fovY,this.zoom,this.screenRatio,this.zNear,this.zFar,this.rightHanded);
@@ -11369,10 +11754,11 @@ h3d_Camera.prototype = {
 	,unproject: function(screenX,screenY,camZ) {
 		var p = new h3d_Vector(screenX,screenY,camZ);
 		var m = this.getInverseViewProj();
+		var px = p.x * m._11 + p.y * m._21 + p.z * m._31 + p.w * m._41;
 		var py = p.x * m._12 + p.y * m._22 + p.z * m._32 + p.w * m._42;
 		var pz = p.x * m._13 + p.y * m._23 + p.z * m._33 + p.w * m._43;
 		var iw = 1 / (p.x * m._14 + p.y * m._24 + p.z * m._34 + p.w * m._44);
-		p.x = (p.x * m._11 + p.y * m._21 + p.z * m._31 + p.w * m._41) * iw;
+		p.x = px * iw;
 		p.y = py * iw;
 		p.z = pz * iw;
 		p.w = 1;
@@ -11382,20 +11768,30 @@ h3d_Camera.prototype = {
 		var engine = h3d_Engine.CURRENT;
 		var rx = (pixelX / engine.width - 0.5) * 2;
 		var ry = (0.5 - pixelY / engine.height) * 2;
+		var p1_z;
+		var p1_y;
+		var p1_x;
 		var _this = this.unproject(rx,ry,0);
-		var x = _this.x;
-		var y = _this.y;
-		var z = _this.z;
+		p1_x = _this.x;
+		p1_y = _this.y;
+		p1_z = _this.z;
+		var p2_z;
+		var p2_y;
+		var p2_x;
 		var _this1 = this.unproject(rx,ry,1);
+		p2_x = _this1.x;
+		p2_y = _this1.y;
+		p2_z = _this1.z;
 		var r = new h3d_col_Ray();
-		r.px = x;
-		r.py = y;
-		r.pz = z;
-		r.lx = _this1.x - x;
-		r.ly = _this1.y - y;
-		r.lz = _this1.z - z;
-		r.normalize();
-		return r;
+		r.px = p1_x;
+		r.py = p1_y;
+		r.pz = p1_z;
+		r.lx = p2_x - p1_x;
+		r.ly = p2_y - p1_y;
+		r.lz = p2_z - p1_z;
+		var r1 = r;
+		r1.normalize();
+		return r1;
 	}
 	,update: function() {
 		if(this.follow != null) {
@@ -11452,14 +11848,21 @@ h3d_Camera.prototype = {
 		}
 		var p_z;
 		var p_y;
-		var p_x = dx;
+		var p_x;
+		var p_w;
+		p_x = dx;
 		p_y = dy;
 		p_z = dz;
+		p_w = 1.;
 		var m = this.mcam;
-		var iw = 1 / (dx * m._14 + dy * m._24 + dz * m._34 + m._44);
-		p_x = (dx * m._11 + dy * m._21 + dz * m._31 + m._41) * iw;
-		p_y = (dx * m._12 + dy * m._22 + dz * m._32 + m._42) * iw;
-		p_z = (dx * m._13 + dy * m._23 + dz * m._33 + m._43) * iw;
+		var px = p_x * m._11 + p_y * m._21 + p_z * m._31 + p_w * m._41;
+		var py = p_x * m._12 + p_y * m._22 + p_z * m._32 + p_w * m._42;
+		var pz = p_x * m._13 + p_y * m._23 + p_z * m._33 + p_w * m._43;
+		var iw = 1 / (p_x * m._14 + p_y * m._24 + p_z * m._34 + p_w * m._44);
+		p_x = px * iw;
+		p_y = py * iw;
+		p_z = pz * iw;
+		p_w = 1;
 		this.pos.x += p_x;
 		this.pos.y += p_y;
 		this.pos.z += p_z;
@@ -11470,14 +11873,21 @@ h3d_Camera.prototype = {
 		}
 		var p_z;
 		var p_y;
-		var p_x = dx;
+		var p_x;
+		var p_w;
+		p_x = dx;
 		p_y = dy;
 		p_z = dz;
+		p_w = 1.;
 		var m = this.mcam;
-		var iw = 1 / (dx * m._14 + dy * m._24 + dz * m._34 + m._44);
-		p_x = (dx * m._11 + dy * m._21 + dz * m._31 + m._41) * iw;
-		p_y = (dx * m._12 + dy * m._22 + dz * m._32 + m._42) * iw;
-		p_z = (dx * m._13 + dy * m._23 + dz * m._33 + m._43) * iw;
+		var px = p_x * m._11 + p_y * m._21 + p_z * m._31 + p_w * m._41;
+		var py = p_x * m._12 + p_y * m._22 + p_z * m._32 + p_w * m._42;
+		var pz = p_x * m._13 + p_y * m._23 + p_z * m._33 + p_w * m._43;
+		var iw = 1 / (p_x * m._14 + p_y * m._24 + p_z * m._34 + p_w * m._44);
+		p_x = px * iw;
+		p_y = py * iw;
+		p_z = pz * iw;
+		p_w = 1;
 		this.target.x += p_x;
 		this.target.y += p_y;
 		this.target.z += p_z;
@@ -11524,25 +11934,30 @@ h3d_Camera.prototype = {
 			ax.y = az.z;
 			ax.z = az.x;
 		}
-		var x = az.y * ax.z - az.z * ax.y;
-		var y = az.z * ax.x - az.x * ax.z;
-		var z = az.x * ax.y - az.y * ax.x;
+		var ay_z;
+		var ay_y;
+		var ay_x;
+		var ay_w;
+		ay_x = az.y * ax.z - az.z * ax.y;
+		ay_y = az.z * ax.x - az.x * ax.z;
+		ay_z = az.x * ax.y - az.y * ax.x;
+		ay_w = 1;
 		m._11 = ax.x;
-		m._12 = x;
+		m._12 = ay_x;
 		m._13 = az.x;
 		m._14 = 0;
 		m._21 = ax.y;
-		m._22 = y;
+		m._22 = ay_y;
 		m._23 = az.y;
 		m._24 = 0;
 		m._31 = ax.z;
-		m._32 = z;
+		m._32 = ay_z;
 		m._33 = az.z;
 		m._34 = 0;
 		var v2 = this.pos;
 		m._41 = -(ax.x * v2.x + ax.y * v2.y + ax.z * v2.z);
 		var v3 = this.pos;
-		m._42 = -(x * v3.x + y * v3.y + z * v3.z);
+		m._42 = -(ay_x * v3.x + ay_y * v3.y + ay_z * v3.z);
 		var v4 = this.pos;
 		m._43 = -(az.x * v4.x + az.y * v4.y + az.z * v4.z);
 		m._44 = 1;
@@ -11562,7 +11977,9 @@ h3d_Camera.prototype = {
 			m._43 = -bounds.zMin * d;
 			m._44 = 1;
 		} else {
-			var scale = this.zoom / Math.tan(Math.atan(Math.tan(this.fovY * 0.5 * (Math.PI / 180)) * this.screenRatio));
+			var degToRad = Math.PI / 180;
+			var halfFovX = Math.atan(Math.tan(this.fovY * 0.5 * degToRad) * this.screenRatio);
+			var scale = this.zoom / Math.tan(halfFovX);
 			m._11 = scale;
 			m._22 = scale * this.screenRatio;
 			m._33 = this.zFar / (this.zFar - this.zNear);
@@ -11588,10 +12005,11 @@ h3d_Camera.prototype = {
 		}
 		var p = new h3d_Vector(x,y,z);
 		var m = this.m;
+		var px = p.x * m._11 + p.y * m._21 + p.z * m._31 + p.w * m._41;
 		var py = p.x * m._12 + p.y * m._22 + p.z * m._32 + p.w * m._42;
 		var pz = p.x * m._13 + p.y * m._23 + p.z * m._33 + p.w * m._43;
 		var iw = 1 / (p.x * m._14 + p.y * m._24 + p.z * m._34 + p.w * m._44);
-		p.x = (p.x * m._11 + p.y * m._21 + p.z * m._31 + p.w * m._41) * iw;
+		p.x = px * iw;
 		p.y = py * iw;
 		p.z = pz * iw;
 		p.w = 1;
@@ -11766,8 +12184,9 @@ h3d_Engine.prototype = {
 		if(indexes.isDisposed()) {
 			return;
 		}
+		var maxTri = indexes.count / 3 | 0;
 		if(drawTri < 0) {
-			drawTri = (indexes.count / 3 | 0) - startTri;
+			drawTri = maxTri - startTri;
 		}
 		if(drawTri > 0 && this.selectBuffer(b)) {
 			this.driver.draw(indexes.ibuf,startTri * 3,drawTri);
@@ -11847,7 +12266,7 @@ h3d_Engine.prototype = {
 	,set_fullScreen: function(v) {
 		this.fullScreen = v;
 		if(this.mem != null && hxd_System.get_isWindowed()) {
-			hxd_Stage.getInstance();
+			hxd_Stage.getInstance().setFullScreen(v);
 		}
 		return v;
 	}
@@ -11886,6 +12305,7 @@ h3d_Engine.prototype = {
 		return this.driver.hasFeature(f);
 	}
 	,end: function() {
+		this.driver.present();
 	}
 	,getCurrentTarget: function() {
 		if(this.targetStack == null) {
@@ -11921,7 +12341,8 @@ h3d_Engine.prototype = {
 			throw new js__$Boot_HaxeError("popTarget() with no matching pushTarget()");
 		}
 		this.targetStack = c.next;
-		this.needFlushTarget = this.currentTarget != (this.targetStack == null ? null : this.targetStack.t);
+		var tex = this.targetStack == null ? null : this.targetStack.t;
+		this.needFlushTarget = this.currentTarget != tex;
 		c.t = null;
 		c.next = this.targetTmp;
 		this.targetTmp = c;
@@ -11940,10 +12361,11 @@ h3d_Engine.prototype = {
 	,clear: function(color,depth,stencil) {
 		if(color != null) {
 			var _this = this.tmpVector;
-			_this.x = (color >> 16 & 255) * 0.00392156862745098;
-			_this.y = (color >> 8 & 255) * 0.00392156862745098;
-			_this.z = (color & 255) * 0.00392156862745098;
-			_this.w = (color >>> 24) * 0.00392156862745098;
+			var s = 0.00392156862745098;
+			_this.x = (color >> 16 & 255) * s;
+			_this.y = (color >> 8 & 255) * s;
+			_this.z = (color & 255) * s;
+			_this.w = (color >>> 24) * s;
 		}
 		if(this.needFlushTarget) {
 			this.doFlushTarget();
@@ -11989,6 +12411,7 @@ h3d_Engine.prototype = {
 		return true;
 	}
 	,dispose: function() {
+		this.driver.dispose();
 		hxd_Stage.getInstance().removeResizeEvent($bind(this,this.onStageResize));
 	}
 	,get_fps: function() {
@@ -12091,49 +12514,66 @@ h3d_Matrix.lookAtX = function(dir,up,m) {
 	if(m == null) {
 		m = new h3d_Matrix();
 	}
+	var ax_z;
+	var ax_y;
+	var ax_x;
+	var ax_w;
 	var k = dir.x * dir.x + dir.y * dir.y + dir.z * dir.z;
 	if(k < 1e-10) {
 		k = 0;
 	} else {
 		k = 1. / Math.sqrt(k);
 	}
-	var x = dir.x * k;
-	var y = dir.y * k;
-	var z = dir.z * k;
+	ax_x = dir.x * k;
+	ax_y = dir.y * k;
+	ax_z = dir.z * k;
+	ax_w = 1.;
 	var ay_z;
 	var ay_y;
 	var ay_x;
-	var x1 = up.y * z - up.z * y;
-	var y1 = up.z * x - up.x * z;
-	var z1 = up.x * y - up.y * x;
-	var k1 = x1 * x1 + y1 * y1 + z1 * z1;
+	var ay_w;
+	var _this_z;
+	var _this_y;
+	var _this_x;
+	var _this_w;
+	_this_x = up.y * ax_z - up.z * ax_y;
+	_this_y = up.z * ax_x - up.x * ax_z;
+	_this_z = up.x * ax_y - up.y * ax_x;
+	_this_w = 1;
+	var k1 = _this_x * _this_x + _this_y * _this_y + _this_z * _this_z;
 	if(k1 < 1e-10) {
 		k1 = 0;
 	} else {
 		k1 = 1. / Math.sqrt(k1);
 	}
-	var x2 = x1 * k1;
-	var y2 = y1 * k1;
-	var z2 = z1 * k1;
-	ay_x = x2;
-	ay_y = y2;
-	ay_z = z2;
-	if(x2 * x2 + y2 * y2 + z2 * z2 < 1e-10) {
-		ay_x = y;
-		ay_y = z;
-		ay_z = x;
+	ay_x = _this_x * k1;
+	ay_y = _this_y * k1;
+	ay_z = _this_z * k1;
+	ay_w = 1.;
+	if(ay_x * ay_x + ay_y * ay_y + ay_z * ay_z < 1e-10) {
+		ay_x = ax_y;
+		ay_y = ax_z;
+		ay_z = ax_x;
 	}
-	m._11 = x;
-	m._12 = y;
-	m._13 = z;
+	var az_z;
+	var az_y;
+	var az_x;
+	var az_w;
+	az_x = ax_y * ay_z - ax_z * ay_y;
+	az_y = ax_z * ay_x - ax_x * ay_z;
+	az_z = ax_x * ay_y - ax_y * ay_x;
+	az_w = 1;
+	m._11 = ax_x;
+	m._12 = ax_y;
+	m._13 = ax_z;
 	m._14 = 0;
 	m._21 = ay_x;
 	m._22 = ay_y;
 	m._23 = ay_z;
 	m._24 = 0;
-	m._31 = y * ay_z - z * ay_y;
-	m._32 = z * ay_x - x * ay_z;
-	m._33 = x * ay_y - y * ay_x;
+	m._31 = az_x;
+	m._32 = az_y;
+	m._33 = az_z;
 	m._34 = 0;
 	m._41 = 0;
 	m._42 = 0;
@@ -12317,7 +12757,10 @@ h3d_Matrix.prototype = {
 		var x = -axis.x;
 		var y = -axis.y;
 		var z = -axis.z;
-		var len = 1. / Math.sqrt(x * x + y * y + z * z);
+		var xx = x * x;
+		var yy = y * y;
+		var zz = z * z;
+		var len = 1. / Math.sqrt(xx + yy + zz);
 		x *= len;
 		y *= len;
 		z *= len;
@@ -12442,10 +12885,14 @@ h3d_Matrix.prototype = {
 		if(x == null) {
 			x = 0.;
 		}
-		this._41 = this._11 * x + this._21 * y + this._31 * z + this._41;
-		this._42 = this._12 * x + this._22 * y + this._32 * z + this._42;
-		this._43 = this._13 * x + this._23 * y + this._33 * z + this._43;
-		this._44 = this._14 * x + this._24 * y + this._34 * z + this._44;
+		var vx = this._11 * x + this._21 * y + this._31 * z + this._41;
+		var vy = this._12 * x + this._22 * y + this._32 * z + this._42;
+		var vz = this._13 * x + this._23 * y + this._33 * z + this._43;
+		var vw = this._14 * x + this._24 * y + this._34 * z + this._44;
+		this._41 = vx;
+		this._42 = vy;
+		this._43 = vz;
+		this._44 = vw;
 	}
 	,getScale: function() {
 		var v = new h3d_Vector();
@@ -12505,6 +12952,9 @@ h3d_Matrix.prototype = {
 		var b31 = b._31;
 		var b32 = b._32;
 		var b33 = b._33;
+		var b41 = b._41;
+		var b42 = b._42;
+		var b43 = b._43;
 		this._11 = m11 * b11 + m12 * b21 + m13 * b31;
 		this._12 = m11 * b12 + m12 * b22 + m13 * b32;
 		this._13 = m11 * b13 + m12 * b23 + m13 * b33;
@@ -12517,9 +12967,9 @@ h3d_Matrix.prototype = {
 		this._32 = a31 * b12 + a32 * b22 + a33 * b32;
 		this._33 = a31 * b13 + a32 * b23 + a33 * b33;
 		this._34 = 0;
-		this._41 = a41 * b11 + a42 * b21 + a43 * b31 + b._41;
-		this._42 = a41 * b12 + a42 * b22 + a43 * b32 + b._42;
-		this._43 = a41 * b13 + a42 * b23 + a43 * b33 + b._43;
+		this._41 = a41 * b11 + a42 * b21 + a43 * b31 + b41;
+		this._42 = a41 * b12 + a42 * b22 + a43 * b32 + b42;
+		this._43 = a41 * b13 + a42 * b23 + a43 * b33 + b43;
 		this._44 = 1;
 	}
 	,multiply3x4inline: function(a,b) {
@@ -12544,6 +12994,9 @@ h3d_Matrix.prototype = {
 		var b31 = b._31;
 		var b32 = b._32;
 		var b33 = b._33;
+		var b41 = b._41;
+		var b42 = b._42;
+		var b43 = b._43;
 		this._11 = m11 * b11 + m12 * b21 + m13 * b31;
 		this._12 = m11 * b12 + m12 * b22 + m13 * b32;
 		this._13 = m11 * b13 + m12 * b23 + m13 * b33;
@@ -12556,9 +13009,9 @@ h3d_Matrix.prototype = {
 		this._32 = a31 * b12 + a32 * b22 + a33 * b32;
 		this._33 = a31 * b13 + a32 * b23 + a33 * b33;
 		this._34 = 0;
-		this._41 = a41 * b11 + a42 * b21 + a43 * b31 + b._41;
-		this._42 = a41 * b12 + a42 * b22 + a43 * b32 + b._42;
-		this._43 = a41 * b13 + a42 * b23 + a43 * b33 + b._43;
+		this._41 = a41 * b11 + a42 * b21 + a43 * b31 + b41;
+		this._42 = a41 * b12 + a42 * b22 + a43 * b32 + b42;
+		this._43 = a41 * b13 + a42 * b23 + a43 * b33 + b43;
 		this._44 = 1;
 	}
 	,multiply: function(a,b) {
@@ -12938,10 +13391,10 @@ h3d_Matrix.prototype = {
 		var t32 = 0.;
 		var t33 = 0.;
 		var c = bits;
-		if((bits & 1) == 1) {
+		if((c & 1) == 1) {
 			t11 = 1;
 		}
-		c = bits >> 1;
+		c >>= 1;
 		if((c & 1) == 1) {
 			t12 = 1;
 		}
@@ -12992,22 +13445,26 @@ h3d_Matrix.prototype = {
 			t23 /= b;
 			t33 /= b;
 		}
+		var b11 = this._11 * t11 + this._12 * t21 + this._13 * t31;
 		var b12 = this._11 * t12 + this._12 * t22 + this._13 * t32;
 		var b13 = this._11 * t13 + this._12 * t23 + this._13 * t33;
+		var b21 = this._21 * t11 + this._22 * t21 + this._23 * t31;
 		var b22 = this._21 * t12 + this._22 * t22 + this._23 * t32;
 		var b23 = this._21 * t13 + this._22 * t23 + this._23 * t33;
+		var b31 = this._31 * t11 + this._32 * t21 + this._33 * t31;
 		var b32 = this._31 * t12 + this._32 * t22 + this._33 * t32;
 		var b33 = this._31 * t13 + this._32 * t23 + this._33 * t33;
-		var k = 1 - blend;
-		this._11 = this._11 * k + (this._11 * t11 + this._12 * t21 + this._13 * t31) * blend;
-		this._12 = this._12 * k + b12 * blend;
-		this._13 = this._13 * k + b13 * blend;
-		this._21 = this._21 * k + (this._21 * t11 + this._22 * t21 + this._23 * t31) * blend;
-		this._22 = this._22 * k + b22 * blend;
-		this._23 = this._23 * k + b23 * blend;
-		this._31 = this._31 * k + (this._31 * t11 + this._32 * t21 + this._33 * t31) * blend;
-		this._32 = this._32 * k + b32 * blend;
-		this._33 = this._33 * k + b33 * blend;
+		var ik = blend;
+		var k = 1 - ik;
+		this._11 = this._11 * k + b11 * ik;
+		this._12 = this._12 * k + b12 * ik;
+		this._13 = this._13 * k + b13 * ik;
+		this._21 = this._21 * k + b21 * ik;
+		this._22 = this._22 * k + b22 * ik;
+		this._23 = this._23 * k + b23 * ik;
+		this._31 = this._31 * k + b31 * ik;
+		this._32 = this._32 * k + b32 * ik;
+		this._33 = this._33 * k + b33 * ik;
 	}
 	,colorAdd: function(c) {
 		this._41 += (c >> 16 & 255) / 255;
@@ -13070,6 +13527,7 @@ h3d_Quat.prototype = {
 		var hx = from.x + to.x;
 		var hy = from.y + to.y;
 		var hz = from.z + to.z;
+		var h = 1. / Math.sqrt(hx * hx + hy * hy + hz * hz);
 		this.x = from.y * hz - from.z * hy;
 		this.y = from.z * hx - from.x * hz;
 		this.z = from.x * hy - from.y * hx;
@@ -13077,73 +13535,92 @@ h3d_Quat.prototype = {
 		this.normalize();
 	}
 	,initDirection: function(dir) {
-		var x = dir.x;
-		var y = dir.y;
-		var z = dir.z;
-		var k = x * x + y * y + z * z;
+		var ax_z;
+		var ax_y;
+		var ax_x;
+		var ax_w;
+		var _this_z;
+		var _this_y;
+		var _this_x;
+		var _this_w;
+		_this_x = dir.x;
+		_this_y = dir.y;
+		_this_z = dir.z;
+		_this_w = dir.w;
+		var k = _this_x * _this_x + _this_y * _this_y + _this_z * _this_z;
 		if(k < 1e-10) {
 			k = 0;
 		} else {
 			k = 1. / Math.sqrt(k);
 		}
-		var x1 = x * k;
-		var y1 = y * k;
-		var z1 = z * k;
+		ax_x = _this_x * k;
+		ax_y = _this_y * k;
+		ax_z = _this_z * k;
+		ax_w = 1.;
 		var ay_z;
 		var ay_y;
 		var ay_x;
-		var _this_z;
-		var x2 = -y1;
-		_this_z = 0;
-		var k1 = x2 * x2 + x1 * x1 + _this_z * _this_z;
+		var ay_w;
+		var _this_z1;
+		var _this_y1;
+		var _this_x1;
+		var _this_w1;
+		_this_x1 = -ax_y;
+		_this_y1 = ax_x;
+		_this_z1 = 0;
+		_this_w1 = 1.;
+		var k1 = _this_x1 * _this_x1 + _this_y1 * _this_y1 + _this_z1 * _this_z1;
 		if(k1 < 1e-10) {
 			k1 = 0;
 		} else {
 			k1 = 1. / Math.sqrt(k1);
 		}
-		var x3 = x2 * k1;
-		var y2 = x1 * k1;
-		var z2 = _this_z * k1;
-		ay_x = x3;
-		ay_y = y2;
-		ay_z = z2;
-		if(x3 * x3 + y2 * y2 + z2 * z2 < 1e-10) {
-			ay_x = y1;
-			ay_y = z1;
-			ay_z = x1;
+		ay_x = _this_x1 * k1;
+		ay_y = _this_y1 * k1;
+		ay_z = _this_z1 * k1;
+		ay_w = 1.;
+		if(ay_x * ay_x + ay_y * ay_y + ay_z * ay_z < 1e-10) {
+			ay_x = ax_y;
+			ay_y = ax_z;
+			ay_z = ax_x;
 		}
-		var x4 = y1 * ay_z - z1 * ay_y;
-		var y3 = z1 * ay_x - x1 * ay_z;
-		var z3 = x1 * ay_y - y1 * ay_x;
-		var tr = x1 + ay_y + z3;
+		var az_z;
+		var az_y;
+		var az_x;
+		var az_w;
+		az_x = ax_y * ay_z - ax_z * ay_y;
+		az_y = ax_z * ay_x - ax_x * ay_z;
+		az_z = ax_x * ay_y - ax_y * ay_x;
+		az_w = 1;
+		var tr = ax_x + ay_y + az_z;
 		if(tr > 0) {
 			var s = Math.sqrt(tr + 1.0) * 2;
 			var $is = 1 / s;
-			this.x = (ay_z - y3) * $is;
-			this.y = (x4 - z1) * $is;
-			this.z = (y1 - ay_x) * $is;
+			this.x = (ay_z - az_y) * $is;
+			this.y = (az_x - ax_z) * $is;
+			this.z = (ax_y - ay_x) * $is;
 			this.w = 0.25 * s;
-		} else if(x1 > ay_y && x1 > z3) {
-			var s1 = Math.sqrt(1.0 + x1 - ay_y - z3) * 2;
+		} else if(ax_x > ay_y && ax_x > az_z) {
+			var s1 = Math.sqrt(1.0 + ax_x - ay_y - az_z) * 2;
 			var is1 = 1 / s1;
 			this.x = 0.25 * s1;
-			this.y = (ay_x + y1) * is1;
-			this.z = (x4 + z1) * is1;
-			this.w = (ay_z - y3) * is1;
-		} else if(ay_y > z3) {
-			var s2 = Math.sqrt(1.0 + ay_y - x1 - z3) * 2;
+			this.y = (ay_x + ax_y) * is1;
+			this.z = (az_x + ax_z) * is1;
+			this.w = (ay_z - az_y) * is1;
+		} else if(ay_y > az_z) {
+			var s2 = Math.sqrt(1.0 + ay_y - ax_x - az_z) * 2;
 			var is2 = 1 / s2;
-			this.x = (ay_x + y1) * is2;
+			this.x = (ay_x + ax_y) * is2;
 			this.y = 0.25 * s2;
-			this.z = (y3 + ay_z) * is2;
-			this.w = (x4 - z1) * is2;
+			this.z = (az_y + ay_z) * is2;
+			this.w = (az_x - ax_z) * is2;
 		} else {
-			var s3 = Math.sqrt(1.0 + z3 - x1 - ay_y) * 2;
+			var s3 = Math.sqrt(1.0 + az_z - ax_x - ay_y) * 2;
 			var is3 = 1 / s3;
-			this.x = (x4 + z1) * is3;
-			this.y = (y3 + ay_z) * is3;
+			this.x = (az_x + ax_z) * is3;
+			this.y = (az_y + ay_z) * is3;
 			this.z = 0.25 * s3;
-			this.w = (y1 - ay_x) * is3;
+			this.w = (ax_y - ay_x) * is3;
 		}
 	}
 	,initRotateAxis: function(x,y,z,a) {
@@ -13215,10 +13692,11 @@ h3d_Quat.prototype = {
 		this.w = cosX * cosYZ + sinX * sinYZ;
 	}
 	,multiply: function(q1,q2) {
+		var x2 = q1.x * q2.w + q1.w * q2.x + q1.y * q2.z - q1.z * q2.y;
 		var y2 = q1.w * q2.y - q1.x * q2.z + q1.y * q2.w + q1.z * q2.x;
 		var z2 = q1.w * q2.z + q1.x * q2.y - q1.y * q2.x + q1.z * q2.w;
 		var w2 = q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z;
-		this.x = q1.x * q2.w + q1.w * q2.x + q1.y * q2.z - q1.z * q2.y;
+		this.x = x2;
 		this.y = y2;
 		this.z = z2;
 		this.w = w2;
@@ -13229,7 +13707,8 @@ h3d_Quat.prototype = {
 		return m;
 	}
 	,__toEuler: function() {
-		return new h3d_Vector(Math.atan2(2 * (this.x * this.w - this.y * this.z),1 - 2 * (this.x * this.x + this.z * this.z)),Math.atan2(2 * (this.y * this.w - this.x * this.z),1 - 2 * (this.y * this.y + this.z * this.z)),Math.asin(2 * (this.x * this.y + this.z * this.w)));
+		var q = this.x * this.y + this.z * this.w;
+		return new h3d_Vector(Math.atan2(2 * (this.x * this.w - this.y * this.z),1 - 2 * (this.x * this.x + this.z * this.z)),Math.atan2(2 * (this.y * this.w - this.x * this.z),1 - 2 * (this.y * this.y + this.z * this.z)),Math.asin(2 * q));
 	}
 	,lerp: function(q1,q2,v,nearest) {
 		if(nearest == null) {
@@ -13241,10 +13720,14 @@ h3d_Quat.prototype = {
 		} else {
 			v2 = 1 - v;
 		}
-		this.x = q1.x * v + q2.x * v2;
-		this.y = q1.y * v + q2.y * v2;
-		this.z = q1.z * v + q2.z * v2;
-		this.w = q1.w * v + q2.w * v2;
+		var x = q1.x * v + q2.x * v2;
+		var y = q1.y * v + q2.y * v2;
+		var z = q1.z * v + q2.z * v2;
+		var w = q1.w * v + q2.w * v2;
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.w = w;
 	}
 	,slerp: function(q1,q2,v) {
 		var cosHalfTheta = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
@@ -13264,10 +13747,14 @@ h3d_Quat.prototype = {
 			} else {
 				v2 = 0.5;
 			}
-			this.x = q1.x * 0.5 + q2.x * v2;
-			this.y = q1.y * 0.5 + q2.y * v2;
-			this.z = q1.z * 0.5 + q2.z * v2;
-			this.w = q1.w * 0.5 + q2.w * v2;
+			var x = q1.x * 0.5 + q2.x * v2;
+			var y = q1.y * 0.5 + q2.y * v2;
+			var z = q1.z * 0.5 + q2.z * v2;
+			var w = q1.w * 0.5 + q2.w * v2;
+			this.x = x;
+			this.y = y;
+			this.z = z;
+			this.w = w;
 			return;
 		}
 		var a = Math.sin((1 - v) * halfTheta) * invSinHalfTheta;
@@ -13445,43 +13932,51 @@ h3d_Vector.prototype = {
 		this.z *= f;
 	}
 	,project: function(m) {
+		var px = this.x * m._11 + this.y * m._21 + this.z * m._31 + this.w * m._41;
 		var py = this.x * m._12 + this.y * m._22 + this.z * m._32 + this.w * m._42;
 		var pz = this.x * m._13 + this.y * m._23 + this.z * m._33 + this.w * m._43;
 		var iw = 1 / (this.x * m._14 + this.y * m._24 + this.z * m._34 + this.w * m._44);
-		this.x = (this.x * m._11 + this.y * m._21 + this.z * m._31 + this.w * m._41) * iw;
+		this.x = px * iw;
 		this.y = py * iw;
 		this.z = pz * iw;
 		this.w = 1;
 	}
 	,lerp: function(v1,v2,k) {
 		var a = v1.x;
+		var x = a + k * (v2.x - a);
 		var a1 = v1.y;
+		var y = a1 + k * (v2.y - a1);
 		var a2 = v1.z;
+		var z = a2 + k * (v2.z - a2);
 		var a3 = v1.w;
-		this.x = a + k * (v2.x - a);
-		this.y = a1 + k * (v2.y - a1);
-		this.z = a2 + k * (v2.z - a2);
-		this.w = a3 + k * (v2.w - a3);
+		var w = a3 + k * (v2.w - a3);
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.w = w;
 	}
 	,transform3x4: function(m) {
+		var px = this.x * m._11 + this.y * m._21 + this.z * m._31 + this.w * m._41;
 		var py = this.x * m._12 + this.y * m._22 + this.z * m._32 + this.w * m._42;
 		var pz = this.x * m._13 + this.y * m._23 + this.z * m._33 + this.w * m._43;
-		this.x = this.x * m._11 + this.y * m._21 + this.z * m._31 + this.w * m._41;
+		this.x = px;
 		this.y = py;
 		this.z = pz;
 	}
 	,transform3x3: function(m) {
+		var px = this.x * m._11 + this.y * m._21 + this.z * m._31;
 		var py = this.x * m._12 + this.y * m._22 + this.z * m._32;
 		var pz = this.x * m._13 + this.y * m._23 + this.z * m._33;
-		this.x = this.x * m._11 + this.y * m._21 + this.z * m._31;
+		this.x = px;
 		this.y = py;
 		this.z = pz;
 	}
 	,transform: function(m) {
+		var px = this.x * m._11 + this.y * m._21 + this.z * m._31 + this.w * m._41;
 		var py = this.x * m._12 + this.y * m._22 + this.z * m._32 + this.w * m._42;
 		var pz = this.x * m._13 + this.y * m._23 + this.z * m._33 + this.w * m._43;
 		var pw = this.x * m._14 + this.y * m._24 + this.z * m._34 + this.w * m._44;
-		this.x = this.x * m._11 + this.y * m._21 + this.z * m._31 + this.w * m._41;
+		this.x = px;
 		this.y = py;
 		this.z = pz;
 		this.w = pw;
@@ -13572,9 +14067,12 @@ h3d_Vector.prototype = {
 			this.y = 0;
 			this.z = x;
 		}
-		this.x += m;
-		this.y += m;
-		this.z += m;
+		var _g = this;
+		_g.x += m;
+		var _g1 = this;
+		_g1.y += m;
+		var _g2 = this;
+		_g2.z += m;
 		this.w = 1;
 	}
 	,toColor: function() {
@@ -13613,7 +14111,8 @@ h3d_anim_Animation.__name__ = ["h3d","anim","Animation"];
 h3d_anim_Animation.prototype = {
 	getIFrame: function() {
 		var f = this.frame | 0;
-		if(f == this.endFrame()) {
+		var max = this.endFrame();
+		if(f == max) {
 			--f;
 		}
 		return f;
@@ -13637,7 +14136,7 @@ h3d_anim_Animation.prototype = {
 		var _g2 = 0;
 		var _g1 = this.frameCount;
 		while(_g2 < _g1) {
-			++_g2;
+			var i = _g2++;
 			_g.push(null);
 		}
 		this.events = _g;
@@ -13671,6 +14170,7 @@ h3d_anim_Animation.prototype = {
 		this.isInstance = true;
 	}
 	,createInstance: function(base) {
+		var currentSkin = null;
 		var _g = [];
 		var _g1 = 0;
 		var _g2 = this.objects;
@@ -13679,8 +14179,9 @@ h3d_anim_Animation.prototype = {
 			++_g1;
 			_g.push(a.clone());
 		}
+		var objects = _g;
 		var a1 = this.clone();
-		a1.objects = _g;
+		a1.objects = objects;
 		a1.bind(base);
 		a1.initInstance();
 		return a1;
@@ -13744,11 +14245,12 @@ h3d_anim_Animation.prototype = {
 			return 0;
 		}
 		if(this.events != null && this.onEvent != null) {
+			var f0 = this.frame | 0;
 			var f1 = this.frame + dt * this.speed * this.sampling | 0;
 			if(f1 >= this.frameCount) {
 				f1 = this.frameCount - 1;
 			}
-			var _g1 = this.frame | 0;
+			var _g1 = f0;
 			var _g = f1 + 1;
 			while(_g1 < _g) {
 				var f = _g1++;
@@ -13958,7 +14460,8 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 			return;
 		}
 		var f = this.frame | 0;
-		if(f == this.endFrame()) {
+		var max = this.endFrame();
+		if(f == max) {
 			--f;
 		}
 		var frame1 = f;
@@ -13967,7 +14470,7 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 		var k1 = 1 - k2;
 		if(frame1 < 0) {
 			frame2 = 0;
-			frame1 = 0;
+			frame1 = frame2;
 		} else if(this.frame >= this.frameCount) {
 			frame2 = this.frameCount - 1;
 			frame1 = frame2;
@@ -14034,7 +14537,7 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 					break;
 				}
 				frame21 = 0;
-				frame11 = 0;
+				frame11 = frame21;
 			}
 			var f1 = o.frames[frame11];
 			var f2 = o.frames[frame21];
@@ -14043,7 +14546,8 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 			m._42 = f1.ty * k1 + f2.ty * k2;
 			m._43 = f1.tz * k1 + f2.tz * k2;
 			if(o.hasRotation) {
-				var q2 = f1.qx * f2.qx + f1.qy * f2.qy + f1.qz * f2.qz + f1.qw * f2.qw < 0 ? -k2 : k2;
+				var dot = f1.qx * f2.qx + f1.qy * f2.qy + f1.qz * f2.qz + f1.qw * f2.qw;
+				var q2 = dot < 0 ? -k2 : k2;
 				var qx = f1.qx * k1 + f2.qx * q2;
 				var qy = f1.qy * k1 + f2.qy * q2;
 				var qz = f1.qz * k1 + f2.qz * q2;
@@ -14121,8 +14625,10 @@ h3d_anim_LinearAnimation.prototype = $extend(h3d_anim_Animation.prototype,{
 				o.targetSkin.jointsUpdated = true;
 			} else {
 				var _this = o.targetObject;
-				_this.defaultTransform = o.matrix;
-				_this.flags |= 1;
+				var v = o.matrix;
+				_this.defaultTransform = v;
+				var f3 = 1;
+				_this.flags |= f3;
 			}
 		}
 		if(!decompose) {
@@ -14162,8 +14668,10 @@ var h3d_anim_Skin = function(name,vertexCount,bonesPerVertex) {
 	this.vertexCount = vertexCount;
 	this.bonesPerVertex = bonesPerVertex;
 	if(vertexCount > 0) {
-		this.vertexJoints = new Array(vertexCount * bonesPerVertex);
-		this.vertexWeights = new Array(vertexCount * bonesPerVertex);
+		var this1 = new Array(vertexCount * bonesPerVertex);
+		this.vertexJoints = this1;
+		var this2 = new Array(vertexCount * bonesPerVertex);
+		this.vertexWeights = this2;
 		this.envelop = [];
 	}
 };
@@ -14212,7 +14720,8 @@ h3d_anim_Skin.prototype = {
 		var _g1 = 0;
 		var _g = this.vertexCount;
 		while(_g1 < _g) {
-			var il = this.envelop[_g1++];
+			var i = _g1++;
+			var il = this.envelop[i];
 			if(il == null) {
 				il = [];
 			}
@@ -14223,25 +14732,26 @@ h3d_anim_Skin.prototype = {
 			var tw = 0.;
 			var _g2 = 0;
 			while(_g2 < il.length) {
-				var i = il[_g2];
+				var i1 = il[_g2];
 				++_g2;
-				tw += i.w;
+				tw += i1.w;
 			}
 			tw = 1 / tw;
 			var _g3 = 0;
 			var _g21 = this.bonesPerVertex;
 			while(_g3 < _g21) {
-				var i1 = il[_g3++];
-				if(i1 == null) {
+				var i2 = _g3++;
+				var i3 = il[i2];
+				if(i3 == null) {
 					this.vertexJoints[pos] = 0;
 					this.vertexWeights[pos] = 0;
 				} else {
-					if(i1.j.bindIndex == -1) {
-						i1.j.bindIndex = this.boundJoints.length;
-						this.boundJoints.push(i1.j);
+					if(i3.j.bindIndex == -1) {
+						i3.j.bindIndex = this.boundJoints.length;
+						this.boundJoints.push(i3.j);
 					}
-					this.vertexJoints[pos] = i1.j.bindIndex;
-					this.vertexWeights[pos] = i1.w * tw;
+					this.vertexJoints[pos] = i3.j.bindIndex;
+					this.vertexWeights[pos] = i3.w * tw;
 				}
 				++pos;
 			}
@@ -14323,7 +14833,8 @@ h3d_anim_Skin.prototype = {
 		}
 		this.splitJoints = [];
 		var length = index.length / 3 | 0;
-		this.triangleGroups = new Array(length);
+		var this1 = new Array(length);
+		this.triangleGroups = this1;
 		var permuts = [];
 		var _g1 = 0;
 		var _g = index.length / 3 | 0;
@@ -14334,11 +14845,13 @@ h3d_anim_Skin.prototype = {
 			var jl = [];
 			var _g2 = 0;
 			while(_g2 < 3) {
-				var vid = index[iid + _g2++];
+				var i = _g2++;
+				var vid = index[iid + i];
 				var _g4 = 0;
 				var _g3 = this.bonesPerVertex;
 				while(_g4 < _g3) {
-					var bidx = vid * this.bonesPerVertex + _g4++;
+					var b = _g4++;
+					var bidx = vid * this.bonesPerVertex + b;
 					if(this.vertexWeights[bidx] == 0) {
 						continue;
 					}
@@ -14393,15 +14906,16 @@ h3d_anim_Skin.prototype = {
 			var _g11 = 0;
 			var _g5 = permuts.length;
 			while(_g11 < _g5) {
-				var i = _g11++;
-				var p1 = permuts[i];
+				var i1 = _g11++;
+				var p1 = permuts[i1];
 				if(p1.joints.length == maxBones) {
 					continue;
 				}
-				var _g31 = i + 1;
+				var _g31 = i1 + 1;
 				var _g23 = permuts.length;
 				while(_g31 < _g23) {
-					var p22 = permuts[_g31++];
+					var j1 = _g31++;
+					var p22 = permuts[j1];
 					if(p22.joints.length == maxBones || p1.material != p22.material) {
 						continue;
 					}
@@ -14424,10 +14938,10 @@ h3d_anim_Skin.prototype = {
 			var _g6 = 0;
 			var _g12 = p11.joints;
 			while(_g6 < _g12.length) {
-				var j1 = _g12[_g6];
+				var j2 = _g12[_g6];
 				++_g6;
-				HxOverrides.remove(p23.joints,j1);
-				p23.joints.push(j1);
+				HxOverrides.remove(p23.joints,j2);
+				p23.joints.push(j2);
 			}
 			p23.joints.sort($bind(this,this.sortByBindIndex));
 			var _g7 = 0;
@@ -14442,31 +14956,31 @@ h3d_anim_Skin.prototype = {
 		var _g14 = 0;
 		var _g8 = permuts.length;
 		while(_g14 < _g8) {
-			var i1 = _g14++;
+			var i2 = _g14++;
 			var _g24 = 0;
-			var _g32 = permuts[i1].triangles;
+			var _g32 = permuts[i2].triangles;
 			while(_g24 < _g32.length) {
 				var tri1 = _g32[_g24];
 				++_g24;
-				this.triangleGroups[tri1] = i1;
+				this.triangleGroups[tri1] = i2;
 			}
 		}
 		var jointsPermuts = [];
 		var _g9 = 0;
 		var _g15 = this.boundJoints;
 		while(_g9 < _g15.length) {
-			var j2 = _g15[_g9];
+			var j3 = _g15[_g9];
 			++_g9;
 			var pl = [];
 			var _g25 = 0;
 			while(_g25 < permuts.length) {
 				var p = permuts[_g25];
 				++_g25;
-				if(p.joints.indexOf(j2) >= 0) {
+				if(p.joints.indexOf(j3) >= 0) {
 					pl.push(p);
 				}
 			}
-			jointsPermuts.push({ j : j2, pl : pl});
+			jointsPermuts.push({ j : j3, pl : pl});
 		}
 		jointsPermuts.sort(function(j11,j21) {
 			return j21.pl.length - j11.pl.length;
@@ -14479,16 +14993,16 @@ h3d_anim_Skin.prototype = {
 		}
 		var _g16 = 0;
 		while(_g16 < jointsPermuts.length) {
-			var j3 = jointsPermuts[_g16];
+			var j4 = jointsPermuts[_g16];
 			++_g16;
-			j3.j.splitIndex = -1;
+			j4.j.splitIndex = -1;
 			var _g26 = 0;
 			var _g17 = maxBones;
 			while(_g26 < _g17) {
 				var id = _g26++;
 				var ok = true;
 				var _g33 = 0;
-				var _g41 = j3.pl;
+				var _g41 = j4.pl;
 				while(_g33 < _g41.length) {
 					var p4 = _g41[_g33];
 					++_g33;
@@ -14498,18 +15012,18 @@ h3d_anim_Skin.prototype = {
 					}
 				}
 				if(ok) {
-					j3.j.splitIndex = id;
+					j4.j.splitIndex = id;
 					var _g34 = 0;
-					var _g42 = j3.pl;
+					var _g42 = j4.pl;
 					while(_g34 < _g42.length) {
 						var p5 = _g42[_g34];
 						++_g34;
-						p5.indexedJoints[id] = j3.j;
+						p5.indexedJoints[id] = j4.j;
 					}
 					break;
 				}
 			}
-			if(j3.j.splitIndex < 0) {
+			if(j4.j.splitIndex < 0) {
 				throw new js__$Boot_HaxeError("Failed to assign index while spliting skin");
 			}
 		}
@@ -14522,19 +15036,20 @@ h3d_anim_Skin.prototype = {
 			var _g27 = 0;
 			var _g19 = p6.indexedJoints.length;
 			while(_g27 < _g19) {
-				var j4 = p6.indexedJoints[_g27++];
-				if(j4 == null) {
-					j4 = this.boundJoints[0];
+				var i3 = _g27++;
+				var j5 = p6.indexedJoints[i3];
+				if(j5 == null) {
+					j5 = this.boundJoints[0];
 				}
-				jl1.push(j4);
+				jl1.push(j5);
 			}
 			this.splitJoints.push({ material : p6.material, joints : jl1});
 		}
 		var _g110 = 0;
 		var _g20 = this.vertexJoints.length;
 		while(_g110 < _g20) {
-			var i2 = _g110++;
-			this.vertexJoints[i2] = this.boundJoints[this.vertexJoints[i2]].splitIndex;
+			var i4 = _g110++;
+			this.vertexJoints[i4] = this.boundJoints[this.vertexJoints[i4]].splitIndex;
 		}
 		return true;
 	}
@@ -14579,112 +15094,154 @@ h3d_col_Bounds.fromValues = function(x,y,z,dx,dy,dz) {
 };
 h3d_col_Bounds.prototype = {
 	inFrustum: function(mvp) {
-		var nx = mvp._14 + mvp._11;
-		var ny = mvp._24 + mvp._21;
-		var nz = mvp._34 + mvp._31;
-		var a = nx;
-		var b = ny;
-		var c = nz;
-		if(nx < 0) {
-			a = -nx;
+		var p_nz;
+		var p_ny;
+		var p_nx;
+		var p_d;
+		p_nx = mvp._14 + mvp._11;
+		p_ny = mvp._24 + mvp._21;
+		p_nz = mvp._34 + mvp._31;
+		p_d = -(mvp._44 + mvp._41);
+		var a = p_nx;
+		var b = p_ny;
+		var c = p_nz;
+		var dd = a * (this.xMax + this.xMin) + b * (this.yMax + this.yMin) + c * (this.zMax + this.zMin);
+		if(a < 0) {
+			a = -a;
 		}
-		if(ny < 0) {
-			b = -ny;
+		if(b < 0) {
+			b = -b;
 		}
-		if(nz < 0) {
-			c = -nz;
+		if(c < 0) {
+			c = -c;
 		}
-		if(nx * (this.xMax + this.xMin) + ny * (this.yMax + this.yMin) + nz * (this.zMax + this.zMin) + (a * (this.xMax - this.xMin) + b * (this.yMax - this.yMin) + c * (this.zMax - this.zMin)) - -(mvp._44 + mvp._41) * 2 < 0) {
+		var rr = a * (this.xMax - this.xMin) + b * (this.yMax - this.yMin) + c * (this.zMax - this.zMin);
+		if(dd + rr - p_d * 2 < 0) {
 			return false;
 		}
-		var nx1 = mvp._14 - mvp._11;
-		var ny1 = mvp._24 - mvp._21;
-		var nz1 = mvp._34 - mvp._31;
-		var a1 = nx1;
-		var b1 = ny1;
-		var c1 = nz1;
-		if(nx1 < 0) {
-			a1 = -nx1;
+		var p_nz1;
+		var p_ny1;
+		var p_nx1;
+		var p_d1;
+		p_nx1 = mvp._14 - mvp._11;
+		p_ny1 = mvp._24 - mvp._21;
+		p_nz1 = mvp._34 - mvp._31;
+		p_d1 = mvp._41 - mvp._44;
+		var a1 = p_nx1;
+		var b1 = p_ny1;
+		var c1 = p_nz1;
+		var dd1 = a1 * (this.xMax + this.xMin) + b1 * (this.yMax + this.yMin) + c1 * (this.zMax + this.zMin);
+		if(a1 < 0) {
+			a1 = -a1;
 		}
-		if(ny1 < 0) {
-			b1 = -ny1;
+		if(b1 < 0) {
+			b1 = -b1;
 		}
-		if(nz1 < 0) {
-			c1 = -nz1;
+		if(c1 < 0) {
+			c1 = -c1;
 		}
-		if(nx1 * (this.xMax + this.xMin) + ny1 * (this.yMax + this.yMin) + nz1 * (this.zMax + this.zMin) + (a1 * (this.xMax - this.xMin) + b1 * (this.yMax - this.yMin) + c1 * (this.zMax - this.zMin)) - (mvp._41 - mvp._44) * 2 < 0) {
+		var rr1 = a1 * (this.xMax - this.xMin) + b1 * (this.yMax - this.yMin) + c1 * (this.zMax - this.zMin);
+		if(dd1 + rr1 - p_d1 * 2 < 0) {
 			return false;
 		}
-		var nx2 = mvp._14 + mvp._12;
-		var ny2 = mvp._24 + mvp._22;
-		var nz2 = mvp._34 + mvp._32;
-		var a2 = nx2;
-		var b2 = ny2;
-		var c2 = nz2;
-		if(nx2 < 0) {
-			a2 = -nx2;
+		var p_nz2;
+		var p_ny2;
+		var p_nx2;
+		var p_d2;
+		p_nx2 = mvp._14 + mvp._12;
+		p_ny2 = mvp._24 + mvp._22;
+		p_nz2 = mvp._34 + mvp._32;
+		p_d2 = -(mvp._44 + mvp._42);
+		var a2 = p_nx2;
+		var b2 = p_ny2;
+		var c2 = p_nz2;
+		var dd2 = a2 * (this.xMax + this.xMin) + b2 * (this.yMax + this.yMin) + c2 * (this.zMax + this.zMin);
+		if(a2 < 0) {
+			a2 = -a2;
 		}
-		if(ny2 < 0) {
-			b2 = -ny2;
+		if(b2 < 0) {
+			b2 = -b2;
 		}
-		if(nz2 < 0) {
-			c2 = -nz2;
+		if(c2 < 0) {
+			c2 = -c2;
 		}
-		if(nx2 * (this.xMax + this.xMin) + ny2 * (this.yMax + this.yMin) + nz2 * (this.zMax + this.zMin) + (a2 * (this.xMax - this.xMin) + b2 * (this.yMax - this.yMin) + c2 * (this.zMax - this.zMin)) - -(mvp._44 + mvp._42) * 2 < 0) {
+		var rr2 = a2 * (this.xMax - this.xMin) + b2 * (this.yMax - this.yMin) + c2 * (this.zMax - this.zMin);
+		if(dd2 + rr2 - p_d2 * 2 < 0) {
 			return false;
 		}
-		var nx3 = mvp._14 - mvp._12;
-		var ny3 = mvp._24 - mvp._22;
-		var nz3 = mvp._34 - mvp._32;
-		var a3 = nx3;
-		var b3 = ny3;
-		var c3 = nz3;
-		if(nx3 < 0) {
-			a3 = -nx3;
+		var p_nz3;
+		var p_ny3;
+		var p_nx3;
+		var p_d3;
+		p_nx3 = mvp._14 - mvp._12;
+		p_ny3 = mvp._24 - mvp._22;
+		p_nz3 = mvp._34 - mvp._32;
+		p_d3 = mvp._42 - mvp._44;
+		var a3 = p_nx3;
+		var b3 = p_ny3;
+		var c3 = p_nz3;
+		var dd3 = a3 * (this.xMax + this.xMin) + b3 * (this.yMax + this.yMin) + c3 * (this.zMax + this.zMin);
+		if(a3 < 0) {
+			a3 = -a3;
 		}
-		if(ny3 < 0) {
-			b3 = -ny3;
+		if(b3 < 0) {
+			b3 = -b3;
 		}
-		if(nz3 < 0) {
-			c3 = -nz3;
+		if(c3 < 0) {
+			c3 = -c3;
 		}
-		if(nx3 * (this.xMax + this.xMin) + ny3 * (this.yMax + this.yMin) + nz3 * (this.zMax + this.zMin) + (a3 * (this.xMax - this.xMin) + b3 * (this.yMax - this.yMin) + c3 * (this.zMax - this.zMin)) - (mvp._42 - mvp._44) * 2 < 0) {
+		var rr3 = a3 * (this.xMax - this.xMin) + b3 * (this.yMax - this.yMin) + c3 * (this.zMax - this.zMin);
+		if(dd3 + rr3 - p_d3 * 2 < 0) {
 			return false;
 		}
-		var nx4 = mvp._13;
-		var ny4 = mvp._23;
-		var nz4 = mvp._33;
-		var a4 = nx4;
-		var b4 = ny4;
-		var c4 = nz4;
-		if(nx4 < 0) {
-			a4 = -nx4;
+		var p_nz4;
+		var p_ny4;
+		var p_nx4;
+		var p_d4;
+		p_nx4 = mvp._13;
+		p_ny4 = mvp._23;
+		p_nz4 = mvp._33;
+		p_d4 = -mvp._43;
+		var a4 = p_nx4;
+		var b4 = p_ny4;
+		var c4 = p_nz4;
+		var dd4 = a4 * (this.xMax + this.xMin) + b4 * (this.yMax + this.yMin) + c4 * (this.zMax + this.zMin);
+		if(a4 < 0) {
+			a4 = -a4;
 		}
-		if(ny4 < 0) {
-			b4 = -ny4;
+		if(b4 < 0) {
+			b4 = -b4;
 		}
-		if(nz4 < 0) {
-			c4 = -nz4;
+		if(c4 < 0) {
+			c4 = -c4;
 		}
-		if(nx4 * (this.xMax + this.xMin) + ny4 * (this.yMax + this.yMin) + nz4 * (this.zMax + this.zMin) + (a4 * (this.xMax - this.xMin) + b4 * (this.yMax - this.yMin) + c4 * (this.zMax - this.zMin)) - -mvp._43 * 2 < 0) {
+		var rr4 = a4 * (this.xMax - this.xMin) + b4 * (this.yMax - this.yMin) + c4 * (this.zMax - this.zMin);
+		if(dd4 + rr4 - p_d4 * 2 < 0) {
 			return false;
 		}
-		var nx5 = mvp._14 - mvp._13;
-		var ny5 = mvp._24 - mvp._23;
-		var nz5 = mvp._34 - mvp._33;
-		var a5 = nx5;
-		var b5 = ny5;
-		var c5 = nz5;
-		if(nx5 < 0) {
-			a5 = -nx5;
+		var p_nz5;
+		var p_ny5;
+		var p_nx5;
+		var p_d5;
+		p_nx5 = mvp._14 - mvp._13;
+		p_ny5 = mvp._24 - mvp._23;
+		p_nz5 = mvp._34 - mvp._33;
+		p_d5 = mvp._43 - mvp._44;
+		var a5 = p_nx5;
+		var b5 = p_ny5;
+		var c5 = p_nz5;
+		var dd5 = a5 * (this.xMax + this.xMin) + b5 * (this.yMax + this.yMin) + c5 * (this.zMax + this.zMin);
+		if(a5 < 0) {
+			a5 = -a5;
 		}
-		if(ny5 < 0) {
-			b5 = -ny5;
+		if(b5 < 0) {
+			b5 = -b5;
 		}
-		if(nz5 < 0) {
-			c5 = -nz5;
+		if(c5 < 0) {
+			c5 = -c5;
 		}
-		if(nx5 * (this.xMax + this.xMin) + ny5 * (this.yMax + this.yMin) + nz5 * (this.zMax + this.zMin) + (a5 * (this.xMax - this.xMin) + b5 * (this.yMax - this.yMin) + c5 * (this.zMax - this.zMin)) - (mvp._43 - mvp._44) * 2 < 0) {
+		var rr5 = a5 * (this.xMax - this.xMin) + b5 * (this.yMax - this.yMin) + c5 * (this.zMax - this.zMin);
+		if(dd5 + rr5 - p_d5 * 2 < 0) {
 			return false;
 		}
 		return true;
@@ -14703,7 +15260,8 @@ h3d_col_Bounds.prototype = {
 		if(c < 0) {
 			c = -c;
 		}
-		return dd + (a * (this.xMax - this.xMin) + b * (this.yMax - this.yMin) + c * (this.zMax - this.zMin)) - p.d * 2;
+		var rr = a * (this.xMax - this.xMin) + b * (this.yMax - this.yMin) + c * (this.zMax - this.zMin);
+		return dd + rr - p.d * 2;
 	}
 	,rayIntersection: function(r,p) {
 		var minTx = (this.xMin - r.px) / r.lx;
@@ -14719,9 +15277,10 @@ h3d_col_Bounds.prototype = {
 		var realMaxTy = minTy < maxTy ? maxTy : minTy;
 		var realMaxTz = minTz < maxTz ? maxTz : minTz;
 		var a = realMaxTx > realMaxTy ? realMaxTy : realMaxTx;
+		var minmax = a > realMaxTz ? realMaxTz : a;
 		var a1 = realMinTx < realMinTy ? realMinTy : realMinTx;
 		var maxmin = a1 < realMinTz ? realMinTz : a1;
-		if((a > realMaxTz ? realMaxTz : a) < maxmin) {
+		if(minmax < maxmin) {
 			return null;
 		}
 		if(p == null) {
@@ -14737,65 +15296,101 @@ h3d_col_Bounds.prototype = {
 			checkZ = true;
 		}
 		var ret = 1;
-		var nx = mvp._14 + mvp._11;
-		var ny = mvp._24 + mvp._21;
-		var nz = mvp._34 + mvp._31;
-		var d = mvp._44 + mvp._41;
-		if(nx * (nx > 0 ? this.xMax : this.xMin) + ny * (ny > 0 ? this.yMax : this.yMin) + nz * (nz > 0 ? this.zMax : this.zMin) + d < 0) {
+		var p_nz;
+		var p_ny;
+		var p_nx;
+		var p_d;
+		p_nx = mvp._14 + mvp._11;
+		p_ny = mvp._24 + mvp._21;
+		p_nz = mvp._34 + mvp._31;
+		p_d = mvp._44 + mvp._41;
+		var m = p_nx * (p_nx > 0 ? this.xMax : this.xMin) + p_ny * (p_ny > 0 ? this.yMax : this.yMin) + p_nz * (p_nz > 0 ? this.zMax : this.zMin);
+		if(m + p_d < 0) {
 			return -1;
 		}
-		if(nx * (nx > 0 ? this.xMin : this.xMax) + ny * (ny > 0 ? this.yMin : this.yMax) + nz * (nz > 0 ? this.zMin : this.zMax) + d < 0) {
+		var n = p_nx * (p_nx > 0 ? this.xMin : this.xMax) + p_ny * (p_ny > 0 ? this.yMin : this.yMax) + p_nz * (p_nz > 0 ? this.zMin : this.zMax);
+		if(n + p_d < 0) {
 			ret = 0;
 		}
-		var nx1 = mvp._14 - mvp._11;
-		var ny1 = mvp._24 - mvp._21;
-		var nz1 = mvp._34 - mvp._31;
-		var d1 = mvp._44 - mvp._41;
-		if(nx1 * (nx1 > 0 ? this.xMax : this.xMin) + ny1 * (ny1 > 0 ? this.yMax : this.yMin) + nz1 * (nz1 > 0 ? this.zMax : this.zMin) + d1 < 0) {
+		var p_nz1;
+		var p_ny1;
+		var p_nx1;
+		var p_d1;
+		p_nx1 = mvp._14 - mvp._11;
+		p_ny1 = mvp._24 - mvp._21;
+		p_nz1 = mvp._34 - mvp._31;
+		p_d1 = mvp._44 - mvp._41;
+		var m1 = p_nx1 * (p_nx1 > 0 ? this.xMax : this.xMin) + p_ny1 * (p_ny1 > 0 ? this.yMax : this.yMin) + p_nz1 * (p_nz1 > 0 ? this.zMax : this.zMin);
+		if(m1 + p_d1 < 0) {
 			return -1;
 		}
-		if(nx1 * (nx1 > 0 ? this.xMin : this.xMax) + ny1 * (ny1 > 0 ? this.yMin : this.yMax) + nz1 * (nz1 > 0 ? this.zMin : this.zMax) + d1 < 0) {
+		var n1 = p_nx1 * (p_nx1 > 0 ? this.xMin : this.xMax) + p_ny1 * (p_ny1 > 0 ? this.yMin : this.yMax) + p_nz1 * (p_nz1 > 0 ? this.zMin : this.zMax);
+		if(n1 + p_d1 < 0) {
 			ret = 0;
 		}
-		var nx2 = mvp._14 + mvp._12;
-		var ny2 = mvp._24 + mvp._22;
-		var nz2 = mvp._34 + mvp._32;
-		var d2 = mvp._44 + mvp._42;
-		if(nx2 * (nx2 > 0 ? this.xMax : this.xMin) + ny2 * (ny2 > 0 ? this.yMax : this.yMin) + nz2 * (nz2 > 0 ? this.zMax : this.zMin) + d2 < 0) {
+		var p_nz2;
+		var p_ny2;
+		var p_nx2;
+		var p_d2;
+		p_nx2 = mvp._14 + mvp._12;
+		p_ny2 = mvp._24 + mvp._22;
+		p_nz2 = mvp._34 + mvp._32;
+		p_d2 = mvp._44 + mvp._42;
+		var m2 = p_nx2 * (p_nx2 > 0 ? this.xMax : this.xMin) + p_ny2 * (p_ny2 > 0 ? this.yMax : this.yMin) + p_nz2 * (p_nz2 > 0 ? this.zMax : this.zMin);
+		if(m2 + p_d2 < 0) {
 			return -1;
 		}
-		if(nx2 * (nx2 > 0 ? this.xMin : this.xMax) + ny2 * (ny2 > 0 ? this.yMin : this.yMax) + nz2 * (nz2 > 0 ? this.zMin : this.zMax) + d2 < 0) {
+		var n2 = p_nx2 * (p_nx2 > 0 ? this.xMin : this.xMax) + p_ny2 * (p_ny2 > 0 ? this.yMin : this.yMax) + p_nz2 * (p_nz2 > 0 ? this.zMin : this.zMax);
+		if(n2 + p_d2 < 0) {
 			ret = 0;
 		}
-		var nx3 = mvp._14 - mvp._12;
-		var ny3 = mvp._24 - mvp._22;
-		var nz3 = mvp._34 - mvp._32;
-		var d3 = mvp._44 - mvp._42;
-		if(nx3 * (nx3 > 0 ? this.xMax : this.xMin) + ny3 * (ny3 > 0 ? this.yMax : this.yMin) + nz3 * (nz3 > 0 ? this.zMax : this.zMin) + d3 < 0) {
+		var p_nz3;
+		var p_ny3;
+		var p_nx3;
+		var p_d3;
+		p_nx3 = mvp._14 - mvp._12;
+		p_ny3 = mvp._24 - mvp._22;
+		p_nz3 = mvp._34 - mvp._32;
+		p_d3 = mvp._44 - mvp._42;
+		var m3 = p_nx3 * (p_nx3 > 0 ? this.xMax : this.xMin) + p_ny3 * (p_ny3 > 0 ? this.yMax : this.yMin) + p_nz3 * (p_nz3 > 0 ? this.zMax : this.zMin);
+		if(m3 + p_d3 < 0) {
 			return -1;
 		}
-		if(nx3 * (nx3 > 0 ? this.xMin : this.xMax) + ny3 * (ny3 > 0 ? this.yMin : this.yMax) + nz3 * (nz3 > 0 ? this.zMin : this.zMax) + d3 < 0) {
+		var n3 = p_nx3 * (p_nx3 > 0 ? this.xMin : this.xMax) + p_ny3 * (p_ny3 > 0 ? this.yMin : this.yMax) + p_nz3 * (p_nz3 > 0 ? this.zMin : this.zMax);
+		if(n3 + p_d3 < 0) {
 			ret = 0;
 		}
 		if(checkZ) {
-			var nx4 = mvp._13;
-			var ny4 = mvp._23;
-			var nz4 = mvp._33;
-			var d4 = mvp._43;
-			if(nx4 * (nx4 > 0 ? this.xMax : this.xMin) + ny4 * (ny4 > 0 ? this.yMax : this.yMin) + nz4 * (nz4 > 0 ? this.zMax : this.zMin) + d4 < 0) {
+			var p_nz4;
+			var p_ny4;
+			var p_nx4;
+			var p_d4;
+			p_nx4 = mvp._13;
+			p_ny4 = mvp._23;
+			p_nz4 = mvp._33;
+			p_d4 = mvp._43;
+			var m4 = p_nx4 * (p_nx4 > 0 ? this.xMax : this.xMin) + p_ny4 * (p_ny4 > 0 ? this.yMax : this.yMin) + p_nz4 * (p_nz4 > 0 ? this.zMax : this.zMin);
+			if(m4 + p_d4 < 0) {
 				return -1;
 			}
-			if(nx4 * (nx4 > 0 ? this.xMin : this.xMax) + ny4 * (ny4 > 0 ? this.yMin : this.yMax) + nz4 * (nz4 > 0 ? this.zMin : this.zMax) + d4 < 0) {
+			var n4 = p_nx4 * (p_nx4 > 0 ? this.xMin : this.xMax) + p_ny4 * (p_ny4 > 0 ? this.yMin : this.yMax) + p_nz4 * (p_nz4 > 0 ? this.zMin : this.zMax);
+			if(n4 + p_d4 < 0) {
 				ret = 0;
 			}
-			var nx5 = mvp._14 - mvp._13;
-			var ny5 = mvp._24 - mvp._23;
-			var nz5 = mvp._34 - mvp._33;
-			var d5 = mvp._44 - mvp._43;
-			if(nx5 * (nx5 > 0 ? this.xMax : this.xMin) + ny5 * (ny5 > 0 ? this.yMax : this.yMin) + nz5 * (nz5 > 0 ? this.zMax : this.zMin) + d5 < 0) {
+			var p_nz5;
+			var p_ny5;
+			var p_nx5;
+			var p_d5;
+			p_nx5 = mvp._14 - mvp._13;
+			p_ny5 = mvp._24 - mvp._23;
+			p_nz5 = mvp._34 - mvp._33;
+			p_d5 = mvp._44 - mvp._43;
+			var m5 = p_nx5 * (p_nx5 > 0 ? this.xMax : this.xMin) + p_ny5 * (p_ny5 > 0 ? this.yMax : this.yMin) + p_nz5 * (p_nz5 > 0 ? this.zMax : this.zMin);
+			if(m5 + p_d5 < 0) {
 				return -1;
 			}
-			if(nx5 * (nx5 > 0 ? this.xMin : this.xMax) + ny5 * (ny5 > 0 ? this.yMin : this.yMax) + nz5 * (nz5 > 0 ? this.zMin : this.zMax) + d5 < 0) {
+			var n5 = p_nx5 * (p_nx5 > 0 ? this.xMin : this.xMax) + p_ny5 * (p_ny5 > 0 ? this.yMin : this.yMax) + p_nz5 * (p_nz5 > 0 ? this.zMin : this.zMax);
+			if(n5 + p_d5 < 0) {
 				ret = 0;
 			}
 		}
@@ -14822,9 +15417,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMin;
 		v_y = yMin;
 		v_z = zMin;
-		v_x = xMin * m._11 + yMin * m._21 + zMin * m._31;
-		v_y = xMin * m._12 + yMin * m._22 + zMin * m._32;
-		v_z = xMin * m._13 + yMin * m._23 + zMin * m._33;
+		var px = v_x * m._11 + v_y * m._21 + v_z * m._31;
+		var py = v_x * m._12 + v_y * m._22 + v_z * m._32;
+		var pz = v_x * m._13 + v_y * m._23 + v_z * m._33;
+		v_x = px;
+		v_y = py;
+		v_z = pz;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -14846,9 +15444,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMin;
 		v_y = yMin;
 		v_z = zMax;
-		v_x = xMin * m._11 + yMin * m._21 + zMax * m._31;
-		v_y = xMin * m._12 + yMin * m._22 + zMax * m._32;
-		v_z = xMin * m._13 + yMin * m._23 + zMax * m._33;
+		var px1 = v_x * m._11 + v_y * m._21 + v_z * m._31;
+		var py1 = v_x * m._12 + v_y * m._22 + v_z * m._32;
+		var pz1 = v_x * m._13 + v_y * m._23 + v_z * m._33;
+		v_x = px1;
+		v_y = py1;
+		v_z = pz1;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -14870,9 +15471,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMin;
 		v_y = yMax;
 		v_z = zMin;
-		v_x = xMin * m._11 + yMax * m._21 + zMin * m._31;
-		v_y = xMin * m._12 + yMax * m._22 + zMin * m._32;
-		v_z = xMin * m._13 + yMax * m._23 + zMin * m._33;
+		var px2 = v_x * m._11 + v_y * m._21 + v_z * m._31;
+		var py2 = v_x * m._12 + v_y * m._22 + v_z * m._32;
+		var pz2 = v_x * m._13 + v_y * m._23 + v_z * m._33;
+		v_x = px2;
+		v_y = py2;
+		v_z = pz2;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -14894,9 +15498,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMin;
 		v_y = yMax;
 		v_z = zMax;
-		v_x = xMin * m._11 + yMax * m._21 + zMax * m._31;
-		v_y = xMin * m._12 + yMax * m._22 + zMax * m._32;
-		v_z = xMin * m._13 + yMax * m._23 + zMax * m._33;
+		var px3 = v_x * m._11 + v_y * m._21 + v_z * m._31;
+		var py3 = v_x * m._12 + v_y * m._22 + v_z * m._32;
+		var pz3 = v_x * m._13 + v_y * m._23 + v_z * m._33;
+		v_x = px3;
+		v_y = py3;
+		v_z = pz3;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -14918,9 +15525,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMax;
 		v_y = yMin;
 		v_z = zMin;
-		v_x = xMax * m._11 + yMin * m._21 + zMin * m._31;
-		v_y = xMax * m._12 + yMin * m._22 + zMin * m._32;
-		v_z = xMax * m._13 + yMin * m._23 + zMin * m._33;
+		var px4 = v_x * m._11 + v_y * m._21 + v_z * m._31;
+		var py4 = v_x * m._12 + v_y * m._22 + v_z * m._32;
+		var pz4 = v_x * m._13 + v_y * m._23 + v_z * m._33;
+		v_x = px4;
+		v_y = py4;
+		v_z = pz4;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -14942,9 +15552,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMax;
 		v_y = yMin;
 		v_z = zMax;
-		v_x = xMax * m._11 + yMin * m._21 + zMax * m._31;
-		v_y = xMax * m._12 + yMin * m._22 + zMax * m._32;
-		v_z = xMax * m._13 + yMin * m._23 + zMax * m._33;
+		var px5 = v_x * m._11 + v_y * m._21 + v_z * m._31;
+		var py5 = v_x * m._12 + v_y * m._22 + v_z * m._32;
+		var pz5 = v_x * m._13 + v_y * m._23 + v_z * m._33;
+		v_x = px5;
+		v_y = py5;
+		v_z = pz5;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -14966,9 +15579,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMax;
 		v_y = yMax;
 		v_z = zMin;
-		v_x = xMax * m._11 + yMax * m._21 + zMin * m._31;
-		v_y = xMax * m._12 + yMax * m._22 + zMin * m._32;
-		v_z = xMax * m._13 + yMax * m._23 + zMin * m._33;
+		var px6 = v_x * m._11 + v_y * m._21 + v_z * m._31;
+		var py6 = v_x * m._12 + v_y * m._22 + v_z * m._32;
+		var pz6 = v_x * m._13 + v_y * m._23 + v_z * m._33;
+		v_x = px6;
+		v_y = py6;
+		v_z = pz6;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -14990,9 +15606,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMax;
 		v_y = yMax;
 		v_z = zMax;
-		v_x = xMax * m._11 + yMax * m._21 + zMax * m._31;
-		v_y = xMax * m._12 + yMax * m._22 + zMax * m._32;
-		v_z = xMax * m._13 + yMax * m._23 + zMax * m._33;
+		var px7 = v_x * m._11 + v_y * m._21 + v_z * m._31;
+		var py7 = v_x * m._12 + v_y * m._22 + v_z * m._32;
+		var pz7 = v_x * m._13 + v_y * m._23 + v_z * m._33;
+		v_x = px7;
+		v_y = py7;
+		v_z = pz7;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15033,9 +15652,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMin;
 		v_y = yMin;
 		v_z = zMin;
-		v_x = xMin * m._11 + yMin * m._21 + zMin * m._31 + m._41;
-		v_y = xMin * m._12 + yMin * m._22 + zMin * m._32 + m._42;
-		v_z = xMin * m._13 + yMin * m._23 + zMin * m._33 + m._43;
+		var px = v_x * m._11 + v_y * m._21 + v_z * m._31 + m._41;
+		var py = v_x * m._12 + v_y * m._22 + v_z * m._32 + m._42;
+		var pz = v_x * m._13 + v_y * m._23 + v_z * m._33 + m._43;
+		v_x = px;
+		v_y = py;
+		v_z = pz;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15057,9 +15679,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMin;
 		v_y = yMin;
 		v_z = zMax;
-		v_x = xMin * m._11 + yMin * m._21 + zMax * m._31 + m._41;
-		v_y = xMin * m._12 + yMin * m._22 + zMax * m._32 + m._42;
-		v_z = xMin * m._13 + yMin * m._23 + zMax * m._33 + m._43;
+		var px1 = v_x * m._11 + v_y * m._21 + v_z * m._31 + m._41;
+		var py1 = v_x * m._12 + v_y * m._22 + v_z * m._32 + m._42;
+		var pz1 = v_x * m._13 + v_y * m._23 + v_z * m._33 + m._43;
+		v_x = px1;
+		v_y = py1;
+		v_z = pz1;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15081,9 +15706,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMin;
 		v_y = yMax;
 		v_z = zMin;
-		v_x = xMin * m._11 + yMax * m._21 + zMin * m._31 + m._41;
-		v_y = xMin * m._12 + yMax * m._22 + zMin * m._32 + m._42;
-		v_z = xMin * m._13 + yMax * m._23 + zMin * m._33 + m._43;
+		var px2 = v_x * m._11 + v_y * m._21 + v_z * m._31 + m._41;
+		var py2 = v_x * m._12 + v_y * m._22 + v_z * m._32 + m._42;
+		var pz2 = v_x * m._13 + v_y * m._23 + v_z * m._33 + m._43;
+		v_x = px2;
+		v_y = py2;
+		v_z = pz2;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15105,9 +15733,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMin;
 		v_y = yMax;
 		v_z = zMax;
-		v_x = xMin * m._11 + yMax * m._21 + zMax * m._31 + m._41;
-		v_y = xMin * m._12 + yMax * m._22 + zMax * m._32 + m._42;
-		v_z = xMin * m._13 + yMax * m._23 + zMax * m._33 + m._43;
+		var px3 = v_x * m._11 + v_y * m._21 + v_z * m._31 + m._41;
+		var py3 = v_x * m._12 + v_y * m._22 + v_z * m._32 + m._42;
+		var pz3 = v_x * m._13 + v_y * m._23 + v_z * m._33 + m._43;
+		v_x = px3;
+		v_y = py3;
+		v_z = pz3;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15129,9 +15760,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMax;
 		v_y = yMin;
 		v_z = zMin;
-		v_x = xMax * m._11 + yMin * m._21 + zMin * m._31 + m._41;
-		v_y = xMax * m._12 + yMin * m._22 + zMin * m._32 + m._42;
-		v_z = xMax * m._13 + yMin * m._23 + zMin * m._33 + m._43;
+		var px4 = v_x * m._11 + v_y * m._21 + v_z * m._31 + m._41;
+		var py4 = v_x * m._12 + v_y * m._22 + v_z * m._32 + m._42;
+		var pz4 = v_x * m._13 + v_y * m._23 + v_z * m._33 + m._43;
+		v_x = px4;
+		v_y = py4;
+		v_z = pz4;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15153,9 +15787,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMax;
 		v_y = yMin;
 		v_z = zMax;
-		v_x = xMax * m._11 + yMin * m._21 + zMax * m._31 + m._41;
-		v_y = xMax * m._12 + yMin * m._22 + zMax * m._32 + m._42;
-		v_z = xMax * m._13 + yMin * m._23 + zMax * m._33 + m._43;
+		var px5 = v_x * m._11 + v_y * m._21 + v_z * m._31 + m._41;
+		var py5 = v_x * m._12 + v_y * m._22 + v_z * m._32 + m._42;
+		var pz5 = v_x * m._13 + v_y * m._23 + v_z * m._33 + m._43;
+		v_x = px5;
+		v_y = py5;
+		v_z = pz5;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15177,9 +15814,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMax;
 		v_y = yMax;
 		v_z = zMin;
-		v_x = xMax * m._11 + yMax * m._21 + zMin * m._31 + m._41;
-		v_y = xMax * m._12 + yMax * m._22 + zMin * m._32 + m._42;
-		v_z = xMax * m._13 + yMax * m._23 + zMin * m._33 + m._43;
+		var px6 = v_x * m._11 + v_y * m._21 + v_z * m._31 + m._41;
+		var py6 = v_x * m._12 + v_y * m._22 + v_z * m._32 + m._42;
+		var pz6 = v_x * m._13 + v_y * m._23 + v_z * m._33 + m._43;
+		v_x = px6;
+		v_y = py6;
+		v_z = pz6;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15201,9 +15841,12 @@ h3d_col_Bounds.prototype = {
 		v_x = xMax;
 		v_y = yMax;
 		v_z = zMax;
-		v_x = xMax * m._11 + yMax * m._21 + zMax * m._31 + m._41;
-		v_y = xMax * m._12 + yMax * m._22 + zMax * m._32 + m._42;
-		v_z = xMax * m._13 + yMax * m._23 + zMax * m._33 + m._43;
+		var px7 = v_x * m._11 + v_y * m._21 + v_z * m._31 + m._41;
+		var py7 = v_x * m._12 + v_y * m._22 + v_z * m._32 + m._42;
+		var pz7 = v_x * m._13 + v_y * m._23 + v_z * m._33 + m._43;
+		v_x = px7;
+		v_y = py7;
+		v_z = pz7;
 		if(v_x < this.xMin) {
 			this.xMin = v_x;
 		}
@@ -15296,22 +15939,28 @@ h3d_col_Bounds.prototype = {
 	,intersection: function(a,b) {
 		var a1 = a.xMin;
 		var b1 = b.xMin;
+		var xMin = a1 < b1 ? b1 : a1;
 		var a2 = a.yMin;
 		var b2 = b.yMin;
+		var yMin = a2 < b2 ? b2 : a2;
 		var a3 = a.zMin;
 		var b3 = b.zMin;
+		var zMin = a3 < b3 ? b3 : a3;
 		var a4 = a.xMax;
 		var b4 = b.xMax;
+		var xMax = a4 > b4 ? b4 : a4;
 		var a5 = a.yMax;
 		var b5 = b.yMax;
+		var yMax = a5 > b5 ? b5 : a5;
 		var a6 = a.zMax;
 		var b6 = b.zMax;
-		this.xMin = a1 < b1 ? b1 : a1;
-		this.xMax = a4 > b4 ? b4 : a4;
-		this.yMin = a2 < b2 ? b2 : a2;
-		this.yMax = a5 > b5 ? b5 : a5;
-		this.zMin = a3 < b3 ? b3 : a3;
-		this.zMax = a6 > b6 ? b6 : a6;
+		var zMax = a6 > b6 ? b6 : a6;
+		this.xMin = xMin;
+		this.xMax = xMax;
+		this.yMin = yMin;
+		this.yMax = yMax;
+		this.zMin = zMin;
+		this.zMax = zMax;
 	}
 	,offset: function(dx,dy,dz) {
 		this.xMin += dx;
@@ -15518,18 +16167,18 @@ h3d_col_Frustum.prototype = {
 		var v_y;
 		var v_x;
 		var v_w;
-		var x = _this.nx;
-		var y = _this.ny;
-		var z = _this.nz;
-		var w = -_this.d;
-		v_x = x;
-		v_y = y;
-		v_z = z;
-		v_w = w;
-		v_x = x * m2._11 + y * m2._21 + z * m2._31 + w * m2._41;
-		v_y = x * m2._12 + y * m2._22 + z * m2._32 + w * m2._42;
-		v_z = x * m2._13 + y * m2._23 + z * m2._33 + w * m2._43;
-		v_w = x * m2._14 + y * m2._24 + z * m2._34 + w * m2._44;
+		v_x = _this.nx;
+		v_y = _this.ny;
+		v_z = _this.nz;
+		v_w = -_this.d;
+		var px = v_x * m2._11 + v_y * m2._21 + v_z * m2._31 + v_w * m2._41;
+		var py = v_x * m2._12 + v_y * m2._22 + v_z * m2._32 + v_w * m2._42;
+		var pz = v_x * m2._13 + v_y * m2._23 + v_z * m2._33 + v_w * m2._43;
+		var pw = v_x * m2._14 + v_y * m2._24 + v_z * m2._34 + v_w * m2._44;
+		v_x = px;
+		v_y = py;
+		v_z = pz;
+		v_w = pw;
 		_this.nx = v_x;
 		_this.ny = v_y;
 		_this.nz = v_z;
@@ -15539,18 +16188,18 @@ h3d_col_Frustum.prototype = {
 		var v_y1;
 		var v_x1;
 		var v_w1;
-		var x1 = _this1.nx;
-		var y1 = _this1.ny;
-		var z1 = _this1.nz;
-		var w1 = -_this1.d;
-		v_x1 = x1;
-		v_y1 = y1;
-		v_z1 = z1;
-		v_w1 = w1;
-		v_x1 = x1 * m2._11 + y1 * m2._21 + z1 * m2._31 + w1 * m2._41;
-		v_y1 = x1 * m2._12 + y1 * m2._22 + z1 * m2._32 + w1 * m2._42;
-		v_z1 = x1 * m2._13 + y1 * m2._23 + z1 * m2._33 + w1 * m2._43;
-		v_w1 = x1 * m2._14 + y1 * m2._24 + z1 * m2._34 + w1 * m2._44;
+		v_x1 = _this1.nx;
+		v_y1 = _this1.ny;
+		v_z1 = _this1.nz;
+		v_w1 = -_this1.d;
+		var px1 = v_x1 * m2._11 + v_y1 * m2._21 + v_z1 * m2._31 + v_w1 * m2._41;
+		var py1 = v_x1 * m2._12 + v_y1 * m2._22 + v_z1 * m2._32 + v_w1 * m2._42;
+		var pz1 = v_x1 * m2._13 + v_y1 * m2._23 + v_z1 * m2._33 + v_w1 * m2._43;
+		var pw1 = v_x1 * m2._14 + v_y1 * m2._24 + v_z1 * m2._34 + v_w1 * m2._44;
+		v_x1 = px1;
+		v_y1 = py1;
+		v_z1 = pz1;
+		v_w1 = pw1;
 		_this1.nx = v_x1;
 		_this1.ny = v_y1;
 		_this1.nz = v_z1;
@@ -15560,18 +16209,18 @@ h3d_col_Frustum.prototype = {
 		var v_y2;
 		var v_x2;
 		var v_w2;
-		var x2 = _this2.nx;
-		var y2 = _this2.ny;
-		var z2 = _this2.nz;
-		var w2 = -_this2.d;
-		v_x2 = x2;
-		v_y2 = y2;
-		v_z2 = z2;
-		v_w2 = w2;
-		v_x2 = x2 * m2._11 + y2 * m2._21 + z2 * m2._31 + w2 * m2._41;
-		v_y2 = x2 * m2._12 + y2 * m2._22 + z2 * m2._32 + w2 * m2._42;
-		v_z2 = x2 * m2._13 + y2 * m2._23 + z2 * m2._33 + w2 * m2._43;
-		v_w2 = x2 * m2._14 + y2 * m2._24 + z2 * m2._34 + w2 * m2._44;
+		v_x2 = _this2.nx;
+		v_y2 = _this2.ny;
+		v_z2 = _this2.nz;
+		v_w2 = -_this2.d;
+		var px2 = v_x2 * m2._11 + v_y2 * m2._21 + v_z2 * m2._31 + v_w2 * m2._41;
+		var py2 = v_x2 * m2._12 + v_y2 * m2._22 + v_z2 * m2._32 + v_w2 * m2._42;
+		var pz2 = v_x2 * m2._13 + v_y2 * m2._23 + v_z2 * m2._33 + v_w2 * m2._43;
+		var pw2 = v_x2 * m2._14 + v_y2 * m2._24 + v_z2 * m2._34 + v_w2 * m2._44;
+		v_x2 = px2;
+		v_y2 = py2;
+		v_z2 = pz2;
+		v_w2 = pw2;
 		_this2.nx = v_x2;
 		_this2.ny = v_y2;
 		_this2.nz = v_z2;
@@ -15581,18 +16230,18 @@ h3d_col_Frustum.prototype = {
 		var v_y3;
 		var v_x3;
 		var v_w3;
-		var x3 = _this3.nx;
-		var y3 = _this3.ny;
-		var z3 = _this3.nz;
-		var w3 = -_this3.d;
-		v_x3 = x3;
-		v_y3 = y3;
-		v_z3 = z3;
-		v_w3 = w3;
-		v_x3 = x3 * m2._11 + y3 * m2._21 + z3 * m2._31 + w3 * m2._41;
-		v_y3 = x3 * m2._12 + y3 * m2._22 + z3 * m2._32 + w3 * m2._42;
-		v_z3 = x3 * m2._13 + y3 * m2._23 + z3 * m2._33 + w3 * m2._43;
-		v_w3 = x3 * m2._14 + y3 * m2._24 + z3 * m2._34 + w3 * m2._44;
+		v_x3 = _this3.nx;
+		v_y3 = _this3.ny;
+		v_z3 = _this3.nz;
+		v_w3 = -_this3.d;
+		var px3 = v_x3 * m2._11 + v_y3 * m2._21 + v_z3 * m2._31 + v_w3 * m2._41;
+		var py3 = v_x3 * m2._12 + v_y3 * m2._22 + v_z3 * m2._32 + v_w3 * m2._42;
+		var pz3 = v_x3 * m2._13 + v_y3 * m2._23 + v_z3 * m2._33 + v_w3 * m2._43;
+		var pw3 = v_x3 * m2._14 + v_y3 * m2._24 + v_z3 * m2._34 + v_w3 * m2._44;
+		v_x3 = px3;
+		v_y3 = py3;
+		v_z3 = pz3;
+		v_w3 = pw3;
 		_this3.nx = v_x3;
 		_this3.ny = v_y3;
 		_this3.nz = v_z3;
@@ -15602,18 +16251,18 @@ h3d_col_Frustum.prototype = {
 		var v_y4;
 		var v_x4;
 		var v_w4;
-		var x4 = _this4.nx;
-		var y4 = _this4.ny;
-		var z4 = _this4.nz;
-		var w4 = -_this4.d;
-		v_x4 = x4;
-		v_y4 = y4;
-		v_z4 = z4;
-		v_w4 = w4;
-		v_x4 = x4 * m2._11 + y4 * m2._21 + z4 * m2._31 + w4 * m2._41;
-		v_y4 = x4 * m2._12 + y4 * m2._22 + z4 * m2._32 + w4 * m2._42;
-		v_z4 = x4 * m2._13 + y4 * m2._23 + z4 * m2._33 + w4 * m2._43;
-		v_w4 = x4 * m2._14 + y4 * m2._24 + z4 * m2._34 + w4 * m2._44;
+		v_x4 = _this4.nx;
+		v_y4 = _this4.ny;
+		v_z4 = _this4.nz;
+		v_w4 = -_this4.d;
+		var px4 = v_x4 * m2._11 + v_y4 * m2._21 + v_z4 * m2._31 + v_w4 * m2._41;
+		var py4 = v_x4 * m2._12 + v_y4 * m2._22 + v_z4 * m2._32 + v_w4 * m2._42;
+		var pz4 = v_x4 * m2._13 + v_y4 * m2._23 + v_z4 * m2._33 + v_w4 * m2._43;
+		var pw4 = v_x4 * m2._14 + v_y4 * m2._24 + v_z4 * m2._34 + v_w4 * m2._44;
+		v_x4 = px4;
+		v_y4 = py4;
+		v_z4 = pz4;
+		v_w4 = pw4;
 		_this4.nx = v_x4;
 		_this4.ny = v_y4;
 		_this4.nz = v_z4;
@@ -15623,18 +16272,18 @@ h3d_col_Frustum.prototype = {
 		var v_y5;
 		var v_x5;
 		var v_w5;
-		var x5 = _this5.nx;
-		var y5 = _this5.ny;
-		var z5 = _this5.nz;
-		var w5 = -_this5.d;
-		v_x5 = x5;
-		v_y5 = y5;
-		v_z5 = z5;
-		v_w5 = w5;
-		v_x5 = x5 * m2._11 + y5 * m2._21 + z5 * m2._31 + w5 * m2._41;
-		v_y5 = x5 * m2._12 + y5 * m2._22 + z5 * m2._32 + w5 * m2._42;
-		v_z5 = x5 * m2._13 + y5 * m2._23 + z5 * m2._33 + w5 * m2._43;
-		v_w5 = x5 * m2._14 + y5 * m2._24 + z5 * m2._34 + w5 * m2._44;
+		v_x5 = _this5.nx;
+		v_y5 = _this5.ny;
+		v_z5 = _this5.nz;
+		v_w5 = -_this5.d;
+		var px5 = v_x5 * m2._11 + v_y5 * m2._21 + v_z5 * m2._31 + v_w5 * m2._41;
+		var py5 = v_x5 * m2._12 + v_y5 * m2._22 + v_z5 * m2._32 + v_w5 * m2._42;
+		var pz5 = v_x5 * m2._13 + v_y5 * m2._23 + v_z5 * m2._33 + v_w5 * m2._43;
+		var pw5 = v_x5 * m2._14 + v_y5 * m2._24 + v_z5 * m2._34 + v_w5 * m2._44;
+		v_x5 = px5;
+		v_y5 = py5;
+		v_z5 = pz5;
+		v_w5 = pw5;
 		_this5.nx = v_x5;
 		_this5.ny = v_y5;
 		_this5.nz = v_z5;
@@ -15685,18 +16334,18 @@ h3d_col_Frustum.prototype = {
 		var v_y;
 		var v_x;
 		var v_w;
-		var x = _this.nx;
-		var y = _this.ny;
-		var z = _this.nz;
-		var w = -_this.d;
-		v_x = x;
-		v_y = y;
-		v_z = z;
-		v_w = w;
-		v_x = x * m2._11 + y * m2._21 + z * m2._31 + w * m2._41;
-		v_y = x * m2._12 + y * m2._22 + z * m2._32 + w * m2._42;
-		v_z = x * m2._13 + y * m2._23 + z * m2._33 + w * m2._43;
-		v_w = x * m2._14 + y * m2._24 + z * m2._34 + w * m2._44;
+		v_x = _this.nx;
+		v_y = _this.ny;
+		v_z = _this.nz;
+		v_w = -_this.d;
+		var px = v_x * m2._11 + v_y * m2._21 + v_z * m2._31 + v_w * m2._41;
+		var py = v_x * m2._12 + v_y * m2._22 + v_z * m2._32 + v_w * m2._42;
+		var pz = v_x * m2._13 + v_y * m2._23 + v_z * m2._33 + v_w * m2._43;
+		var pw = v_x * m2._14 + v_y * m2._24 + v_z * m2._34 + v_w * m2._44;
+		v_x = px;
+		v_y = py;
+		v_z = pz;
+		v_w = pw;
 		_this.nx = v_x;
 		_this.ny = v_y;
 		_this.nz = v_z;
@@ -15706,18 +16355,18 @@ h3d_col_Frustum.prototype = {
 		var v_y1;
 		var v_x1;
 		var v_w1;
-		var x1 = _this1.nx;
-		var y1 = _this1.ny;
-		var z1 = _this1.nz;
-		var w1 = -_this1.d;
-		v_x1 = x1;
-		v_y1 = y1;
-		v_z1 = z1;
-		v_w1 = w1;
-		v_x1 = x1 * m2._11 + y1 * m2._21 + z1 * m2._31 + w1 * m2._41;
-		v_y1 = x1 * m2._12 + y1 * m2._22 + z1 * m2._32 + w1 * m2._42;
-		v_z1 = x1 * m2._13 + y1 * m2._23 + z1 * m2._33 + w1 * m2._43;
-		v_w1 = x1 * m2._14 + y1 * m2._24 + z1 * m2._34 + w1 * m2._44;
+		v_x1 = _this1.nx;
+		v_y1 = _this1.ny;
+		v_z1 = _this1.nz;
+		v_w1 = -_this1.d;
+		var px1 = v_x1 * m2._11 + v_y1 * m2._21 + v_z1 * m2._31 + v_w1 * m2._41;
+		var py1 = v_x1 * m2._12 + v_y1 * m2._22 + v_z1 * m2._32 + v_w1 * m2._42;
+		var pz1 = v_x1 * m2._13 + v_y1 * m2._23 + v_z1 * m2._33 + v_w1 * m2._43;
+		var pw1 = v_x1 * m2._14 + v_y1 * m2._24 + v_z1 * m2._34 + v_w1 * m2._44;
+		v_x1 = px1;
+		v_y1 = py1;
+		v_z1 = pz1;
+		v_w1 = pw1;
 		_this1.nx = v_x1;
 		_this1.ny = v_y1;
 		_this1.nz = v_z1;
@@ -15727,18 +16376,18 @@ h3d_col_Frustum.prototype = {
 		var v_y2;
 		var v_x2;
 		var v_w2;
-		var x2 = _this2.nx;
-		var y2 = _this2.ny;
-		var z2 = _this2.nz;
-		var w2 = -_this2.d;
-		v_x2 = x2;
-		v_y2 = y2;
-		v_z2 = z2;
-		v_w2 = w2;
-		v_x2 = x2 * m2._11 + y2 * m2._21 + z2 * m2._31 + w2 * m2._41;
-		v_y2 = x2 * m2._12 + y2 * m2._22 + z2 * m2._32 + w2 * m2._42;
-		v_z2 = x2 * m2._13 + y2 * m2._23 + z2 * m2._33 + w2 * m2._43;
-		v_w2 = x2 * m2._14 + y2 * m2._24 + z2 * m2._34 + w2 * m2._44;
+		v_x2 = _this2.nx;
+		v_y2 = _this2.ny;
+		v_z2 = _this2.nz;
+		v_w2 = -_this2.d;
+		var px2 = v_x2 * m2._11 + v_y2 * m2._21 + v_z2 * m2._31 + v_w2 * m2._41;
+		var py2 = v_x2 * m2._12 + v_y2 * m2._22 + v_z2 * m2._32 + v_w2 * m2._42;
+		var pz2 = v_x2 * m2._13 + v_y2 * m2._23 + v_z2 * m2._33 + v_w2 * m2._43;
+		var pw2 = v_x2 * m2._14 + v_y2 * m2._24 + v_z2 * m2._34 + v_w2 * m2._44;
+		v_x2 = px2;
+		v_y2 = py2;
+		v_z2 = pz2;
+		v_w2 = pw2;
 		_this2.nx = v_x2;
 		_this2.ny = v_y2;
 		_this2.nz = v_z2;
@@ -15748,18 +16397,18 @@ h3d_col_Frustum.prototype = {
 		var v_y3;
 		var v_x3;
 		var v_w3;
-		var x3 = _this3.nx;
-		var y3 = _this3.ny;
-		var z3 = _this3.nz;
-		var w3 = -_this3.d;
-		v_x3 = x3;
-		v_y3 = y3;
-		v_z3 = z3;
-		v_w3 = w3;
-		v_x3 = x3 * m2._11 + y3 * m2._21 + z3 * m2._31 + w3 * m2._41;
-		v_y3 = x3 * m2._12 + y3 * m2._22 + z3 * m2._32 + w3 * m2._42;
-		v_z3 = x3 * m2._13 + y3 * m2._23 + z3 * m2._33 + w3 * m2._43;
-		v_w3 = x3 * m2._14 + y3 * m2._24 + z3 * m2._34 + w3 * m2._44;
+		v_x3 = _this3.nx;
+		v_y3 = _this3.ny;
+		v_z3 = _this3.nz;
+		v_w3 = -_this3.d;
+		var px3 = v_x3 * m2._11 + v_y3 * m2._21 + v_z3 * m2._31 + v_w3 * m2._41;
+		var py3 = v_x3 * m2._12 + v_y3 * m2._22 + v_z3 * m2._32 + v_w3 * m2._42;
+		var pz3 = v_x3 * m2._13 + v_y3 * m2._23 + v_z3 * m2._33 + v_w3 * m2._43;
+		var pw3 = v_x3 * m2._14 + v_y3 * m2._24 + v_z3 * m2._34 + v_w3 * m2._44;
+		v_x3 = px3;
+		v_y3 = py3;
+		v_z3 = pz3;
+		v_w3 = pw3;
 		_this3.nx = v_x3;
 		_this3.ny = v_y3;
 		_this3.nz = v_z3;
@@ -15769,18 +16418,18 @@ h3d_col_Frustum.prototype = {
 		var v_y4;
 		var v_x4;
 		var v_w4;
-		var x4 = _this4.nx;
-		var y4 = _this4.ny;
-		var z4 = _this4.nz;
-		var w4 = -_this4.d;
-		v_x4 = x4;
-		v_y4 = y4;
-		v_z4 = z4;
-		v_w4 = w4;
-		v_x4 = x4 * m2._11 + y4 * m2._21 + z4 * m2._31 + w4 * m2._41;
-		v_y4 = x4 * m2._12 + y4 * m2._22 + z4 * m2._32 + w4 * m2._42;
-		v_z4 = x4 * m2._13 + y4 * m2._23 + z4 * m2._33 + w4 * m2._43;
-		v_w4 = x4 * m2._14 + y4 * m2._24 + z4 * m2._34 + w4 * m2._44;
+		v_x4 = _this4.nx;
+		v_y4 = _this4.ny;
+		v_z4 = _this4.nz;
+		v_w4 = -_this4.d;
+		var px4 = v_x4 * m2._11 + v_y4 * m2._21 + v_z4 * m2._31 + v_w4 * m2._41;
+		var py4 = v_x4 * m2._12 + v_y4 * m2._22 + v_z4 * m2._32 + v_w4 * m2._42;
+		var pz4 = v_x4 * m2._13 + v_y4 * m2._23 + v_z4 * m2._33 + v_w4 * m2._43;
+		var pw4 = v_x4 * m2._14 + v_y4 * m2._24 + v_z4 * m2._34 + v_w4 * m2._44;
+		v_x4 = px4;
+		v_y4 = py4;
+		v_z4 = pz4;
+		v_w4 = pw4;
 		_this4.nx = v_x4;
 		_this4.ny = v_y4;
 		_this4.nz = v_z4;
@@ -15790,18 +16439,18 @@ h3d_col_Frustum.prototype = {
 		var v_y5;
 		var v_x5;
 		var v_w5;
-		var x5 = _this5.nx;
-		var y5 = _this5.ny;
-		var z5 = _this5.nz;
-		var w5 = -_this5.d;
-		v_x5 = x5;
-		v_y5 = y5;
-		v_z5 = z5;
-		v_w5 = w5;
-		v_x5 = x5 * m2._11 + y5 * m2._21 + z5 * m2._31 + w5 * m2._41;
-		v_y5 = x5 * m2._12 + y5 * m2._22 + z5 * m2._32 + w5 * m2._42;
-		v_z5 = x5 * m2._13 + y5 * m2._23 + z5 * m2._33 + w5 * m2._43;
-		v_w5 = x5 * m2._14 + y5 * m2._24 + z5 * m2._34 + w5 * m2._44;
+		v_x5 = _this5.nx;
+		v_y5 = _this5.ny;
+		v_z5 = _this5.nz;
+		v_w5 = -_this5.d;
+		var px5 = v_x5 * m2._11 + v_y5 * m2._21 + v_z5 * m2._31 + v_w5 * m2._41;
+		var py5 = v_x5 * m2._12 + v_y5 * m2._22 + v_z5 * m2._32 + v_w5 * m2._42;
+		var pz5 = v_x5 * m2._13 + v_y5 * m2._23 + v_z5 * m2._33 + v_w5 * m2._43;
+		var pw5 = v_x5 * m2._14 + v_y5 * m2._24 + v_z5 * m2._34 + v_w5 * m2._44;
+		v_x5 = px5;
+		v_y5 = py5;
+		v_z5 = pz5;
+		v_w5 = pw5;
 		_this5.nx = v_x5;
 		_this5.ny = v_y5;
 		_this5.nz = v_z5;
@@ -15844,32 +16493,34 @@ h3d_col_Frustum.prototype = {
 		_this11.d *= len5;
 	}
 	,hasSphere: function(s) {
-		var x = s.x;
-		var y = s.y;
-		var z = s.z;
+		var p_z;
+		var p_y;
+		var p_x = s.x;
+		p_y = s.y;
+		p_z = s.z;
 		var _this = this.pleft;
-		if(_this.nx * x + _this.ny * y + _this.nz * z - _this.d < -s.r) {
+		if(_this.nx * p_x + _this.ny * p_y + _this.nz * p_z - _this.d < -s.r) {
 			return false;
 		}
 		var _this1 = this.pright;
-		if(_this1.nx * x + _this1.ny * y + _this1.nz * z - _this1.d < -s.r) {
+		if(_this1.nx * p_x + _this1.ny * p_y + _this1.nz * p_z - _this1.d < -s.r) {
 			return false;
 		}
 		var _this2 = this.ptop;
-		if(_this2.nx * x + _this2.ny * y + _this2.nz * z - _this2.d < -s.r) {
+		if(_this2.nx * p_x + _this2.ny * p_y + _this2.nz * p_z - _this2.d < -s.r) {
 			return false;
 		}
 		var _this3 = this.pbottom;
-		if(_this3.nx * x + _this3.ny * y + _this3.nz * z - _this3.d < -s.r) {
+		if(_this3.nx * p_x + _this3.ny * p_y + _this3.nz * p_z - _this3.d < -s.r) {
 			return false;
 		}
 		if(this.checkNearFar) {
 			var _this4 = this.pnear;
-			if(_this4.nx * x + _this4.ny * y + _this4.nz * z - _this4.d < -s.r) {
+			if(_this4.nx * p_x + _this4.ny * p_y + _this4.nz * p_z - _this4.d < -s.r) {
 				return false;
 			}
 			var _this5 = this.pfar;
-			if(_this5.nx * x + _this5.ny * y + _this5.nz * z - _this5.d < -s.r) {
+			if(_this5.nx * p_x + _this5.ny * p_y + _this5.nz * p_z - _this5.d < -s.r) {
 				return false;
 			}
 		}
@@ -15890,7 +16541,8 @@ h3d_col_Frustum.prototype = {
 		if(c < 0) {
 			c = -c;
 		}
-		if(dd + (a * (b.xMax - b.xMin) + b1 * (b.yMax - b.yMin) + c * (b.zMax - b.zMin)) - p.d * 2 < 0) {
+		var rr = a * (b.xMax - b.xMin) + b1 * (b.yMax - b.yMin) + c * (b.zMax - b.zMin);
+		if(dd + rr - p.d * 2 < 0) {
 			return false;
 		}
 		var p1 = this.pright;
@@ -15907,7 +16559,8 @@ h3d_col_Frustum.prototype = {
 		if(c1 < 0) {
 			c1 = -c1;
 		}
-		if(dd1 + (a1 * (b.xMax - b.xMin) + b2 * (b.yMax - b.yMin) + c1 * (b.zMax - b.zMin)) - p1.d * 2 < 0) {
+		var rr1 = a1 * (b.xMax - b.xMin) + b2 * (b.yMax - b.yMin) + c1 * (b.zMax - b.zMin);
+		if(dd1 + rr1 - p1.d * 2 < 0) {
 			return false;
 		}
 		var p2 = this.ptop;
@@ -15924,7 +16577,8 @@ h3d_col_Frustum.prototype = {
 		if(c2 < 0) {
 			c2 = -c2;
 		}
-		if(dd2 + (a2 * (b.xMax - b.xMin) + b3 * (b.yMax - b.yMin) + c2 * (b.zMax - b.zMin)) - p2.d * 2 < 0) {
+		var rr2 = a2 * (b.xMax - b.xMin) + b3 * (b.yMax - b.yMin) + c2 * (b.zMax - b.zMin);
+		if(dd2 + rr2 - p2.d * 2 < 0) {
 			return false;
 		}
 		var p3 = this.ptop;
@@ -15941,7 +16595,8 @@ h3d_col_Frustum.prototype = {
 		if(c3 < 0) {
 			c3 = -c3;
 		}
-		if(dd3 + (a3 * (b.xMax - b.xMin) + b4 * (b.yMax - b.yMin) + c3 * (b.zMax - b.zMin)) - p3.d * 2 < 0) {
+		var rr3 = a3 * (b.xMax - b.xMin) + b4 * (b.yMax - b.yMin) + c3 * (b.zMax - b.zMin);
+		if(dd3 + rr3 - p3.d * 2 < 0) {
 			return false;
 		}
 		var p4 = this.pnear;
@@ -15958,7 +16613,8 @@ h3d_col_Frustum.prototype = {
 		if(c4 < 0) {
 			c4 = -c4;
 		}
-		if(dd4 + (a4 * (b.xMax - b.xMin) + b5 * (b.yMax - b.yMin) + c4 * (b.zMax - b.zMin)) - p4.d * 2 < 0) {
+		var rr4 = a4 * (b.xMax - b.xMin) + b5 * (b.yMax - b.yMin) + c4 * (b.zMax - b.zMin);
+		if(dd4 + rr4 - p4.d * 2 < 0) {
 			return false;
 		}
 		var p5 = this.pfar;
@@ -15975,7 +16631,8 @@ h3d_col_Frustum.prototype = {
 		if(c5 < 0) {
 			c5 = -c5;
 		}
-		if(dd5 + (a5 * (b.xMax - b.xMin) + b6 * (b.yMax - b.yMin) + c5 * (b.zMax - b.zMin)) - p5.d * 2 < 0) {
+		var rr5 = a5 * (b.xMax - b.xMin) + b6 * (b.yMax - b.yMin) + c5 * (b.zMax - b.zMin);
+		if(dd5 + rr5 - p5.d * 2 < 0) {
 			return false;
 		}
 		return true;
@@ -15991,16 +16648,22 @@ var h3d_col_Plane = function(nx,ny,nz,d) {
 $hxClasses["h3d.col.Plane"] = h3d_col_Plane;
 h3d_col_Plane.__name__ = ["h3d","col","Plane"];
 h3d_col_Plane.fromPoints = function(p0,p1,p2) {
-	var x = p1.x - p0.x;
-	var y = p1.y - p0.y;
-	var z = p1.z - p0.z;
-	var x1 = p2.x - p0.x;
-	var y1 = p2.y - p0.y;
-	var z1 = p2.z - p0.z;
-	var x2 = y * z1 - z * y1;
-	var y2 = z * x1 - x * z1;
-	var z2 = x * y1 - y * x1;
-	return new h3d_col_Plane(x2,y2,z2,x2 * p0.x + y2 * p0.y + z2 * p0.z);
+	var d1_z;
+	var d1_y;
+	var d1_x = p1.x - p0.x;
+	d1_y = p1.y - p0.y;
+	d1_z = p1.z - p0.z;
+	var d2_z;
+	var d2_y;
+	var d2_x = p2.x - p0.x;
+	d2_y = p2.y - p0.y;
+	d2_z = p2.z - p0.z;
+	var n_z;
+	var n_y;
+	var n_x = d1_y * d2_z - d1_z * d2_y;
+	n_y = d1_z * d2_x - d1_x * d2_z;
+	n_z = d1_x * d2_y - d1_y * d2_x;
+	return new h3d_col_Plane(n_x,n_y,n_z,n_x * p0.x + n_y * p0.y + n_z * p0.z);
 };
 h3d_col_Plane.fromNormalPoint = function(n,p) {
 	return new h3d_col_Plane(n.x,n.y,n.z,n.x * p.x + n.y * p.y + n.z * p.z);
@@ -16047,18 +16710,18 @@ h3d_col_Plane.prototype = {
 		var v_y;
 		var v_x;
 		var v_w;
-		var x = this.nx;
-		var y = this.ny;
-		var z = this.nz;
-		var w = -this.d;
-		v_x = x;
-		v_y = y;
-		v_z = z;
-		v_w = w;
-		v_x = x * m2._11 + y * m2._21 + z * m2._31 + w * m2._41;
-		v_y = x * m2._12 + y * m2._22 + z * m2._32 + w * m2._42;
-		v_z = x * m2._13 + y * m2._23 + z * m2._33 + w * m2._43;
-		v_w = x * m2._14 + y * m2._24 + z * m2._34 + w * m2._44;
+		v_x = this.nx;
+		v_y = this.ny;
+		v_z = this.nz;
+		v_w = -this.d;
+		var px = v_x * m2._11 + v_y * m2._21 + v_z * m2._31 + v_w * m2._41;
+		var py = v_x * m2._12 + v_y * m2._22 + v_z * m2._32 + v_w * m2._42;
+		var pz = v_x * m2._13 + v_y * m2._23 + v_z * m2._33 + v_w * m2._43;
+		var pw = v_x * m2._14 + v_y * m2._24 + v_z * m2._34 + v_w * m2._44;
+		v_x = px;
+		v_y = py;
+		v_z = pz;
+		v_w = pw;
 		this.nx = v_x;
 		this.ny = v_y;
 		this.nz = v_z;
@@ -16072,18 +16735,18 @@ h3d_col_Plane.prototype = {
 		var v_y;
 		var v_x;
 		var v_w;
-		var x = this.nx;
-		var y = this.ny;
-		var z = this.nz;
-		var w = -this.d;
-		v_x = x;
-		v_y = y;
-		v_z = z;
-		v_w = w;
-		v_x = x * m2._11 + y * m2._21 + z * m2._31 + w * m2._41;
-		v_y = x * m2._12 + y * m2._22 + z * m2._32 + w * m2._42;
-		v_z = x * m2._13 + y * m2._23 + z * m2._33 + w * m2._43;
-		v_w = x * m2._14 + y * m2._24 + z * m2._34 + w * m2._44;
+		v_x = this.nx;
+		v_y = this.ny;
+		v_z = this.nz;
+		v_w = -this.d;
+		var px = v_x * m2._11 + v_y * m2._21 + v_z * m2._31 + v_w * m2._41;
+		var py = v_x * m2._12 + v_y * m2._22 + v_z * m2._32 + v_w * m2._42;
+		var pz = v_x * m2._13 + v_y * m2._23 + v_z * m2._33 + v_w * m2._43;
+		var pw = v_x * m2._14 + v_y * m2._24 + v_z * m2._34 + v_w * m2._44;
+		v_x = px;
+		v_y = py;
+		v_z = pz;
+		v_w = pw;
 		this.nx = v_x;
 		this.ny = v_y;
 		this.nz = v_z;
@@ -16094,18 +16757,18 @@ h3d_col_Plane.prototype = {
 		var v_y;
 		var v_x;
 		var v_w;
-		var x = this.nx;
-		var y = this.ny;
-		var z = this.nz;
-		var w = -this.d;
-		v_x = x;
-		v_y = y;
-		v_z = z;
-		v_w = w;
-		v_x = x * m._11 + y * m._21 + z * m._31 + w * m._41;
-		v_y = x * m._12 + y * m._22 + z * m._32 + w * m._42;
-		v_z = x * m._13 + y * m._23 + z * m._33 + w * m._43;
-		v_w = x * m._14 + y * m._24 + z * m._34 + w * m._44;
+		v_x = this.nx;
+		v_y = this.ny;
+		v_z = this.nz;
+		v_w = -this.d;
+		var px = v_x * m._11 + v_y * m._21 + v_z * m._31 + v_w * m._41;
+		var py = v_x * m._12 + v_y * m._22 + v_z * m._32 + v_w * m._42;
+		var pz = v_x * m._13 + v_y * m._23 + v_z * m._33 + v_w * m._43;
+		var pw = v_x * m._14 + v_y * m._24 + v_z * m._34 + v_w * m._44;
+		v_x = px;
+		v_y = py;
+		v_z = pz;
+		v_w = pw;
 		this.nx = v_x;
 		this.ny = v_y;
 		this.nz = v_z;
@@ -16162,22 +16825,70 @@ h3d_col_Point.prototype = {
 		this.z *= v;
 	}
 	,inFrustum: function(mvp) {
-		if(!((mvp._14 + mvp._11) * this.x + (mvp._24 + mvp._21) * this.y + (mvp._34 + mvp._31) * this.z - -(mvp._44 + mvp._41) >= 0)) {
+		var _this_nz;
+		var _this_ny;
+		var _this_nx;
+		var _this_d;
+		_this_nx = mvp._14 + mvp._11;
+		_this_ny = mvp._24 + mvp._21;
+		_this_nz = mvp._34 + mvp._31;
+		_this_d = -(mvp._44 + mvp._41);
+		if(!(_this_nx * this.x + _this_ny * this.y + _this_nz * this.z - _this_d >= 0)) {
 			return false;
 		}
-		if(!((mvp._14 - mvp._11) * this.x + (mvp._24 - mvp._21) * this.y + (mvp._34 - mvp._31) * this.z - (mvp._41 - mvp._44) >= 0)) {
+		var _this_nz1;
+		var _this_ny1;
+		var _this_nx1;
+		var _this_d1;
+		_this_nx1 = mvp._14 - mvp._11;
+		_this_ny1 = mvp._24 - mvp._21;
+		_this_nz1 = mvp._34 - mvp._31;
+		_this_d1 = mvp._41 - mvp._44;
+		if(!(_this_nx1 * this.x + _this_ny1 * this.y + _this_nz1 * this.z - _this_d1 >= 0)) {
 			return false;
 		}
-		if(!((mvp._14 + mvp._12) * this.x + (mvp._24 + mvp._22) * this.y + (mvp._34 + mvp._32) * this.z - -(mvp._44 + mvp._42) >= 0)) {
+		var _this_nz2;
+		var _this_ny2;
+		var _this_nx2;
+		var _this_d2;
+		_this_nx2 = mvp._14 + mvp._12;
+		_this_ny2 = mvp._24 + mvp._22;
+		_this_nz2 = mvp._34 + mvp._32;
+		_this_d2 = -(mvp._44 + mvp._42);
+		if(!(_this_nx2 * this.x + _this_ny2 * this.y + _this_nz2 * this.z - _this_d2 >= 0)) {
 			return false;
 		}
-		if(!((mvp._14 - mvp._12) * this.x + (mvp._24 - mvp._22) * this.y + (mvp._34 - mvp._32) * this.z - (mvp._42 - mvp._44) >= 0)) {
+		var _this_nz3;
+		var _this_ny3;
+		var _this_nx3;
+		var _this_d3;
+		_this_nx3 = mvp._14 - mvp._12;
+		_this_ny3 = mvp._24 - mvp._22;
+		_this_nz3 = mvp._34 - mvp._32;
+		_this_d3 = mvp._42 - mvp._44;
+		if(!(_this_nx3 * this.x + _this_ny3 * this.y + _this_nz3 * this.z - _this_d3 >= 0)) {
 			return false;
 		}
-		if(!(mvp._13 * this.x + mvp._23 * this.y + mvp._33 * this.z - -mvp._43 >= 0)) {
+		var _this_nz4;
+		var _this_ny4;
+		var _this_nx4;
+		var _this_d4;
+		_this_nx4 = mvp._13;
+		_this_ny4 = mvp._23;
+		_this_nz4 = mvp._33;
+		_this_d4 = -mvp._43;
+		if(!(_this_nx4 * this.x + _this_ny4 * this.y + _this_nz4 * this.z - _this_d4 >= 0)) {
 			return false;
 		}
-		if(!((mvp._14 - mvp._13) * this.x + (mvp._24 - mvp._23) * this.y + (mvp._34 - mvp._33) * this.z - (mvp._43 - mvp._44) >= 0)) {
+		var _this_nz5;
+		var _this_ny5;
+		var _this_nx5;
+		var _this_d5;
+		_this_nx5 = mvp._14 - mvp._13;
+		_this_ny5 = mvp._24 - mvp._23;
+		_this_nz5 = mvp._34 - mvp._33;
+		_this_d5 = mvp._43 - mvp._44;
+		if(!(_this_nx5 * this.x + _this_ny5 * this.y + _this_nz5 * this.z - _this_d5 >= 0)) {
 			return false;
 		}
 		return true;
@@ -16246,16 +16957,18 @@ h3d_col_Point.prototype = {
 		this.z *= k;
 	}
 	,transform: function(m) {
+		var px = this.x * m._11 + this.y * m._21 + this.z * m._31 + m._41;
 		var py = this.x * m._12 + this.y * m._22 + this.z * m._32 + m._42;
 		var pz = this.x * m._13 + this.y * m._23 + this.z * m._33 + m._43;
-		this.x = this.x * m._11 + this.y * m._21 + this.z * m._31 + m._41;
+		this.x = px;
 		this.y = py;
 		this.z = pz;
 	}
 	,transform3x3: function(m) {
+		var px = this.x * m._11 + this.y * m._21 + this.z * m._31;
 		var py = this.x * m._12 + this.y * m._22 + this.z * m._32;
 		var pz = this.x * m._13 + this.y * m._23 + this.z * m._33;
-		this.x = this.x * m._11 + this.y * m._21 + this.z * m._31;
+		this.x = px;
 		this.y = py;
 		this.z = pz;
 	}
@@ -16280,36 +16993,44 @@ h3d_col_TriPlane.prototype = {
 		this.p0x = p0.x;
 		this.p0y = p0.y;
 		this.p0z = p0.z;
-		var x = p1.x - p0.x;
-		var y = p1.y - p0.y;
-		var z = p1.z - p0.z;
-		var x1 = p2.x - p0.x;
-		var y1 = p2.y - p0.y;
-		var z1 = p2.z - p0.z;
-		var x2 = y * z1 - z * y1;
-		var y2 = z * x1 - x * z1;
-		var z2 = x * y1 - y * x1;
-		this.d = x2 * p0.x + y2 * p0.y + z2 * p0.z;
-		this.nx = x2;
-		this.ny = y2;
-		this.nz = z2;
-		this.d1x = x;
-		this.d1y = y;
-		this.d1z = z;
-		this.d2x = x1;
-		this.d2y = y1;
-		this.d2z = z1;
-		this.dot00 = x * x + y * y + z * z;
-		this.dot01 = x * x1 + y * y1 + z * z1;
-		this.dot11 = x1 * x1 + y1 * y1 + z1 * z1;
+		var d1_z;
+		var d1_y;
+		var d1_x = p1.x - p0.x;
+		d1_y = p1.y - p0.y;
+		d1_z = p1.z - p0.z;
+		var d2_z;
+		var d2_y;
+		var d2_x = p2.x - p0.x;
+		d2_y = p2.y - p0.y;
+		d2_z = p2.z - p0.z;
+		var n_z;
+		var n_y;
+		var n_x = d1_y * d2_z - d1_z * d2_y;
+		n_y = d1_z * d2_x - d1_x * d2_z;
+		n_z = d1_x * d2_y - d1_y * d2_x;
+		this.d = n_x * p0.x + n_y * p0.y + n_z * p0.z;
+		this.nx = n_x;
+		this.ny = n_y;
+		this.nz = n_z;
+		this.d1x = d1_x;
+		this.d1y = d1_y;
+		this.d1z = d1_z;
+		this.d2x = d2_x;
+		this.d2y = d2_y;
+		this.d2z = d2_z;
+		this.dot00 = d1_x * d1_x + d1_y * d1_y + d1_z * d1_z;
+		this.dot01 = d1_x * d2_x + d1_y * d2_y + d1_z * d2_z;
+		this.dot11 = d2_x * d2_x + d2_y * d2_y + d2_z * d2_z;
 		this.invDenom = 1 / (this.dot00 * this.dot11 - this.dot01 * this.dot01);
 	}
 	,contains: function(p) {
-		var x = p.x - this.p0x;
-		var y = p.y - this.p0y;
-		var z = p.z - this.p0z;
-		var dot02 = this.d1x * x + this.d1y * y + this.d1z * z;
-		var dot12 = this.d2x * x + this.d2y * y + this.d2z * z;
+		var v2_z;
+		var v2_y;
+		var v2_x = p.x - this.p0x;
+		v2_y = p.y - this.p0y;
+		v2_z = p.z - this.p0z;
+		var dot02 = this.d1x * v2_x + this.d1y * v2_y + this.d1z * v2_z;
+		var dot12 = this.d2x * v2_x + this.d2y * v2_y + this.d2z * v2_z;
 		var u = (this.dot11 * dot02 - this.dot01 * dot12) * this.invDenom;
 		var v = (this.dot00 * dot12 - this.dot01 * dot02) * this.invDenom;
 		if(u >= 0 && v >= 0) {
@@ -16329,18 +17050,21 @@ h3d_col_TriPlane.prototype = {
 		if(dr > 0) {
 			return null;
 		}
-		var k = (this.d - (r.px * this.nx + r.py * this.ny + r.pz * this.nz)) / dr;
+		var nd = this.d - (r.px * this.nx + r.py * this.ny + r.pz * this.nz);
+		var k = nd / dr;
 		if(k < 0) {
 			return null;
 		}
 		var px = r.px + r.lx * k;
 		var py = r.py + r.ly * k;
 		var pz = r.pz + r.lz * k;
-		var x = px - this.p0x;
-		var y = py - this.p0y;
-		var z = pz - this.p0z;
-		var dot02 = this.d1x * x + this.d1y * y + this.d1z * z;
-		var dot12 = this.d2x * x + this.d2y * y + this.d2z * z;
+		var v2_z;
+		var v2_y;
+		var v2_x = px - this.p0x;
+		v2_y = py - this.p0y;
+		v2_z = pz - this.p0z;
+		var dot02 = this.d1x * v2_x + this.d1y * v2_y + this.d1z * v2_z;
+		var dot12 = this.d2x * v2_x + this.d2y * v2_y + this.d2z * v2_z;
 		var u = (this.dot11 * dot02 - this.dot01 * dot12) * this.invDenom;
 		var v = (this.dot00 * dot12 - this.dot01 * dot02) * this.invDenom;
 		if(!(u >= 0 && v >= 0 && u + v < 1)) {
@@ -16355,11 +17079,13 @@ h3d_col_TriPlane.prototype = {
 		return pt;
 	}
 	,isPointInTriangle: function(x,y,z) {
-		var x1 = x - this.p0x;
-		var y1 = y - this.p0y;
-		var z1 = z - this.p0z;
-		var dot02 = this.d1x * x1 + this.d1y * y1 + this.d1z * z1;
-		var dot12 = this.d2x * x1 + this.d2y * y1 + this.d2z * z1;
+		var v2_z;
+		var v2_y;
+		var v2_x = x - this.p0x;
+		v2_y = y - this.p0y;
+		v2_z = z - this.p0z;
+		var dot02 = this.d1x * v2_x + this.d1y * v2_y + this.d1z * v2_z;
+		var dot12 = this.d2x * v2_x + this.d2y * v2_y + this.d2z * v2_z;
 		var u = (this.dot11 * dot02 - this.dot01 * dot12) * this.invDenom;
 		var v = (this.dot00 * dot12 - this.dot01 * dot02) * this.invDenom;
 		if(u >= 0 && v >= 0) {
@@ -16383,7 +17109,8 @@ h3d_col_Polygon.prototype = {
 		var _g1 = 0;
 		var _g = indexes.length / 3 | 0;
 		while(_g1 < _g) {
-			var k = _g1++ * 3;
+			var i = _g1++;
+			var k = i * 3;
 			var t = new h3d_col_TriPlane();
 			var i0 = indexes[k] * stride;
 			var i1 = indexes[k + 1] * stride;
@@ -16406,28 +17133,34 @@ h3d_col_Polygon.prototype = {
 			t.p0x = p0_x;
 			t.p0y = p0_y;
 			t.p0z = p0_z;
-			var x = p1_x - p0_x;
-			var y = p1_y - p0_y;
-			var z = p1_z - p0_z;
-			var x1 = p2_x - p0_x;
-			var y1 = p2_y - p0_y;
-			var z1 = p2_z - p0_z;
-			var x2 = y * z1 - z * y1;
-			var y2 = z * x1 - x * z1;
-			var z2 = x * y1 - y * x1;
-			t.d = x2 * p0_x + y2 * p0_y + z2 * p0_z;
-			t.nx = x2;
-			t.ny = y2;
-			t.nz = z2;
-			t.d1x = x;
-			t.d1y = y;
-			t.d1z = z;
-			t.d2x = x1;
-			t.d2y = y1;
-			t.d2z = z1;
-			t.dot00 = x * x + y * y + z * z;
-			t.dot01 = x * x1 + y * y1 + z * z1;
-			t.dot11 = x1 * x1 + y1 * y1 + z1 * z1;
+			var d1_z;
+			var d1_y;
+			var d1_x = p1_x - p0_x;
+			d1_y = p1_y - p0_y;
+			d1_z = p1_z - p0_z;
+			var d2_z;
+			var d2_y;
+			var d2_x = p2_x - p0_x;
+			d2_y = p2_y - p0_y;
+			d2_z = p2_z - p0_z;
+			var n_z;
+			var n_y;
+			var n_x = d1_y * d2_z - d1_z * d2_y;
+			n_y = d1_z * d2_x - d1_x * d2_z;
+			n_z = d1_x * d2_y - d1_y * d2_x;
+			t.d = n_x * p0_x + n_y * p0_y + n_z * p0_z;
+			t.nx = n_x;
+			t.ny = n_y;
+			t.nz = n_z;
+			t.d1x = d1_x;
+			t.d1y = d1_y;
+			t.d1z = d1_z;
+			t.d2x = d2_x;
+			t.d2y = d2_y;
+			t.d2z = d2_z;
+			t.dot00 = d1_x * d1_x + d1_y * d1_y + d1_z * d1_z;
+			t.dot01 = d1_x * d2_x + d1_y * d2_y + d1_z * d2_z;
+			t.dot11 = d2_x * d2_x + d2_y * d2_y + d2_z * d2_z;
 			t.invDenom = 1 / (t.dot00 * t.dot11 - t.dot01 * t.dot01);
 			t.next = this.triPlanes;
 			this.triPlanes = t;
@@ -16458,24 +17191,27 @@ h3d_col_Polygon.prototype = {
 			if(dr > 0) {
 				p = null;
 			} else {
-				var k = (t.d - (r.px * t.nx + r.py * t.ny + r.pz * t.nz)) / dr;
+				var nd = t.d - (r.px * t.nx + r.py * t.ny + r.pz * t.nz);
+				var k = nd / dr;
 				if(k < 0) {
 					p = null;
 				} else {
 					var px = r.px + r.lx * k;
 					var py = r.py + r.ly * k;
 					var pz = r.pz + r.lz * k;
-					var x = px - t.p0x;
-					var y = py - t.p0y;
-					var z = pz - t.p0z;
-					var dot02 = t.d1x * x + t.d1y * y + t.d1z * z;
-					var dot12 = t.d2x * x + t.d2y * y + t.d2z * z;
+					var v2_z;
+					var v2_y;
+					var v2_x = px - t.p0x;
+					v2_y = py - t.p0y;
+					v2_z = pz - t.p0z;
+					var dot02 = t.d1x * v2_x + t.d1y * v2_y + t.d1z * v2_z;
+					var dot12 = t.d2x * v2_x + t.d2y * v2_y + t.d2z * v2_z;
 					var u = (t.dot11 * dot02 - t.dot01 * dot12) * t.invDenom;
 					var v = (t.dot00 * dot12 - t.dot01 * dot02) * t.invDenom;
 					if(!(u >= 0 && v >= 0 && u + v < 1)) {
 						p = null;
 					} else {
-						if(pt == null) {
+						if(pt1 == null) {
 							pt1 = new h3d_col_Point();
 						}
 						pt1.x = px;
@@ -16555,30 +17291,34 @@ h3d_col_Ray.prototype = {
 		var p_z;
 		var p_y;
 		var p_x;
-		var x = this.px;
-		var y = this.py;
-		var z = this.pz;
-		p_x = x;
-		p_y = y;
-		p_z = z;
-		p_x = x * m._11 + y * m._21 + z * m._31 + m._41;
-		p_y = x * m._12 + y * m._22 + z * m._32 + m._42;
-		p_z = x * m._13 + y * m._23 + z * m._33 + m._43;
+		var p_w;
+		p_x = this.px;
+		p_y = this.py;
+		p_z = this.pz;
+		p_w = 1.;
+		var px = p_x * m._11 + p_y * m._21 + p_z * m._31 + p_w * m._41;
+		var py = p_x * m._12 + p_y * m._22 + p_z * m._32 + p_w * m._42;
+		var pz = p_x * m._13 + p_y * m._23 + p_z * m._33 + p_w * m._43;
+		p_x = px;
+		p_y = py;
+		p_z = pz;
 		this.px = p_x;
 		this.py = p_y;
 		this.pz = p_z;
 		var l_z;
 		var l_y;
 		var l_x;
-		var x1 = this.lx;
-		var y1 = this.ly;
-		var z1 = this.lz;
-		l_x = x1;
-		l_y = y1;
-		l_z = z1;
-		l_x = x1 * m._11 + y1 * m._21 + z1 * m._31;
-		l_y = x1 * m._12 + y1 * m._22 + z1 * m._32;
-		l_z = x1 * m._13 + y1 * m._23 + z1 * m._33;
+		var l_w;
+		l_x = this.lx;
+		l_y = this.ly;
+		l_z = this.lz;
+		l_w = 1.;
+		var px1 = l_x * m._11 + l_y * m._21 + l_z * m._31;
+		var py1 = l_x * m._12 + l_y * m._22 + l_z * m._32;
+		var pz1 = l_x * m._13 + l_y * m._23 + l_z * m._33;
+		l_x = px1;
+		l_y = py1;
+		l_z = pz1;
 		this.lx = l_x;
 		this.ly = l_y;
 		this.lz = l_z;
@@ -16610,32 +17350,41 @@ h3d_col_Ray.prototype = {
 		var a_z;
 		var a_y;
 		var a_x;
-		var x = this.px;
-		var y = this.py;
-		var z = this.pz;
-		a_x = x;
-		a_y = y;
-		a_z = z;
-		var iw = 1 / (x * mvp._14 + y * mvp._24 + z * mvp._34 + mvp._44);
-		a_x = (x * mvp._11 + y * mvp._21 + z * mvp._31 + mvp._41) * iw;
-		a_y = (x * mvp._12 + y * mvp._22 + z * mvp._32 + mvp._42) * iw;
-		a_z = (x * mvp._13 + y * mvp._23 + z * mvp._33 + mvp._43) * iw;
+		var a_w;
+		a_x = this.px;
+		a_y = this.py;
+		a_z = this.pz;
+		a_w = 1.;
+		var px = a_x * mvp._11 + a_y * mvp._21 + a_z * mvp._31 + a_w * mvp._41;
+		var py = a_x * mvp._12 + a_y * mvp._22 + a_z * mvp._32 + a_w * mvp._42;
+		var pz = a_x * mvp._13 + a_y * mvp._23 + a_z * mvp._33 + a_w * mvp._43;
+		var iw = 1 / (a_x * mvp._14 + a_y * mvp._24 + a_z * mvp._34 + a_w * mvp._44);
+		a_x = px * iw;
+		a_y = py * iw;
+		a_z = pz * iw;
+		a_w = 1;
 		var b_z;
 		var b_y;
 		var b_x;
-		var x1 = this.px + this.lx;
-		var y1 = this.py + this.ly;
-		var z1 = this.pz + this.lz;
-		b_x = x1;
-		b_y = y1;
-		b_z = z1;
-		var iw1 = 1 / (x1 * mvp._14 + y1 * mvp._24 + z1 * mvp._34 + mvp._44);
-		b_x = (x1 * mvp._11 + y1 * mvp._21 + z1 * mvp._31 + mvp._41) * iw1;
-		b_y = (x1 * mvp._12 + y1 * mvp._22 + z1 * mvp._32 + mvp._42) * iw1;
-		b_z = (x1 * mvp._13 + y1 * mvp._23 + z1 * mvp._33 + mvp._43) * iw1;
-		var dx = 1 / (b_x - a_x);
-		var dy = 1 / (b_y - a_y);
-		var dz = 1 / (b_z - a_z);
+		var b_w;
+		b_x = this.px + this.lx;
+		b_y = this.py + this.ly;
+		b_z = this.pz + this.lz;
+		b_w = 1.;
+		var px1 = b_x * mvp._11 + b_y * mvp._21 + b_z * mvp._31 + b_w * mvp._41;
+		var py1 = b_x * mvp._12 + b_y * mvp._22 + b_z * mvp._32 + b_w * mvp._42;
+		var pz1 = b_x * mvp._13 + b_y * mvp._23 + b_z * mvp._33 + b_w * mvp._43;
+		var iw1 = 1 / (b_x * mvp._14 + b_y * mvp._24 + b_z * mvp._34 + b_w * mvp._44);
+		b_x = px1 * iw1;
+		b_y = py1 * iw1;
+		b_z = pz1 * iw1;
+		b_w = 1;
+		var lx = b_x - a_x;
+		var ly = b_y - a_y;
+		var lz = b_z - a_z;
+		var dx = 1 / lx;
+		var dy = 1 / ly;
+		var dz = 1 / lz;
 		var t1 = (-1 - a_x) * dx;
 		var t2 = (1 - a_x) * dx;
 		var t3 = (-1 - a_y) * dy;
@@ -16646,12 +17395,13 @@ h3d_col_Ray.prototype = {
 		var b = t3 > t4 ? t4 : t3;
 		var a1 = a < b ? b : a;
 		var b1 = t5 > t6 ? t6 : t5;
+		var tmin = a1 < b1 ? b1 : a1;
 		var a2 = t1 < t2 ? t2 : t1;
 		var b2 = t3 < t4 ? t4 : t3;
 		var a3 = a2 > b2 ? b2 : a2;
 		var b3 = t5 < t6 ? t6 : t5;
 		var tmax = a3 > b3 ? b3 : a3;
-		return !(tmax < 0 || (a1 < b1 ? b1 : a1) > tmax);
+		return !(tmax < 0 || tmin > tmax);
 	}
 	,collide: function(b) {
 		var dx = 1 / this.lx;
@@ -16667,6 +17417,7 @@ h3d_col_Ray.prototype = {
 		var b1 = t3 > t4 ? t4 : t3;
 		var a1 = a < b1 ? b1 : a;
 		var b2 = t5 > t6 ? t6 : t5;
+		var tmin = a1 < b2 ? b2 : a1;
 		var a2 = t1 < t2 ? t2 : t1;
 		var b3 = t3 < t4 ? t4 : t3;
 		var a3 = a2 > b3 ? b3 : a2;
@@ -16674,7 +17425,7 @@ h3d_col_Ray.prototype = {
 		var tmax = a3 > b4 ? b4 : a3;
 		if(tmax < 0) {
 			return false;
-		} else if((a1 < b2 ? b2 : a1) > tmax) {
+		} else if(tmin > tmax) {
 			return false;
 		} else {
 			return true;
@@ -16714,12 +17465,14 @@ h3d_col_Sphere.prototype = {
 		return dx * dx + dy * dy + dz * dz < this.r * this.r;
 	}
 	,rayIntersection: function(r,p) {
+		var r2 = this.r * this.r;
 		var px = r.px + r.lx;
 		var py = r.py + r.ly;
 		var pz = r.pz + r.lz;
 		var a = r.lx * r.lx + r.ly * r.ly + r.lz * r.lz;
 		var b = 2 * r.lx * (this.x - px) + 2 * r.ly * (this.y - py) + 2 * r.lz * (this.z - pz);
-		var d = b * b - 4 * a * (this.x * this.x + this.y * this.y + this.z * this.z + (px * px + py * py + pz * pz) - 2 * (this.x * px + this.y * py + this.z * pz) - this.r * this.r);
+		var c = this.x * this.x + this.y * this.y + this.z * this.z + (px * px + py * py + pz * pz) - 2 * (this.x * px + this.y * py + this.z * pz) - r2;
+		var d = b * b - 4 * a * c;
 		if(d < 0) {
 			return null;
 		}
@@ -16734,127 +17487,105 @@ h3d_col_Sphere.prototype = {
 		return p;
 	}
 	,inFrustum: function(mvp) {
-		var x = this.x;
-		var y = this.y;
-		var z = this.z;
+		var p_z;
+		var p_y;
+		var p_x = this.x;
+		p_y = this.y;
+		p_z = this.z;
 		var pl_nz;
 		var pl_ny;
 		var pl_nx;
 		var pl_d;
-		var nx = mvp._14 + mvp._11;
-		var ny = mvp._24 + mvp._21;
-		var nz = mvp._34 + mvp._31;
-		var d = -(mvp._44 + mvp._41);
-		pl_nx = nx;
-		pl_ny = ny;
-		pl_nz = nz;
-		pl_d = d;
-		var len = 1. / Math.sqrt(nx * nx + ny * ny + nz * nz);
-		pl_nx = nx * len;
-		pl_ny = ny * len;
-		pl_nz = nz * len;
-		pl_d = d * len;
-		if(pl_nx * x + pl_ny * y + pl_nz * z - pl_d < -this.r) {
+		pl_nx = mvp._14 + mvp._11;
+		pl_ny = mvp._24 + mvp._21;
+		pl_nz = mvp._34 + mvp._31;
+		pl_d = -(mvp._44 + mvp._41);
+		var len = 1. / Math.sqrt(pl_nx * pl_nx + pl_ny * pl_ny + pl_nz * pl_nz);
+		pl_nx *= len;
+		pl_ny *= len;
+		pl_nz *= len;
+		pl_d *= len;
+		if(pl_nx * p_x + pl_ny * p_y + pl_nz * p_z - pl_d < -this.r) {
 			return false;
 		}
 		var pl_nz1;
 		var pl_ny1;
 		var pl_nx1;
 		var pl_d1;
-		var nx1 = mvp._14 - mvp._11;
-		var ny1 = mvp._24 - mvp._21;
-		var nz1 = mvp._34 - mvp._31;
-		var d1 = mvp._41 - mvp._44;
-		pl_nx1 = nx1;
-		pl_ny1 = ny1;
-		pl_nz1 = nz1;
-		pl_d1 = d1;
-		var len1 = 1. / Math.sqrt(nx1 * nx1 + ny1 * ny1 + nz1 * nz1);
-		pl_nx1 = nx1 * len1;
-		pl_ny1 = ny1 * len1;
-		pl_nz1 = nz1 * len1;
-		pl_d1 = d1 * len1;
-		if(pl_nx1 * x + pl_ny1 * y + pl_nz1 * z - pl_d1 < -this.r) {
+		pl_nx1 = mvp._14 - mvp._11;
+		pl_ny1 = mvp._24 - mvp._21;
+		pl_nz1 = mvp._34 - mvp._31;
+		pl_d1 = mvp._41 - mvp._44;
+		var len1 = 1. / Math.sqrt(pl_nx1 * pl_nx1 + pl_ny1 * pl_ny1 + pl_nz1 * pl_nz1);
+		pl_nx1 *= len1;
+		pl_ny1 *= len1;
+		pl_nz1 *= len1;
+		pl_d1 *= len1;
+		if(pl_nx1 * p_x + pl_ny1 * p_y + pl_nz1 * p_z - pl_d1 < -this.r) {
 			return false;
 		}
 		var pl_nz2;
 		var pl_ny2;
 		var pl_nx2;
 		var pl_d2;
-		var nx2 = mvp._14 + mvp._12;
-		var ny2 = mvp._24 + mvp._22;
-		var nz2 = mvp._34 + mvp._32;
-		var d2 = -(mvp._44 + mvp._42);
-		pl_nx2 = nx2;
-		pl_ny2 = ny2;
-		pl_nz2 = nz2;
-		pl_d2 = d2;
-		var len2 = 1. / Math.sqrt(nx2 * nx2 + ny2 * ny2 + nz2 * nz2);
-		pl_nx2 = nx2 * len2;
-		pl_ny2 = ny2 * len2;
-		pl_nz2 = nz2 * len2;
-		pl_d2 = d2 * len2;
-		if(pl_nx2 * x + pl_ny2 * y + pl_nz2 * z - pl_d2 < -this.r) {
+		pl_nx2 = mvp._14 + mvp._12;
+		pl_ny2 = mvp._24 + mvp._22;
+		pl_nz2 = mvp._34 + mvp._32;
+		pl_d2 = -(mvp._44 + mvp._42);
+		var len2 = 1. / Math.sqrt(pl_nx2 * pl_nx2 + pl_ny2 * pl_ny2 + pl_nz2 * pl_nz2);
+		pl_nx2 *= len2;
+		pl_ny2 *= len2;
+		pl_nz2 *= len2;
+		pl_d2 *= len2;
+		if(pl_nx2 * p_x + pl_ny2 * p_y + pl_nz2 * p_z - pl_d2 < -this.r) {
 			return false;
 		}
 		var pl_nz3;
 		var pl_ny3;
 		var pl_nx3;
 		var pl_d3;
-		var nx3 = mvp._14 - mvp._12;
-		var ny3 = mvp._24 - mvp._22;
-		var nz3 = mvp._34 - mvp._32;
-		var d3 = mvp._42 - mvp._44;
-		pl_nx3 = nx3;
-		pl_ny3 = ny3;
-		pl_nz3 = nz3;
-		pl_d3 = d3;
-		var len3 = 1. / Math.sqrt(nx3 * nx3 + ny3 * ny3 + nz3 * nz3);
-		pl_nx3 = nx3 * len3;
-		pl_ny3 = ny3 * len3;
-		pl_nz3 = nz3 * len3;
-		pl_d3 = d3 * len3;
-		if(pl_nx3 * x + pl_ny3 * y + pl_nz3 * z - pl_d3 < -this.r) {
+		pl_nx3 = mvp._14 - mvp._12;
+		pl_ny3 = mvp._24 - mvp._22;
+		pl_nz3 = mvp._34 - mvp._32;
+		pl_d3 = mvp._42 - mvp._44;
+		var len3 = 1. / Math.sqrt(pl_nx3 * pl_nx3 + pl_ny3 * pl_ny3 + pl_nz3 * pl_nz3);
+		pl_nx3 *= len3;
+		pl_ny3 *= len3;
+		pl_nz3 *= len3;
+		pl_d3 *= len3;
+		if(pl_nx3 * p_x + pl_ny3 * p_y + pl_nz3 * p_z - pl_d3 < -this.r) {
 			return false;
 		}
 		var pl_nz4;
 		var pl_ny4;
 		var pl_nx4;
 		var pl_d4;
-		var nx4 = mvp._13;
-		var ny4 = mvp._23;
-		var nz4 = mvp._33;
-		var d4 = -mvp._43;
-		pl_nx4 = nx4;
-		pl_ny4 = ny4;
-		pl_nz4 = nz4;
-		pl_d4 = d4;
-		var len4 = 1. / Math.sqrt(nx4 * nx4 + ny4 * ny4 + nz4 * nz4);
-		pl_nx4 = nx4 * len4;
-		pl_ny4 = ny4 * len4;
-		pl_nz4 = nz4 * len4;
-		pl_d4 = d4 * len4;
-		if(pl_nx4 * x + pl_ny4 * y + pl_nz4 * z - pl_d4 < -this.r) {
+		pl_nx4 = mvp._13;
+		pl_ny4 = mvp._23;
+		pl_nz4 = mvp._33;
+		pl_d4 = -mvp._43;
+		var len4 = 1. / Math.sqrt(pl_nx4 * pl_nx4 + pl_ny4 * pl_ny4 + pl_nz4 * pl_nz4);
+		pl_nx4 *= len4;
+		pl_ny4 *= len4;
+		pl_nz4 *= len4;
+		pl_d4 *= len4;
+		if(pl_nx4 * p_x + pl_ny4 * p_y + pl_nz4 * p_z - pl_d4 < -this.r) {
 			return false;
 		}
 		var pl_nz5;
 		var pl_ny5;
 		var pl_nx5;
 		var pl_d5;
-		var nx5 = mvp._13;
-		var ny5 = mvp._23;
-		var nz5 = mvp._33;
-		var d5 = -mvp._43;
-		pl_nx5 = nx5;
-		pl_ny5 = ny5;
-		pl_nz5 = nz5;
-		pl_d5 = d5;
-		var len5 = 1. / Math.sqrt(nx5 * nx5 + ny5 * ny5 + nz5 * nz5);
-		pl_nx5 = nx5 * len5;
-		pl_ny5 = ny5 * len5;
-		pl_nz5 = nz5 * len5;
-		pl_d5 = d5 * len5;
-		if(pl_nx5 * x + pl_ny5 * y + pl_nz5 * z - pl_d5 < -this.r) {
+		pl_nx5 = mvp._13;
+		pl_ny5 = mvp._23;
+		pl_nz5 = mvp._33;
+		pl_d5 = -mvp._43;
+		var len5 = 1. / Math.sqrt(pl_nx5 * pl_nx5 + pl_ny5 * pl_ny5 + pl_nz5 * pl_nz5);
+		pl_nx5 *= len5;
+		pl_ny5 *= len5;
+		pl_nz5 *= len5;
+		pl_d5 *= len5;
+		if(pl_nx5 * p_x + pl_ny5 * p_y + pl_nz5 * p_z - pl_d5 < -this.r) {
 			return false;
 		}
 		return true;
@@ -17072,6 +17803,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 	}
 	,begin: function(frame) {
 		this.frame = frame;
+		this.resetStream();
 		this.gl.useProgram(null);
 		this.curShader = null;
 		this.curBuffer = null;
@@ -17083,7 +17815,8 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		return "// vertex:\n" + hxsl_GlslOut.toGlsl(shader.vertex.data) + "// fragment:\n" + hxsl_GlslOut.toGlsl(shader.fragment.data);
 	}
 	,compileShader: function(glout,shader) {
-		var s = this.gl.createShader(shader.vertex ? 35633 : 35632);
+		var type = shader.vertex ? 35633 : 35632;
+		var s = this.gl.createShader(type);
 		var code = glout.run(shader.data);
 		this.gl.shaderSource(s,code);
 		this.gl.compileShader(s);
@@ -17118,12 +17851,18 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		var _g = [];
 		var _g2 = 0;
 		var _g1 = shader.textures2DCount;
-		while(_g2 < _g1) _g.push(this.gl.getUniformLocation(p.p,prefix + "Textures[" + _g2++ + "]"));
+		while(_g2 < _g1) {
+			var i = _g2++;
+			_g.push(this.gl.getUniformLocation(p.p,prefix + "Textures[" + i + "]"));
+		}
 		s.textures = _g;
 		var _g11 = [];
 		var _g3 = 0;
 		var _g21 = shader.texturesCubeCount;
-		while(_g3 < _g21) _g11.push(this.gl.getUniformLocation(p.p,prefix + "TexturesCube[" + _g3++ + "]"));
+		while(_g3 < _g21) {
+			var i1 = _g3++;
+			_g11.push(this.gl.getUniformLocation(p.p,prefix + "TexturesCube[" + i1 + "]"));
+		}
 		s.cubeTextures = _g11;
 	}
 	,selectShader: function(shader) {
@@ -17141,7 +17880,8 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			this.gl.deleteShader(p.vertex.s);
 			this.gl.deleteShader(p.fragment.s);
 			if(this.gl.getProgramParameter(p.p,35714) != 1) {
-				throw new js__$Boot_HaxeError("Program linkage failure: " + this.gl.getProgramInfoLog(p.p) + "\nVertex=\n" + glout.run(shader.vertex.data) + "\n\nFragment=\n" + glout.run(shader.fragment.data));
+				var log = this.gl.getProgramInfoLog(p.p);
+				throw new js__$Boot_HaxeError("Program linkage failure: " + log + "\nVertex=\n" + glout.run(shader.vertex.data) + "\n\nFragment=\n" + glout.run(shader.fragment.data));
 			}
 			this.initShader(p,p.vertex,shader.vertex);
 			this.initShader(p,p.fragment,shader.fragment);
@@ -17153,20 +17893,23 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			while(_g < _g1.length) {
 				var v = _g1[_g];
 				++_g;
-				if(v.kind[1] == 1) {
+				var _g2 = v.kind;
+				if(_g2[1] == 1) {
 					var t = 5126;
 					var size;
-					var _g2 = v.type;
-					switch(_g2[1]) {
+					var _g21 = v.type;
+					switch(_g21[1]) {
 					case 3:
 						size = 1;
 						break;
 					case 5:
-						size = _g2[2];
+						var n = _g21[2];
+						size = n;
 						break;
 					case 9:
+						var n1 = _g21[2];
 						t = 5120;
-						size = _g2[2];
+						size = n1;
 						break;
 					default:
 						throw new js__$Boot_HaxeError("assert " + Std.string(v.type));
@@ -17195,7 +17938,8 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		var _g11 = this.curAttribs;
 		var _g3 = p.attribs.length;
 		while(_g11 < _g3) {
-			this.gl.enableVertexAttribArray(_g11++);
+			var i = _g11++;
+			this.gl.enableVertexAttribArray(i);
 			this.curAttribs++;
 		}
 		while(this.curAttribs > p.attribs.length) this.gl.disableVertexAttribArray(--this.curAttribs);
@@ -17203,7 +17947,10 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.curBuffer = null;
 		var _g12 = 0;
 		var _g4 = this.boundTextures.length;
-		while(_g12 < _g4) this.boundTextures[_g12++] = null;
+		while(_g12 < _g4) {
+			var i1 = _g12++;
+			this.boundTextures[i1] = null;
+		}
 		return true;
 	}
 	,uploadShaderBuffers: function(buf,which) {
@@ -17393,7 +18140,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 				this.curMatBits |= 1006632960;
 			}
 			this.gl.clearColor(color.x,color.y,color.z,color.w);
-			bits = 16384;
+			bits |= 16384;
 		}
 		if(depth != null) {
 			this.gl.depthMask(true);
@@ -17412,7 +18159,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			this.gl.clear(bits);
 		}
 		if(this.curTarget != null) {
-			this.curTarget.flags |= 128;
+			this.curTarget.flags |= 1 << h3d_mat_TextureFlags.WasCleared[1];
 		}
 	}
 	,resize: function(width,height) {
@@ -17433,7 +18180,8 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		}
 	}
 	,getChannels: function(t) {
-		switch(t.internalFmt) {
+		var _g = t.internalFmt;
+		switch(_g) {
 		case 6406:
 			return 6406;
 		case 6408:
@@ -17453,49 +18201,52 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		}
 	}
 	,allocTexture: function(t) {
-		var tt = { t : this.gl.createTexture(), width : t.width, height : t.height, internalFmt : 6408, pixelFmt : 5121, bits : -1};
-		switch(t.format[1]) {
+		var tt = this.gl.createTexture();
+		var tt1 = { t : tt, width : t.width, height : t.height, internalFmt : 6408, pixelFmt : 5121, bits : -1};
+		var _g = t.format;
+		switch(_g[1]) {
 		case 2:
 			break;
 		case 4:
 			if(this.hasFeature(h3d_impl_Feature.FloatTextures)) {
-				tt.pixelFmt = 5126;
+				tt1.pixelFmt = 5126;
 			} else {
 				throw new js__$Boot_HaxeError("Unsupported texture format " + Std.string(t.format));
 			}
 			break;
 		case 5:
-			tt.internalFmt = 6406;
+			tt1.internalFmt = 6406;
 			break;
 		default:
 			throw new js__$Boot_HaxeError("Unsupported texture format " + Std.string(t.format));
 		}
 		t.lastFrame = this.frame;
-		t.flags &= 268435327;
-		var bind = (t.flags & 2) != 0 ? 34067 : 3553;
-		this.gl.bindTexture(bind,tt.t);
+		t.flags &= 268435455 - (1 << h3d_mat_TextureFlags.WasCleared[1]);
+		var bind = (t.flags & 1 << h3d_mat_TextureFlags.Cubic[1]) != 0 ? 34067 : 3553;
+		this.gl.bindTexture(bind,tt1.t);
 		var outOfMem = false;
-		if((t.flags & 2) != 0) {
+		if((t.flags & 1 << h3d_mat_TextureFlags.Cubic[1]) != 0) {
 			var _g1 = 0;
 			while(_g1 < 6) {
-				this.gl.texImage2D(h3d_impl_GlDriver.CUBE_FACES[_g1++],0,tt.internalFmt,tt.width,tt.height,0,this.getChannels(tt),tt.pixelFmt,null);
+				var i = _g1++;
+				this.gl.texImage2D(h3d_impl_GlDriver.CUBE_FACES[i],0,tt1.internalFmt,tt1.width,tt1.height,0,this.getChannels(tt1),tt1.pixelFmt,null);
 				if(this.gl.getError() == 1285) {
 					outOfMem = true;
 					break;
 				}
 			}
 		} else {
-			this.gl.texImage2D(bind,0,tt.internalFmt,tt.width,tt.height,0,this.getChannels(tt),tt.pixelFmt,null);
+			this.gl.texImage2D(bind,0,tt1.internalFmt,tt1.width,tt1.height,0,this.getChannels(tt1),tt1.pixelFmt,null);
 			if(this.gl.getError() == 1285) {
 				outOfMem = true;
 			}
 		}
 		this.gl.bindTexture(bind,null);
 		if(outOfMem) {
-			this.gl.deleteTexture(tt.t);
+			this.gl.deleteTexture(tt1.t);
 			return null;
 		}
-		return tt;
+		return tt1;
 	}
 	,allocDepthBuffer: function(b) {
 		var r = this.gl.createRenderbuffer();
@@ -17523,7 +18274,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		if(m.size * m.stride == 0) {
 			throw new js__$Boot_HaxeError("assert");
 		}
-		this.gl.bufferData(34962,m.size * m.stride * 4,(m.flags & 1) != 0 ? 35048 : 35044);
+		this.gl.bufferData(34962,m.size * m.stride * 4,(m.flags & 1 << h3d_BufferFlag.Dynamic[1]) != 0 ? 35048 : 35044);
 		var outOfMem = this.gl.getError() == 1285;
 		this.gl.bindBuffer(34962,null);
 		if(outOfMem) {
@@ -17560,7 +18311,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.gl.deleteBuffer(v.b);
 	}
 	,uploadTextureBitmap: function(t,bmp,mipLevel,side) {
-		if(t.format != hxd_PixelFormat.RGBA || (t.flags & 2) != 0) {
+		if(t.format != hxd_PixelFormat.RGBA || (t.flags & 1 << h3d_mat_TextureFlags.Cubic[1]) != 0) {
 			var pixels = bmp.getPixels();
 			this.uploadTexturePixels(t,pixels,mipLevel,side);
 			pixels.dispose();
@@ -17570,7 +18321,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			this.gl.pixelStorei(37440,1);
 			this.gl.texImage2D(3553,mipLevel,t.t.internalFmt,this.getChannels(t.t),t.t.pixelFmt,img.getImageData(0,0,bmp.ctx.canvas.width,bmp.ctx.canvas.height));
 			this.gl.bindTexture(3553,null);
-			t.flags |= 128;
+			t.flags |= 1 << h3d_mat_TextureFlags.WasCleared[1];
 		}
 	}
 	,resetStream: function() {
@@ -17579,7 +18330,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		return data;
 	}
 	,uploadTexturePixels: function(t,pixels,mipLevel,side) {
-		var cubic = (t.flags & 2) != 0;
+		var cubic = (t.flags & 1 << h3d_mat_TextureFlags.Cubic[1]) != 0;
 		var bind = cubic ? 34067 : 3553;
 		var face = cubic ? h3d_impl_GlDriver.CUBE_FACES[side] : 3553;
 		this.gl.bindTexture(bind,t.t.t);
@@ -17587,32 +18338,36 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.gl.pixelStorei(37440,cubic ? 0 : 1);
 		this.gl.texImage2D(face,mipLevel,t.t.internalFmt,pixels.width,pixels.height,0,this.getChannels(t.t),t.t.pixelFmt,new Uint8Array(pixels.bytes.b.bufferValue));
 		this.gl.bindTexture(bind,null);
-		t.flags |= 128;
+		t.flags |= 1 << h3d_mat_TextureFlags.WasCleared[1];
 	}
 	,uploadVertexBuffer: function(v,startVertex,vertexCount,buf,bufPos) {
 		var stride = v.stride;
 		this.gl.bindBuffer(34962,v.b);
-		var sub = new Float32Array(new Float32Array(buf).buffer,bufPos,vertexCount * stride);
+		var buf1 = new Float32Array(buf);
+		var sub = new Float32Array(buf1.buffer,bufPos,vertexCount * stride);
 		this.gl.bufferSubData(34962,startVertex * stride * 4,sub);
 		this.gl.bindBuffer(34962,null);
 	}
 	,uploadVertexBytes: function(v,startVertex,vertexCount,buf,bufPos) {
 		var stride = v.stride;
 		this.gl.bindBuffer(34962,v.b);
-		var sub = new Uint8Array(new Uint8Array(buf.b.bufferValue).buffer,bufPos * 4,vertexCount * stride * 4);
+		var buf1 = new Uint8Array(buf.b.bufferValue);
+		var sub = new Uint8Array(buf1.buffer,bufPos * 4,vertexCount * stride * 4);
 		this.gl.bufferSubData(34962,startVertex * stride * 4,sub);
 		this.gl.bindBuffer(34962,null);
 	}
 	,uploadIndexBuffer: function(i,startIndice,indiceCount,buf,bufPos) {
 		this.gl.bindBuffer(34963,i);
-		var sub = new Uint16Array(new Uint16Array(buf).buffer,bufPos,indiceCount);
+		var buf1 = new Uint16Array(buf);
+		var sub = new Uint16Array(buf1.buffer,bufPos,indiceCount);
 		this.gl.bufferSubData(34963,startIndice * 2,sub);
 		this.gl.bindBuffer(34963,null);
 		this.curIndexBuffer = null;
 	}
 	,uploadIndexBytes: function(i,startIndice,indiceCount,buf,bufPos) {
 		this.gl.bindBuffer(34963,i);
-		var sub = new Uint8Array(new Uint8Array(buf.b.bufferValue).buffer,bufPos * 2,indiceCount * 2);
+		var buf1 = new Uint8Array(buf.b.bufferValue);
+		var sub = new Uint8Array(buf1.buffer,bufPos * 2,indiceCount * 2);
 		this.gl.bufferSubData(34963,startIndice * 2,sub);
 		this.gl.bindBuffer(34963,null);
 		this.curIndexBuffer = null;
@@ -17621,7 +18376,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		if(v == this.curBuffer) {
 			return;
 		}
-		if(this.curBuffer != null && v.buffer == this.curBuffer.buffer && (v.buffer.flags & 16) != 0 == ((this.curBuffer.flags & 16) != 0)) {
+		if(this.curBuffer != null && v.buffer == this.curBuffer.buffer && (v.buffer.flags & 1 << h3d_BufferFlag.RawFormat[1]) != 0 == ((this.curBuffer.flags & 1 << h3d_BufferFlag.RawFormat[1]) != 0)) {
 			this.curBuffer = v;
 			return;
 		}
@@ -17634,13 +18389,14 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			throw new js__$Boot_HaxeError("Buffer stride (" + m.stride + ") and shader stride (" + this.curShader.stride + ") mismatch");
 		}
 		this.gl.bindBuffer(34962,m.b);
-		if((v.flags & 16) != 0) {
+		if((v.flags & 1 << h3d_BufferFlag.RawFormat[1]) != 0) {
 			var _g = 0;
 			var _g1 = this.curShader.attribs;
 			while(_g < _g1.length) {
 				var a = _g1[_g];
 				++_g;
-				this.gl.vertexAttribPointer(a.index,a.size,a.type,false,m.stride * 4,a.offset * 4);
+				var pos = a.offset;
+				this.gl.vertexAttribPointer(a.index,a.size,a.type,false,m.stride * 4,pos * 4);
 			}
 		} else {
 			var offset = 8;
@@ -17649,32 +18405,33 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			while(_g11 < _g2) {
 				var i = _g11++;
 				var a1 = this.curShader.attribs[i];
-				var pos;
+				var pos1;
 				var _g21 = this.curShader.attribNames[i];
 				switch(_g21) {
 				case "normal":
 					if(m.stride < 6) {
 						throw new js__$Boot_HaxeError("Buffer is missing NORMAL data, set it to RAW format ?");
 					}
-					pos = 3;
+					pos1 = 3;
 					break;
 				case "position":
-					pos = 0;
+					pos1 = 0;
 					break;
 				case "uv":
 					if(m.stride < 8) {
 						throw new js__$Boot_HaxeError("Buffer is missing UV data, set it to RAW format ?");
 					}
-					pos = 6;
+					pos1 = 6;
 					break;
 				default:
-					pos = offset;
+					var s = _g21;
+					pos1 = offset;
 					offset += a1.size;
 					if(offset > m.stride) {
-						throw new js__$Boot_HaxeError("Buffer is missing '" + _g21 + "' data, set it to RAW format ?");
+						throw new js__$Boot_HaxeError("Buffer is missing '" + s + "' data, set it to RAW format ?");
 					}
 				}
-				this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,pos * 4);
+				this.gl.vertexAttribPointer(a1.index,a1.size,a1.type,false,m.stride * 4,pos1 * 4);
 			}
 		}
 	}
@@ -17707,7 +18464,8 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			this.gl.disable(3089);
 		} else {
 			this.gl.enable(3089);
-			this.gl.scissor(x,(this.curTarget == null ? this.bufferHeight : this.curTarget.height) - (y + height),width,height);
+			var th = this.curTarget == null ? this.bufferHeight : this.curTarget.height;
+			this.gl.scissor(x,th - (y + height),width,height);
 		}
 	}
 	,unbindTargets: function() {
@@ -17743,16 +18501,16 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		if(tex.t == null) {
 			tex.alloc();
 		}
-		if((tex.flags & 4) != 0 && (tex.flags & 128) == 0) {
-			var bind = (tex.flags & 2) != 0 ? 34067 : 3553;
+		if((tex.flags & 1 << h3d_mat_TextureFlags.MipMapped[1]) != 0 && (tex.flags & 1 << h3d_mat_TextureFlags.WasCleared[1]) == 0) {
+			var bind = (tex.flags & 1 << h3d_mat_TextureFlags.Cubic[1]) != 0 ? 34067 : 3553;
 			this.gl.bindTexture(bind,tex.t.t);
 			this.gl.generateMipmap(bind);
 			this.gl.bindTexture(bind,null);
-			tex.flags |= 128;
+			tex.flags |= 1 << h3d_mat_TextureFlags.WasCleared[1];
 		}
 		tex.lastFrame = this.frame;
 		this.gl.bindFramebuffer(36160,this.commonFB);
-		this.gl.framebufferTexture2D(36160,36064,(tex.flags & 2) != 0 ? h3d_impl_GlDriver.CUBE_FACES[face] : 3553,tex.t.t,mipLevel);
+		this.gl.framebufferTexture2D(36160,36064,(tex.flags & 1 << h3d_mat_TextureFlags.Cubic[1]) != 0 ? h3d_impl_GlDriver.CUBE_FACES[face] : 3553,tex.t.t,mipLevel);
 		if(tex.depthBuffer != null) {
 			this.gl.framebufferRenderbuffer(36160,36096,36161,tex.depthBuffer.b.r);
 		} else {
@@ -17761,7 +18519,10 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		this.gl.viewport(0,0,tex.width >> mipLevel,tex.height >> mipLevel);
 		var _g1 = 0;
 		var _g = this.boundTextures.length;
-		while(_g1 < _g) this.boundTextures[_g1++] = null;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.boundTextures[i] = null;
+		}
 	}
 	,setRenderTargets: function(textures) {
 		if(this.curTarget != null && this.numTargets > 1) {
@@ -17791,7 +18552,10 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 			var _g2 = [];
 			var _g21 = 0;
 			var _g11 = textures.length;
-			while(_g21 < _g11) _g2.push(36064 + _g21++);
+			while(_g21 < _g11) {
+				var i1 = _g21++;
+				_g2.push(36064 + i1);
+			}
 			tmp.drawBuffersWEBGL(_g2);
 		}
 	}
@@ -17839,7 +18603,7 @@ h3d_impl_GlDriver.prototype = $extend(h3d_impl_Driver.prototype,{
 		}
 		this.gl.readPixels(0,0,pixels.width,pixels.height,6408,5121,pixels.bytes.b);
 		pixels.set_innerFormat(hxd_PixelFormat.RGBA);
-		pixels.flags |= 4;
+		pixels.flags |= 1 << hxd_Flags.FlipY[1];
 	}
 	,__class__: h3d_impl_GlDriver
 });
@@ -17854,7 +18618,8 @@ h3d_impl__$ManagedBuffer_FreeCell.prototype = {
 	__class__: h3d_impl__$ManagedBuffer_FreeCell
 };
 var h3d_impl_ManagedBuffer = function(stride,size,flags) {
-	this.flags = 0;
+	var this1 = 0;
+	this.flags = this1;
 	if(flags != null) {
 		var _g = 0;
 		while(_g < flags.length) {
@@ -17929,7 +18694,8 @@ h3d_impl_ManagedBuffer.prototype = {
 		return pos;
 	}
 	,allocBuffer: function(b) {
-		var p = this.allocPosition(b.vertices,(b.flags & 4) != 0 ? 4 : (b.flags & 2) != 0 ? 3 : 1);
+		var align = (b.flags & 1 << h3d_BufferFlag.Quads[1]) != 0 ? 4 : (b.flags & 1 << h3d_BufferFlag.Triangles[1]) != 0 ? 3 : 1;
+		var p = this.allocPosition(b.vertices,align);
 		if(p < 0) {
 			return false;
 		}
@@ -17973,7 +18739,7 @@ h3d_impl_ManagedBuffer.prototype = {
 		if(nvert != 0) {
 			throw new js__$Boot_HaxeError("assert");
 		}
-		if(this.freeList.count == this.size && (this.flags & 8) == 0) {
+		if(this.freeList.count == this.size && (this.flags & 1 << h3d_BufferFlag.Managed[1]) == 0) {
 			this.dispose();
 		}
 	}
@@ -18001,15 +18767,22 @@ h3d_impl_MemoryManager.prototype = {
 		this.initIndexes();
 	}
 	,initIndexes: function() {
-		var indices = new Array(0);
+		var this1 = new Array(0);
+		var indices = this1;
 		var _g = 0;
-		while(_g < 65533) indices.push(_g++);
+		while(_g < 65533) {
+			var i = _g++;
+			indices.push(i);
+		}
 		this.triIndexes = h3d_Indexes.alloc(indices);
-		var indices1 = new Array(0);
+		var this2 = new Array(0);
+		var indices1 = this2;
+		var p = 0;
 		var _g1 = 0;
 		var _g2 = 16383;
 		while(_g1 < _g2) {
-			var k = _g1++ << 2;
+			var i1 = _g1++;
+			var k = i1 << 2;
 			indices1.push(k);
 			indices1.push(k + 1);
 			indices1.push(k + 2);
@@ -18076,7 +18849,7 @@ h3d_impl_MemoryManager.prototype = {
 		this.bufferCount--;
 	}
 	,allocBuffer: function(b,stride) {
-		var max = (b.flags & 4) != 0 ? 65532 : (b.flags & 2) != 0 ? 65533 : 65534;
+		var max = (b.flags & 1 << h3d_BufferFlag.Quads[1]) != 0 ? 65532 : (b.flags & 1 << h3d_BufferFlag.Triangles[1]) != 0 ? 65533 : 65534;
 		if(b.vertices > max) {
 			if(max == 65534) {
 				throw new js__$Boot_HaxeError("Cannot split buffer with " + b.vertices + " vertices if it's not Quads/Triangles");
@@ -18099,32 +18872,33 @@ h3d_impl_MemoryManager.prototype = {
 			n.next = new h3d_Buffer(rem,stride,flags);
 			return;
 		}
-		if((b.flags & 8) == 0) {
-			if(!new h3d_impl_ManagedBuffer(stride,b.vertices).allocBuffer(b)) {
+		if((b.flags & 1 << h3d_BufferFlag.Managed[1]) == 0) {
+			var m = new h3d_impl_ManagedBuffer(stride,b.vertices);
+			if(!m.allocBuffer(b)) {
 				throw new js__$Boot_HaxeError("assert");
 			}
 			return;
 		}
-		var m = this.buffers[stride];
+		var m1 = this.buffers[stride];
 		var prev = null;
-		while(m != null) {
-			if(m.allocBuffer(b)) {
+		while(m1 != null) {
+			if(m1.allocBuffer(b)) {
 				return;
 			}
-			prev = m;
-			m = m.next;
+			prev = m1;
+			m1 = m1.next;
 		}
-		var align = (b.flags & 2) != 0 ? 3 : (b.flags & 4) != 0 ? 4 : 0;
-		if(m == null && align > 0) {
+		var align = (b.flags & 1 << h3d_BufferFlag.Triangles[1]) != 0 ? 3 : (b.flags & 1 << h3d_BufferFlag.Quads[1]) != 0 ? 4 : 0;
+		if(m1 == null && align > 0) {
 			var total = b.vertices;
 			var size = total;
 			while(size > 2048) {
-				m = this.buffers[stride];
+				m1 = this.buffers[stride];
 				size >>= 1;
 				size -= size % align;
 				b.vertices = size;
-				while(m != null) {
-					if(m.allocBuffer(b)) {
+				while(m1 != null) {
+					if(m1.allocBuffer(b)) {
 						var flags1 = [];
 						var _g2 = 0;
 						var _g11 = h3d_impl_MemoryManager.ALL_FLAGS;
@@ -18138,18 +18912,18 @@ h3d_impl_MemoryManager.prototype = {
 						b.next = new h3d_Buffer(total - size,stride,flags1);
 						return;
 					}
-					m = m.next;
+					m1 = m1.next;
 				}
 			}
 			b.vertices = total;
 		}
-		m = new h3d_impl_ManagedBuffer(stride,65533,[h3d_BufferFlag.Managed]);
+		m1 = new h3d_impl_ManagedBuffer(stride,65533,[h3d_BufferFlag.Managed]);
 		if(prev == null) {
-			this.buffers[stride] = m;
+			this.buffers[stride] = m1;
 		} else {
-			prev.next = m;
+			prev.next = m1;
 		}
-		if(!m.allocBuffer(b)) {
+		if(!m1.allocBuffer(b)) {
 			throw new js__$Boot_HaxeError("assert");
 		}
 	}
@@ -18196,7 +18970,7 @@ h3d_impl_MemoryManager.prototype = {
 		this.texMemory -= t.width * t.height * this.bpp(t);
 	}
 	,allocTexture: function(t) {
-		this.cleanTextures(false);
+		var free = this.cleanTextures(false);
 		t.t = this.driver.allocTexture(t);
 		if(t.t == null) {
 			if(!this.cleanTextures(true)) {
@@ -18271,6 +19045,7 @@ h3d_impl_MemoryManager.prototype = {
 	,stats: function() {
 		var total = 0;
 		var free = 0;
+		var count = 0;
 		var _g = 0;
 		var _g1 = this.buffers;
 		while(_g < _g1.length) {
@@ -18284,6 +19059,7 @@ h3d_impl_MemoryManager.prototype = {
 					free += f.count * b1.stride * 4;
 					f = f.next;
 				}
+				++count;
 				b1 = b1.next;
 			}
 		}
@@ -18297,6 +19073,7 @@ h3d_impl_MemoryManager.prototype = {
 var h3d_impl_TextureCache = function() {
 	this.position = 0;
 	this.cache = [];
+	var engine = h3d_Engine.CURRENT;
 	this.defaultFormat = h3d_mat_Texture.nativeFormat;
 	this.defaultDepthBuffer = h3d_mat_DepthBuffer.getDefault();
 };
@@ -18337,7 +19114,8 @@ h3d_impl_TextureCache.prototype = {
 			if(t != null) {
 				t.dispose();
 			}
-			t = new h3d_mat_Texture(width,height,[h3d_mat_TextureFlags.Target],format);
+			var flags = [h3d_mat_TextureFlags.Target];
+			t = new h3d_mat_Texture(width,height,flags,format);
 			this.cache[this.position] = t;
 		}
 		t.depthBuffer = defaultDepth ? this.defaultDepthBuffer : null;
@@ -18582,7 +19360,8 @@ h3d_mat_DefaultMaterialProps.particlesDefault = function() {
 h3d_mat_DefaultMaterialProps.prototype = {
 	apply: function(m) {
 		var mainPass = m.passes;
-		switch(this.kind[1]) {
+		var _g = this.kind;
+		switch(_g[1]) {
 		case 0:case 2:
 			mainPass.setBlendMode(h2d_BlendMode.None);
 			mainPass.set_depthWrite(true);
@@ -18610,7 +19389,8 @@ h3d_mat_DefaultMaterialProps.prototype = {
 			tshader.killAlpha__ = this.kind == h3d_mat_MaterialKind.AlphaKill;
 			tshader.killAlphaThreshold__ = 0.5;
 		}
-		switch(this.shadows[1]) {
+		var _g1 = this.shadows;
+		switch(_g1[1]) {
 		case 0:
 			m.set_castShadows(false);
 			m.set_receiveShadows(false);
@@ -19463,13 +20243,15 @@ hxd_PixelFormat.ALPHA32F.toString = $estr;
 hxd_PixelFormat.ALPHA32F.__enum__ = hxd_PixelFormat;
 hxd_PixelFormat.__empty_constructs__ = [hxd_PixelFormat.ARGB,hxd_PixelFormat.BGRA,hxd_PixelFormat.RGBA,hxd_PixelFormat.RGBA16F,hxd_PixelFormat.RGBA32F,hxd_PixelFormat.ALPHA,hxd_PixelFormat.ALPHA16F,hxd_PixelFormat.ALPHA32F];
 var h3d_mat_Texture = function(w,h,flags,format,allocPos) {
-	this.mem = h3d_Engine.CURRENT.mem;
+	var engine = h3d_Engine.CURRENT;
+	this.mem = engine.mem;
 	if(format == null) {
 		format = h3d_mat_Texture.nativeFormat;
 	}
 	this.id = ++h3d_mat_Texture.UID;
 	this.format = format;
-	this.flags = 0;
+	var this1 = 0;
+	this.flags = this1;
 	if(flags != null) {
 		var _g = 0;
 		while(_g < flags.length) {
@@ -19483,19 +20265,19 @@ var h3d_mat_Texture = function(w,h,flags,format,allocPos) {
 	while(tw < w) tw <<= 1;
 	while(th < h) th <<= 1;
 	if(tw != w || th != h) {
-		this.flags |= 8;
+		this.flags |= 1 << h3d_mat_TextureFlags.IsNPOT[1];
 	}
-	if((this.flags & 1) != 0) {
+	if((this.flags & 1 << h3d_mat_TextureFlags.Target[1]) != 0) {
 		this.realloc = function() {
 		};
 	}
 	this.width = w;
 	this.height = h;
-	this.set_mipMap((this.flags & 4) != 0 ? h3d_mat_MipMap.Nearest : h3d_mat_MipMap.None);
+	this.set_mipMap((this.flags & 1 << h3d_mat_TextureFlags.MipMapped[1]) != 0 ? h3d_mat_MipMap.Nearest : h3d_mat_MipMap.None);
 	this.set_filter(h3d_mat_Filter.Linear);
 	this.set_wrap(h3d_mat_Wrap.Clamp);
 	this.bits &= 32767;
-	if((this.flags & 16) == 0) {
+	if((this.flags & 1 << h3d_mat_TextureFlags.NoAlloc[1]) == 0) {
 		this.alloc();
 	}
 };
@@ -19551,12 +20333,15 @@ h3d_mat_Texture.genNoise = function(size) {
 h3d_mat_Texture.allocNoise = function(t,size) {
 	var b = new hxd_BitmapData(size,size);
 	var _g1 = 0;
-	while(_g1 < size) {
+	var _g = size;
+	while(_g1 < _g) {
 		var x = _g1++;
 		var _g3 = 0;
-		while(_g3 < size) {
+		var _g2 = size;
+		while(_g3 < _g2) {
+			var y = _g3++;
 			var n = Std.random(256);
-			b.setPixel(x,_g3++,-16777216 | n | n << 8 | n << 16);
+			b.setPixel(x,y,-16777216 | n | n << 8 | n << 16);
 		}
 	}
 	t.uploadBitmap(b);
@@ -19576,7 +20361,7 @@ h3d_mat_Texture.prototype = {
 	}
 	,set_onLoaded: function(v) {
 		this.onLoaded = v;
-		if(v != null && (this.flags & 256) == 0) {
+		if(v != null && (this.flags & 1 << h3d_mat_TextureFlags.Loading[1]) == 0) {
 			v();
 		}
 		return v;
@@ -19623,13 +20408,13 @@ h3d_mat_Texture.prototype = {
 		while(tw < width) tw <<= 1;
 		while(th < height) th <<= 1;
 		if(tw != width || th != height) {
-			this.flags |= 8;
+			this.flags |= 1 << h3d_mat_TextureFlags.IsNPOT[1];
 		} else {
-			this.flags &= 268435447;
+			this.flags &= 268435455 - (1 << h3d_mat_TextureFlags.IsNPOT[1]);
 		}
 		this.width = width;
 		this.height = height;
-		if((this.flags & 16) == 0) {
+		if((this.flags & 1 << h3d_mat_TextureFlags.NoAlloc[1]) == 0) {
 			this.alloc();
 		}
 	}
@@ -19652,7 +20437,7 @@ h3d_mat_Texture.prototype = {
 		var _g1 = 0;
 		var _g = this.width * this.height;
 		while(_g1 < _g) {
-			++_g1;
+			var i = _g1++;
 			p.bytes.b[k++] = b & 255;
 			p.bytes.b[k++] = g & 255;
 			p.bytes.b[k++] = r & 255;
@@ -19670,7 +20455,7 @@ h3d_mat_Texture.prototype = {
 		}
 		this.alloc();
 		this.mem.driver.uploadTextureBitmap(this,bmp,mipLevel,side);
-		this.flags |= 128;
+		this.flags |= 1 << h3d_mat_TextureFlags.WasCleared[1];
 	}
 	,uploadPixels: function(pixels,mipLevel,side) {
 		if(side == null) {
@@ -19681,7 +20466,7 @@ h3d_mat_Texture.prototype = {
 		}
 		this.alloc();
 		this.mem.driver.uploadTexturePixels(this,pixels,mipLevel,side);
-		this.flags |= 128;
+		this.flags |= 1 << h3d_mat_TextureFlags.WasCleared[1];
 	}
 	,dispose: function() {
 		if(this.t != null) {
@@ -19841,7 +20626,8 @@ h3d_pass_Blur.prototype = $extend(h3d_pass_ScreenFx.prototype,{
 			}
 		}
 		var sq = s * s;
-		return Math.pow(2.718281828459,-(x * x) / (2 * sq)) / Math.sqrt(2 * Math.PI * sq);
+		var p = Math.pow(2.718281828459,-(x * x) / (2 * sq));
+		return p / Math.sqrt(2 * Math.PI * sq);
 	}
 	,calcValues: function() {
 		this.values = [];
@@ -19859,7 +20645,10 @@ h3d_pass_Blur.prototype = $extend(h3d_pass_ScreenFx.prototype,{
 		}
 		var _g11 = 0;
 		var _g2 = this.quality + 1;
-		while(_g11 < _g2) this.values[_g11++] /= tot;
+		while(_g11 < _g2) {
+			var i1 = _g11++;
+			this.values[i1] /= tot;
+		}
 	}
 	,apply: function(src,tmp,output,isDepth) {
 		if(isDepth == null) {
@@ -19895,7 +20684,7 @@ h3d_pass_Blur.prototype = $extend(h3d_pass_ScreenFx.prototype,{
 		var _g1 = 0;
 		var _g = this.passes;
 		while(_g1 < _g) {
-			++_g1;
+			var i = _g1++;
 			this.shader.texture__ = src;
 			var _this2 = this.shader.pixel__;
 			_this2.x = 1 / src.width;
@@ -19950,7 +20739,8 @@ hxsl_Shader.prototype = {
 				continue;
 			}
 			var v = globals.map.get(c.globalId);
-			switch(c.v.type[1]) {
+			var _g = c.v.type;
+			switch(_g[1]) {
 			case 1:
 				var v1 = v;
 				if(v1 >>> c.bits != 0) {
@@ -19959,7 +20749,8 @@ hxsl_Shader.prototype = {
 				this.constBits |= v1 << c.pos;
 				break;
 			case 2:
-				if(v) {
+				var v2 = v;
+				if(v2) {
 					this.constBits |= 1 << c.pos;
 				}
 				break;
@@ -20015,7 +20806,8 @@ var h3d_pass_Border = function(width,height,size) {
 		size = 1;
 	}
 	h3d_pass_ScreenFx.call(this,new h3d_pass__$Border_BorderShader());
-	var bbuf = new Array(0);
+	var this1 = new Array(0);
+	var bbuf = this1;
 	bbuf.push(0 / width * 2 - 1);
 	bbuf.push(1 - 0 / height * 2);
 	bbuf.push(width / width * 2 - 1);
@@ -20230,7 +21022,11 @@ h3d_pass_Default.prototype = $extend(h3d_pass_Base.prototype,{
 					var si = shaders;
 					var n = t.instance;
 					while(n-- > 0) si = si.next;
-					t1 = si.s.getParamValue(t.index);
+					var v1 = si.s.getParamValue(t.index);
+					if(v1 == null && false) {
+						throw new js__$Boot_HaxeError("Missing param value " + Std.string(si.s) + "." + t.name);
+					}
+					t1 = v1;
 				}
 				p.texture = t1 == null ? 0 : t1.id;
 			}
@@ -20243,6 +21039,7 @@ h3d_pass_Default.prototype = $extend(h3d_pass_Base.prototype,{
 		this.ctx.engine.uploadShaderBuffers(this.cachedBuffer,2);
 	}
 	,log: function(str) {
+		var _this = this.ctx.engine.driver;
 	}
 	,drawObject: function(p) {
 		this.ctx.drawPass = p;
@@ -20297,7 +21094,7 @@ h3d_pass_Default.prototype = $extend(h3d_pass_Base.prototype,{
 						var _g11 = 0;
 						var _g2 = insize;
 						while(_g11 < _g2) {
-							++_g11;
+							var i = _g11++;
 							++psize;
 							q = q.next;
 							if(q == null) {
@@ -20350,11 +21147,20 @@ h3d_pass_Default.prototype = $extend(h3d_pass_Base.prototype,{
 		var p2 = passes;
 		var buf = this.cachedBuffer;
 		var prevShader = null;
+		var drawTri = 0;
+		var drawCalls = 0;
+		var shaderSwitches = 0;
+		if(this.ctx.engine.driver.logEnable) {
+			drawTri = this.ctx.engine.drawTriangles;
+			drawCalls = this.ctx.engine.drawCalls;
+			shaderSwitches = this.ctx.engine.shaderSwitches;
+		}
 		while(p2 != null) {
-			this.manager.globals.map.set(this.globalModelView_id,p2.obj.absPos);
+			var v = p2.obj.absPos;
+			this.manager.globals.map.set(this.globalModelView_id,v);
 			if(p2.shader.globals.exists(this.globalModelViewInverse_id)) {
-				var v = p2.obj.getInvPos();
-				this.manager.globals.map.set(this.globalModelViewInverse_id,v);
+				var v1 = p2.obj.getInvPos();
+				this.manager.globals.map.set(this.globalModelViewInverse_id,v1);
 			}
 			if(prevShader != p2.shader) {
 				prevShader = p2.shader;
@@ -20467,31 +21273,52 @@ h3d_pass_Default.prototype = $extend(h3d_pass_Base.prototype,{
 		return v;
 	}
 	,initGlobals: function() {
-		this.cameraView_id = hxsl_Globals.allocID("camera.view");
-		this.cameraNear_id = hxsl_Globals.allocID("camera.zNear");
-		this.cameraFar_id = hxsl_Globals.allocID("camera.zFar");
-		this.cameraProj_id = hxsl_Globals.allocID("camera.proj");
-		this.cameraPos_id = hxsl_Globals.allocID("camera.position");
-		this.cameraProjDiag_id = hxsl_Globals.allocID("camera.projDiag");
-		this.cameraViewProj_id = hxsl_Globals.allocID("camera.viewProj");
-		this.cameraInverseViewProj_id = hxsl_Globals.allocID("camera.inverseViewProj");
-		this.globalTime_id = hxsl_Globals.allocID("global.time");
-		this.pixelSize_id = hxsl_Globals.allocID("global.pixelSize");
-		this.globalModelView_id = hxsl_Globals.allocID("global.modelView");
-		this.globalModelViewInverse_id = hxsl_Globals.allocID("global.modelViewInverse");
+		var this1 = hxsl_Globals.allocID("camera.view");
+		this.cameraView_id = this1;
+		var this2 = hxsl_Globals.allocID("camera.zNear");
+		this.cameraNear_id = this2;
+		var this3 = hxsl_Globals.allocID("camera.zFar");
+		this.cameraFar_id = this3;
+		var this4 = hxsl_Globals.allocID("camera.proj");
+		this.cameraProj_id = this4;
+		var this5 = hxsl_Globals.allocID("camera.position");
+		this.cameraPos_id = this5;
+		var this6 = hxsl_Globals.allocID("camera.projDiag");
+		this.cameraProjDiag_id = this6;
+		var this7 = hxsl_Globals.allocID("camera.viewProj");
+		this.cameraViewProj_id = this7;
+		var this8 = hxsl_Globals.allocID("camera.inverseViewProj");
+		this.cameraInverseViewProj_id = this8;
+		var this9 = hxsl_Globals.allocID("global.time");
+		this.globalTime_id = this9;
+		var this10 = hxsl_Globals.allocID("global.pixelSize");
+		this.pixelSize_id = this10;
+		var this11 = hxsl_Globals.allocID("global.modelView");
+		this.globalModelView_id = this11;
+		var this12 = hxsl_Globals.allocID("global.modelViewInverse");
+		this.globalModelViewInverse_id = this12;
 	}
 	,setGlobals: function() {
-		this.manager.globals.map.set(this.cameraView_id,this.ctx.camera.mcam);
-		this.manager.globals.map.set(this.cameraNear_id,this.ctx.camera.zNear);
-		this.manager.globals.map.set(this.cameraFar_id,this.ctx.camera.zFar);
-		this.manager.globals.map.set(this.cameraProj_id,this.ctx.camera.mproj);
-		this.manager.globals.map.set(this.cameraPos_id,this.ctx.camera.pos);
-		this.manager.globals.map.set(this.cameraProjDiag_id,new h3d_Vector(this.ctx.camera.mproj._11,this.ctx.camera.mproj._22,this.ctx.camera.mproj._33,this.ctx.camera.mproj._44));
-		this.manager.globals.map.set(this.cameraViewProj_id,this.ctx.camera.m);
-		var v = this.ctx.camera.getInverseViewProj();
-		this.manager.globals.map.set(this.cameraInverseViewProj_id,v);
-		this.manager.globals.map.set(this.globalTime_id,this.ctx.time);
-		this.manager.globals.map.set(this.pixelSize_id,new h3d_Vector(2 / this.ctx.engine.width,2 / this.ctx.engine.height));
+		var v = this.ctx.camera.mcam;
+		this.manager.globals.map.set(this.cameraView_id,v);
+		var v1 = this.ctx.camera.zNear;
+		this.manager.globals.map.set(this.cameraNear_id,v1);
+		var v2 = this.ctx.camera.zFar;
+		this.manager.globals.map.set(this.cameraFar_id,v2);
+		var v3 = this.ctx.camera.mproj;
+		this.manager.globals.map.set(this.cameraProj_id,v3);
+		var v4 = this.ctx.camera.pos;
+		this.manager.globals.map.set(this.cameraPos_id,v4);
+		var v5 = new h3d_Vector(this.ctx.camera.mproj._11,this.ctx.camera.mproj._22,this.ctx.camera.mproj._33,this.ctx.camera.mproj._44);
+		this.manager.globals.map.set(this.cameraProjDiag_id,v5);
+		var v6 = this.ctx.camera.m;
+		this.manager.globals.map.set(this.cameraViewProj_id,v6);
+		var v7 = this.ctx.camera.getInverseViewProj();
+		this.manager.globals.map.set(this.cameraInverseViewProj_id,v7);
+		var v8 = this.ctx.time;
+		this.manager.globals.map.set(this.globalTime_id,v8);
+		var v9 = new h3d_Vector(2 / this.ctx.engine.width,2 / this.ctx.engine.height);
+		this.manager.globals.map.set(this.pixelSize_id,v9);
 	}
 	,__class__: h3d_pass_Default
 });
@@ -20595,33 +21422,37 @@ h3d_pass_HardwarePick.prototype = $extend(h3d_pass_Default.prototype,{
 		h3d_pass_Default.prototype.drawObject.call(this,p);
 		var _this = this.fixedColor.colorID__;
 		var c = -16777216 | ++this.colorID;
-		_this.x = (c >> 16 & 255) * 0.00392156862745098;
-		_this.y = (c >> 8 & 255) * 0.00392156862745098;
-		_this.z = (c & 255) * 0.00392156862745098;
-		_this.w = (c >>> 24) * 0.00392156862745098;
+		var s = 0.00392156862745098;
+		_this.x = (c >> 16 & 255) * s;
+		_this.y = (c >> 8 & 255) * s;
+		_this.z = (c & 255) * s;
+		_this.w = (c >>> 24) * s;
 	}
 	,nextID: function() {
 		var _this = this.fixedColor.colorID__;
 		var c = -16777216 | ++this.colorID;
-		_this.x = (c >> 16 & 255) * 0.00392156862745098;
-		_this.y = (c >> 8 & 255) * 0.00392156862745098;
-		_this.z = (c & 255) * 0.00392156862745098;
-		_this.w = (c >>> 24) * 0.00392156862745098;
+		var s = 0.00392156862745098;
+		_this.x = (c >> 16 & 255) * s;
+		_this.y = (c >> 8 & 255) * s;
+		_this.z = (c & 255) * s;
+		_this.w = (c >>> 24) * s;
 	}
 	,draw: function(passes) {
 		var cur = passes;
 		while(cur != null) {
-			cur.pass.bits &= -1073741761;
-			cur.pass.bits |= this.material.bits & 1073741760;
+			var mask = 1073741760;
+			cur.pass.bits &= ~mask;
+			cur.pass.bits |= this.material.bits & mask;
 			cur = cur.next;
 		}
 		this.colorID = 0;
 		var _this = this.fixedColor.colorID__;
 		var c = -16777216 | ++this.colorID;
-		_this.x = (c >> 16 & 255) * 0.00392156862745098;
-		_this.y = (c >> 8 & 255) * 0.00392156862745098;
-		_this.z = (c & 255) * 0.00392156862745098;
-		_this.w = (c >>> 24) * 0.00392156862745098;
+		var s = 0.00392156862745098;
+		_this.x = (c >> 16 & 255) * s;
+		_this.y = (c >> 8 & 255) * s;
+		_this.z = (c & 255) * s;
+		_this.w = (c >>> 24) * s;
 		var _this1 = this.fixedColor.viewport__;
 		_this1.x = -(this.pickX * 2 / this.ctx.engine.width - 1);
 		_this1.y = this.pickY * 2 / this.ctx.engine.height - 1;
@@ -20724,7 +21555,7 @@ h3d_pass_LightSystem.prototype = {
 						var _g1 = 0;
 						var _g = insize;
 						while(_g1 < _g) {
-							_g1++;
+							var i = _g1++;
 							++psize;
 							q = q.next;
 							if(q == null) {
@@ -20836,7 +21667,7 @@ h3d_pass_LightSystem.prototype = {
 						var _g1 = 0;
 						var _g = insize;
 						while(_g1 < _g) {
-							++_g1;
+							var i = _g1++;
 							++psize;
 							q = q.next;
 							if(q == null) {
@@ -20879,9 +21710,9 @@ h3d_pass_LightSystem.prototype = {
 		}
 		shaders = _gthis.ctx.allocShaderList(this.ambientShader,shaders);
 		var l1 = this.ctx.lights;
-		var i = 0;
+		var i1 = 0;
 		while(l1 != null) {
-			if(i++ == this.maxLightsPerObject) {
+			if(i1++ == this.maxLightsPerObject) {
 				break;
 			}
 			shaders = _gthis.ctx.allocShaderList(l1.shader,shaders);
@@ -20949,12 +21780,17 @@ h3d_pass_ShadowMap.__super__ = h3d_pass_Default;
 h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 	set_size: function(s) {
 		if(this.border != null && this.size != s) {
+			this.border.dispose();
 			this.border = new h3d_pass_Border(s,s);
 		}
 		return this.size = s;
 	}
 	,dispose: function() {
 		h3d_pass_Default.prototype.dispose.call(this);
+		this.blur.dispose();
+		if(this.border != null) {
+			this.border.dispose();
+		}
 	}
 	,calcShadowBounds: function(camera) {
 		var bounds = camera.orthoBounds;
@@ -20971,16 +21807,15 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			mtmp.multiply3x4(tmp,camera.mcam);
 			var p_z;
 			var p_y;
-			var p_x;
-			var x = b.xMin;
-			var y = b.yMin;
-			var z = b.zMin;
-			p_x = x;
-			p_y = y;
-			p_z = z;
-			p_x = x * mtmp._11 + y * mtmp._21 + z * mtmp._31 + mtmp._41;
-			p_y = x * mtmp._12 + y * mtmp._22 + z * mtmp._32 + mtmp._42;
-			p_z = x * mtmp._13 + y * mtmp._23 + z * mtmp._33 + mtmp._43;
+			var p_x = b.xMin;
+			p_y = b.yMin;
+			p_z = b.zMin;
+			var px = p_x * mtmp._11 + p_y * mtmp._21 + p_z * mtmp._31 + mtmp._41;
+			var py = p_x * mtmp._12 + p_y * mtmp._22 + p_z * mtmp._32 + mtmp._42;
+			var pz = p_x * mtmp._13 + p_y * mtmp._23 + p_z * mtmp._33 + mtmp._43;
+			p_x = px;
+			p_y = py;
+			p_z = pz;
 			if(p_x < bounds.xMin) {
 				bounds.xMin = p_x;
 			}
@@ -21001,16 +21836,15 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			}
 			var p_z1;
 			var p_y1;
-			var p_x1;
-			var x1 = b.xMin;
-			var y1 = b.yMin;
-			var z1 = b.zMax;
-			p_x1 = x1;
-			p_y1 = y1;
-			p_z1 = z1;
-			p_x1 = x1 * mtmp._11 + y1 * mtmp._21 + z1 * mtmp._31 + mtmp._41;
-			p_y1 = x1 * mtmp._12 + y1 * mtmp._22 + z1 * mtmp._32 + mtmp._42;
-			p_z1 = x1 * mtmp._13 + y1 * mtmp._23 + z1 * mtmp._33 + mtmp._43;
+			var p_x1 = b.xMin;
+			p_y1 = b.yMin;
+			p_z1 = b.zMax;
+			var px1 = p_x1 * mtmp._11 + p_y1 * mtmp._21 + p_z1 * mtmp._31 + mtmp._41;
+			var py1 = p_x1 * mtmp._12 + p_y1 * mtmp._22 + p_z1 * mtmp._32 + mtmp._42;
+			var pz1 = p_x1 * mtmp._13 + p_y1 * mtmp._23 + p_z1 * mtmp._33 + mtmp._43;
+			p_x1 = px1;
+			p_y1 = py1;
+			p_z1 = pz1;
 			if(p_x1 < bounds.xMin) {
 				bounds.xMin = p_x1;
 			}
@@ -21031,16 +21865,15 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			}
 			var p_z2;
 			var p_y2;
-			var p_x2;
-			var x2 = b.xMin;
-			var y2 = b.yMax;
-			var z2 = b.zMin;
-			p_x2 = x2;
-			p_y2 = y2;
-			p_z2 = z2;
-			p_x2 = x2 * mtmp._11 + y2 * mtmp._21 + z2 * mtmp._31 + mtmp._41;
-			p_y2 = x2 * mtmp._12 + y2 * mtmp._22 + z2 * mtmp._32 + mtmp._42;
-			p_z2 = x2 * mtmp._13 + y2 * mtmp._23 + z2 * mtmp._33 + mtmp._43;
+			var p_x2 = b.xMin;
+			p_y2 = b.yMax;
+			p_z2 = b.zMin;
+			var px2 = p_x2 * mtmp._11 + p_y2 * mtmp._21 + p_z2 * mtmp._31 + mtmp._41;
+			var py2 = p_x2 * mtmp._12 + p_y2 * mtmp._22 + p_z2 * mtmp._32 + mtmp._42;
+			var pz2 = p_x2 * mtmp._13 + p_y2 * mtmp._23 + p_z2 * mtmp._33 + mtmp._43;
+			p_x2 = px2;
+			p_y2 = py2;
+			p_z2 = pz2;
 			if(p_x2 < bounds.xMin) {
 				bounds.xMin = p_x2;
 			}
@@ -21061,16 +21894,15 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			}
 			var p_z3;
 			var p_y3;
-			var p_x3;
-			var x3 = b.xMin;
-			var y3 = b.yMax;
-			var z3 = b.zMax;
-			p_x3 = x3;
-			p_y3 = y3;
-			p_z3 = z3;
-			p_x3 = x3 * mtmp._11 + y3 * mtmp._21 + z3 * mtmp._31 + mtmp._41;
-			p_y3 = x3 * mtmp._12 + y3 * mtmp._22 + z3 * mtmp._32 + mtmp._42;
-			p_z3 = x3 * mtmp._13 + y3 * mtmp._23 + z3 * mtmp._33 + mtmp._43;
+			var p_x3 = b.xMin;
+			p_y3 = b.yMax;
+			p_z3 = b.zMax;
+			var px3 = p_x3 * mtmp._11 + p_y3 * mtmp._21 + p_z3 * mtmp._31 + mtmp._41;
+			var py3 = p_x3 * mtmp._12 + p_y3 * mtmp._22 + p_z3 * mtmp._32 + mtmp._42;
+			var pz3 = p_x3 * mtmp._13 + p_y3 * mtmp._23 + p_z3 * mtmp._33 + mtmp._43;
+			p_x3 = px3;
+			p_y3 = py3;
+			p_z3 = pz3;
 			if(p_x3 < bounds.xMin) {
 				bounds.xMin = p_x3;
 			}
@@ -21091,16 +21923,15 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			}
 			var p_z4;
 			var p_y4;
-			var p_x4;
-			var x4 = b.xMax;
-			var y4 = b.yMin;
-			var z4 = b.zMin;
-			p_x4 = x4;
-			p_y4 = y4;
-			p_z4 = z4;
-			p_x4 = x4 * mtmp._11 + y4 * mtmp._21 + z4 * mtmp._31 + mtmp._41;
-			p_y4 = x4 * mtmp._12 + y4 * mtmp._22 + z4 * mtmp._32 + mtmp._42;
-			p_z4 = x4 * mtmp._13 + y4 * mtmp._23 + z4 * mtmp._33 + mtmp._43;
+			var p_x4 = b.xMax;
+			p_y4 = b.yMin;
+			p_z4 = b.zMin;
+			var px4 = p_x4 * mtmp._11 + p_y4 * mtmp._21 + p_z4 * mtmp._31 + mtmp._41;
+			var py4 = p_x4 * mtmp._12 + p_y4 * mtmp._22 + p_z4 * mtmp._32 + mtmp._42;
+			var pz4 = p_x4 * mtmp._13 + p_y4 * mtmp._23 + p_z4 * mtmp._33 + mtmp._43;
+			p_x4 = px4;
+			p_y4 = py4;
+			p_z4 = pz4;
 			if(p_x4 < bounds.xMin) {
 				bounds.xMin = p_x4;
 			}
@@ -21121,16 +21952,15 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			}
 			var p_z5;
 			var p_y5;
-			var p_x5;
-			var x5 = b.xMax;
-			var y5 = b.yMin;
-			var z5 = b.zMax;
-			p_x5 = x5;
-			p_y5 = y5;
-			p_z5 = z5;
-			p_x5 = x5 * mtmp._11 + y5 * mtmp._21 + z5 * mtmp._31 + mtmp._41;
-			p_y5 = x5 * mtmp._12 + y5 * mtmp._22 + z5 * mtmp._32 + mtmp._42;
-			p_z5 = x5 * mtmp._13 + y5 * mtmp._23 + z5 * mtmp._33 + mtmp._43;
+			var p_x5 = b.xMax;
+			p_y5 = b.yMin;
+			p_z5 = b.zMax;
+			var px5 = p_x5 * mtmp._11 + p_y5 * mtmp._21 + p_z5 * mtmp._31 + mtmp._41;
+			var py5 = p_x5 * mtmp._12 + p_y5 * mtmp._22 + p_z5 * mtmp._32 + mtmp._42;
+			var pz5 = p_x5 * mtmp._13 + p_y5 * mtmp._23 + p_z5 * mtmp._33 + mtmp._43;
+			p_x5 = px5;
+			p_y5 = py5;
+			p_z5 = pz5;
 			if(p_x5 < bounds.xMin) {
 				bounds.xMin = p_x5;
 			}
@@ -21151,16 +21981,15 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			}
 			var p_z6;
 			var p_y6;
-			var p_x6;
-			var x6 = b.xMax;
-			var y6 = b.yMax;
-			var z6 = b.zMin;
-			p_x6 = x6;
-			p_y6 = y6;
-			p_z6 = z6;
-			p_x6 = x6 * mtmp._11 + y6 * mtmp._21 + z6 * mtmp._31 + mtmp._41;
-			p_y6 = x6 * mtmp._12 + y6 * mtmp._22 + z6 * mtmp._32 + mtmp._42;
-			p_z6 = x6 * mtmp._13 + y6 * mtmp._23 + z6 * mtmp._33 + mtmp._43;
+			var p_x6 = b.xMax;
+			p_y6 = b.yMax;
+			p_z6 = b.zMin;
+			var px6 = p_x6 * mtmp._11 + p_y6 * mtmp._21 + p_z6 * mtmp._31 + mtmp._41;
+			var py6 = p_x6 * mtmp._12 + p_y6 * mtmp._22 + p_z6 * mtmp._32 + mtmp._42;
+			var pz6 = p_x6 * mtmp._13 + p_y6 * mtmp._23 + p_z6 * mtmp._33 + mtmp._43;
+			p_x6 = px6;
+			p_y6 = py6;
+			p_z6 = pz6;
 			if(p_x6 < bounds.xMin) {
 				bounds.xMin = p_x6;
 			}
@@ -21181,16 +22010,15 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			}
 			var p_z7;
 			var p_y7;
-			var p_x7;
-			var x7 = b.xMax;
-			var y7 = b.yMax;
-			var z7 = b.zMax;
-			p_x7 = x7;
-			p_y7 = y7;
-			p_z7 = z7;
-			p_x7 = x7 * mtmp._11 + y7 * mtmp._21 + z7 * mtmp._31 + mtmp._41;
-			p_y7 = x7 * mtmp._12 + y7 * mtmp._22 + z7 * mtmp._32 + mtmp._42;
-			p_z7 = x7 * mtmp._13 + y7 * mtmp._23 + z7 * mtmp._33 + mtmp._43;
+			var p_x7 = b.xMax;
+			p_y7 = b.yMax;
+			p_z7 = b.zMax;
+			var px7 = p_x7 * mtmp._11 + p_y7 * mtmp._21 + p_z7 * mtmp._31 + mtmp._41;
+			var py7 = p_x7 * mtmp._12 + p_y7 * mtmp._22 + p_z7 * mtmp._32 + mtmp._42;
+			var pz7 = p_x7 * mtmp._13 + p_y7 * mtmp._23 + p_z7 * mtmp._33 + mtmp._43;
+			p_x7 = px7;
+			p_y7 = py7;
+			p_z7 = pz7;
 			if(p_x7 < bounds.xMin) {
 				bounds.xMin = p_x7;
 			}
@@ -21217,33 +22045,34 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 			var pt = _g1[_g];
 			++_g;
 			var m1 = camera.mcam;
-			var py = pt.x * m1._12 + pt.y * m1._22 + pt.z * m1._32 + pt.w * m1._42;
-			var pz = pt.x * m1._13 + pt.y * m1._23 + pt.z * m1._33 + pt.w * m1._43;
+			var px8 = pt.x * m1._11 + pt.y * m1._21 + pt.z * m1._31 + pt.w * m1._41;
+			var py8 = pt.x * m1._12 + pt.y * m1._22 + pt.z * m1._32 + pt.w * m1._42;
+			var pz8 = pt.x * m1._13 + pt.y * m1._23 + pt.z * m1._33 + pt.w * m1._43;
 			var pw = pt.x * m1._14 + pt.y * m1._24 + pt.z * m1._34 + pt.w * m1._44;
-			pt.x = pt.x * m1._11 + pt.y * m1._21 + pt.z * m1._31 + pt.w * m1._41;
-			pt.y = py;
-			pt.z = pz;
+			pt.x = px8;
+			pt.y = py8;
+			pt.z = pz8;
 			pt.w = pw;
-			var x8 = pt.x;
-			var y8 = pt.y;
-			var z8 = pt.z;
-			if(x8 < cameraBounds.xMin) {
-				cameraBounds.xMin = x8;
+			var x = pt.x;
+			var y = pt.y;
+			var z = pt.z;
+			if(x < cameraBounds.xMin) {
+				cameraBounds.xMin = x;
 			}
-			if(x8 > cameraBounds.xMax) {
-				cameraBounds.xMax = x8;
+			if(x > cameraBounds.xMax) {
+				cameraBounds.xMax = x;
 			}
-			if(y8 < cameraBounds.yMin) {
-				cameraBounds.yMin = y8;
+			if(y < cameraBounds.yMin) {
+				cameraBounds.yMin = y;
 			}
-			if(y8 > cameraBounds.yMax) {
-				cameraBounds.yMax = y8;
+			if(y > cameraBounds.yMax) {
+				cameraBounds.yMax = y;
 			}
-			if(z8 < cameraBounds.zMin) {
-				cameraBounds.zMin = z8;
+			if(z < cameraBounds.zMin) {
+				cameraBounds.zMin = z;
 			}
-			if(z8 > cameraBounds.zMax) {
-				cameraBounds.zMax = z8;
+			if(z > cameraBounds.zMax) {
+				cameraBounds.zMax = z;
 			}
 		}
 		bounds.intersection(bounds,cameraBounds);
@@ -21263,7 +22092,8 @@ h3d_pass_ShadowMap.prototype = $extend(h3d_pass_Default.prototype,{
 		_this.zMax = -1e20;
 		this.calcShadowBounds(this.lightCamera);
 		this.lightCamera.update();
-		this.manager.globals.map.set(this.cameraViewProj_id,this.lightCamera.m);
+		var v = this.lightCamera.m;
+		this.manager.globals.map.set(this.cameraViewProj_id,v);
 	}
 	,draw: function(passes) {
 		var texture = this.tcache.allocTarget("shadowMap",this.ctx,this.size,this.size,false);
@@ -21346,18 +22176,20 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 		if(this.tmpBuf == null) {
 			this.tmpBuf = h3d_prim_BigPrimitive.PREV_BUFFER;
 			if(this.tmpBuf == null) {
-				this.tmpBuf = new Array(0);
+				var this1 = new Array(0);
+				this.tmpBuf = this1;
 			} else {
 				h3d_prim_BigPrimitive.PREV_BUFFER = null;
 			}
-			var this1 = this.tmpBuf;
+			var this2 = this.tmpBuf;
 			var v = 65535 * this.stride;
-			while(v < this1.length) this1.push(0.);
+			while(v < this2.length) this2.push(0.);
 		}
 		if(this.tmpIdx == null) {
 			this.tmpIdx = h3d_prim_BigPrimitive.PREV_INDEX;
 			if(this.tmpIdx == null) {
-				this.tmpIdx = new Array(0);
+				var this3 = new Array(0);
+				this.tmpIdx = this3;
 			} else {
 				h3d_prim_BigPrimitive.PREV_INDEX = null;
 			}
@@ -21366,8 +22198,8 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 			var size = this.tmpIdx.length == 0 ? 1024 : this.tmpIdx.length;
 			var req = this.idxPos + icount;
 			while(size < req) size <<= 1;
-			var this2 = this.tmpIdx;
-			while(this2.length < size) this2.push(0);
+			var this4 = this.tmpIdx;
+			while(this4.length < size) this4.push(0);
 		}
 	}
 	,addPoint: function(x,y,z) {
@@ -21451,7 +22283,7 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 				this.flushing = true;
 				var b = h3d_Buffer.ofSubFloats(this.tmpBuf,this.stride,this.bufPos / this.stride | 0);
 				if(this.isRaw) {
-					b.flags |= 16;
+					b.flags |= 1 << h3d_BufferFlag.RawFormat[1];
 				}
 				this.buffers.push(b);
 				this.allIndexes.push(h3d_Indexes.alloc(this.tmpIdx,0,this.idxPos));
@@ -21581,13 +22413,18 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 		var pos = this.bufPos;
 		var tmpBuf = this.tmpBuf;
 		var _g1 = 0;
-		while(_g1 < nvert) {
-			var p = (_g1++ + startVert) * stride;
+		var _g = nvert;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var p = (i + startVert) * stride;
 			var x = buf[p++];
 			var y = buf[p++];
-			var vx = dx + (x * cr - y * sr) * scale;
-			var vy = dy + (x * sr + y * cr) * scale;
-			var vz = dz + buf[p++] * scale;
+			var z = buf[p++];
+			var tx = (x * cr - y * sr) * scale;
+			var ty = (x * sr + y * cr) * scale;
+			var vx = dx + tx;
+			var vy = dy + ty;
+			var vz = dz + z * scale;
 			tmpBuf[pos++] = vx;
 			tmpBuf[pos++] = vy;
 			tmpBuf[pos++] = vz;
@@ -21610,7 +22447,8 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 			if(vz > _this.zMax) {
 				_this.zMax = vz;
 			}
-			switch(this.stride) {
+			var _g2 = this.stride;
+			switch(_g2) {
 			case 3:
 				continue;
 				break;
@@ -21625,16 +22463,20 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 				var nx = buf[p++];
 				var ny = buf[p++];
 				var nz = buf[p++];
-				tmpBuf[pos++] = nx * cr - ny * sr;
-				tmpBuf[pos++] = nx * sr + ny * cr;
+				var tnx = nx * cr - ny * sr;
+				var tny = nx * sr + ny * cr;
+				tmpBuf[pos++] = tnx;
+				tmpBuf[pos++] = tny;
 				tmpBuf[pos++] = nz;
 				break;
 			case 7:
 				var nx1 = buf[p++];
 				var ny1 = buf[p++];
 				var nz1 = buf[p++];
-				tmpBuf[pos++] = nx1 * cr - ny1 * sr;
-				tmpBuf[pos++] = nx1 * sr + ny1 * cr;
+				var tnx1 = nx1 * cr - ny1 * sr;
+				var tny1 = nx1 * sr + ny1 * cr;
+				tmpBuf[pos++] = tnx1;
+				tmpBuf[pos++] = tny1;
 				tmpBuf[pos++] = nz1;
 				tmpBuf[pos++] = buf[p++] + deltaU;
 				break;
@@ -21642,15 +22484,17 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 				var nx2 = buf[p++];
 				var ny2 = buf[p++];
 				var nz2 = buf[p++];
-				tmpBuf[pos++] = nx2 * cr - ny2 * sr;
-				tmpBuf[pos++] = nx2 * sr + ny2 * cr;
+				var tnx2 = nx2 * cr - ny2 * sr;
+				var tny2 = nx2 * sr + ny2 * cr;
+				tmpBuf[pos++] = tnx2;
+				tmpBuf[pos++] = tny2;
 				tmpBuf[pos++] = nz2;
 				tmpBuf[pos++] = buf[p++] + deltaU;
 				tmpBuf[pos++] = buf[p++] + deltaV;
 				var _g3 = 8;
-				var _g2 = this.stride;
-				while(_g3 < _g2) {
-					++_g3;
+				var _g21 = this.stride;
+				while(_g3 < _g21) {
+					var i1 = _g3++;
 					tmpBuf[pos++] = buf[p++];
 				}
 				break;
@@ -21658,8 +22502,10 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 				var nx3 = buf[p++];
 				var ny3 = buf[p++];
 				var nz3 = buf[p++];
-				tmpBuf[pos++] = nx3 * cr - ny3 * sr;
-				tmpBuf[pos++] = nx3 * sr + ny3 * cr;
+				var tnx3 = nx3 * cr - ny3 * sr;
+				var tny3 = nx3 * sr + ny3 * cr;
+				tmpBuf[pos++] = tnx3;
+				tmpBuf[pos++] = tny3;
 				tmpBuf[pos++] = nz3;
 				tmpBuf[pos++] = buf[p++] + deltaU;
 				tmpBuf[pos++] = buf[p++] + deltaV;
@@ -21667,9 +22513,9 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 				tmpBuf[pos++] = buf[p++] * color;
 				tmpBuf[pos++] = buf[p++] * color;
 				var _g31 = 11;
-				var _g21 = this.stride;
-				while(_g31 < _g21) {
-					++_g31;
+				var _g22 = this.stride;
+				while(_g31 < _g22) {
+					var i2 = _g31++;
 					tmpBuf[pos++] = buf[p++];
 				}
 			}
@@ -21677,9 +22523,10 @@ h3d_prim_BigPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 		this.bufPos = pos;
 		start -= startVert;
 		var _g11 = 0;
-		var _g = triCount * 3;
-		while(_g11 < _g) {
-			var tmp = idx[_g11++ + startTri * 3] + start;
+		var _g4 = triCount * 3;
+		while(_g11 < _g4) {
+			var i3 = _g11++;
+			var tmp = idx[i3 + startTri * 3] + start;
 			this.tmpIdx[this.idxPos++] = tmp;
 		}
 	}
@@ -21721,7 +22568,10 @@ h3d_prim_MeshPrimitive.prototype = $extend(h3d_prim_Primitive.prototype,{
 		h3d_prim_Primitive.prototype.dispose.call(this);
 		if(this.bufferCache != null) {
 			var b = this.bufferCache.iterator();
-			while(b.hasNext()) b.next().dispose();
+			while(b.hasNext()) {
+				var b1 = b.next();
+				b1.dispose();
+			}
 		}
 		this.bufferCache = null;
 		this.prevNames = null;
@@ -21892,7 +22742,8 @@ h3d_prim_HMDModel.prototype = $extend(h3d_prim_MeshPrimitive.prototype,{
 				pts.push(pt);
 			}
 		}
-		var idx = new Array(0);
+		var this1 = new Array(0);
+		var idx = this1;
 		var _g4 = 0;
 		var _g11 = pos.indexes;
 		while(_g4 < _g11.length) {
@@ -21902,16 +22753,19 @@ h3d_prim_HMDModel.prototype = $extend(h3d_prim_MeshPrimitive.prototype,{
 		}
 		var pol = new h3d_prim_Polygon(pts,idx);
 		pol.addNormals();
-		var v = new Array(0);
+		var this2 = new Array(0);
+		var v = this2;
 		var _g12 = 0;
 		var _g5 = this.data.vertexCount;
 		while(_g12 < _g5) {
-			var n = pol.normals[ids[_g12++]];
+			var i3 = _g12++;
+			var n = pol.normals[ids[i3]];
 			v.push(n.x);
 			v.push(n.y);
 			v.push(n.z);
 		}
-		this.addBuffer(name,h3d_Buffer.ofFloats(v,3),0);
+		var buf = h3d_Buffer.ofFloats(v,3);
+		this.addBuffer(name,buf,0);
 		this.normalsRecomputed = name;
 	}
 	,render: function(engine) {
@@ -21936,7 +22790,8 @@ h3d_prim_HMDModel.prototype = $extend(h3d_prim_MeshPrimitive.prototype,{
 		var dx = _this.xMax - _this.xMin;
 		var dy = _this.yMax - _this.yMin;
 		var dz = _this.zMax - _this.zMin;
-		this.collider = new h3d_col_OptimizedCollider(new h3d_col_Sphere((_this.xMin + _this.xMax) * 0.5,(_this.yMin + _this.yMax) * 0.5,(_this.zMin + _this.zMax) * 0.5,Math.sqrt(dx * dx + dy * dy + dz * dz) * 0.5),poly);
+		var sphere = new h3d_col_Sphere((_this.xMin + _this.xMax) * 0.5,(_this.yMin + _this.yMax) * 0.5,(_this.zMin + _this.zMax) * 0.5,Math.sqrt(dx * dx + dy * dy + dz * dz) * 0.5);
+		this.collider = new h3d_col_OptimizedCollider(sphere,poly);
 		return this.collider;
 	}
 	,__class__: h3d_prim_HMDModel
@@ -21960,7 +22815,8 @@ h3d_prim_Plan2D.prototype = $extend(h3d_prim_Primitive.prototype,{
 		return 4;
 	}
 	,alloc: function(engine) {
-		var v = new Array(0);
+		var this1 = new Array(0);
+		var v = this1;
 		v.push(-1);
 		v.push(-1);
 		v.push(0);
@@ -22039,7 +22895,8 @@ h3d_prim_Polygon.prototype = $extend(h3d_prim_Primitive.prototype,{
 		if(this.colors != null) {
 			size += 3;
 		}
-		var buf = new Array(0);
+		var this1 = new Array(0);
+		var buf = this1;
 		var _g1 = 0;
 		var _g = this.points.length;
 		while(_g1 < _g) {
@@ -22084,7 +22941,8 @@ h3d_prim_Polygon.prototype = $extend(h3d_prim_Primitive.prototype,{
 			var _g1 = 0;
 			var _g = this.idx.length;
 			while(_g1 < _g) {
-				var _this = this.points[this.idx[_g1++]];
+				var i = _g1++;
+				var _this = this.points[this.idx[i]];
 				p.push(new h3d_col_Point(_this.x,_this.y,_this.z));
 			}
 			if(this.normals != null) {
@@ -22092,7 +22950,8 @@ h3d_prim_Polygon.prototype = $extend(h3d_prim_Primitive.prototype,{
 				var _g11 = 0;
 				var _g2 = this.idx.length;
 				while(_g11 < _g2) {
-					var _this1 = this.normals[this.idx[_g11++]];
+					var i1 = _g11++;
+					var _this1 = this.normals[this.idx[i1]];
 					n.push(new h3d_col_Point(_this1.x,_this1.y,_this1.z));
 				}
 				this.normals = n;
@@ -22102,7 +22961,8 @@ h3d_prim_Polygon.prototype = $extend(h3d_prim_Primitive.prototype,{
 				var _g12 = 0;
 				var _g3 = this.idx.length;
 				while(_g12 < _g3) {
-					var _this2 = this.colors[this.idx[_g12++]];
+					var i2 = _g12++;
+					var _this2 = this.colors[this.idx[i2]];
 					n1.push(new h3d_col_Point(_this2.x,_this2.y,_this2.z));
 				}
 				this.colors = n1;
@@ -22111,7 +22971,10 @@ h3d_prim_Polygon.prototype = $extend(h3d_prim_Primitive.prototype,{
 				var t = [];
 				var _g13 = 0;
 				var _g4 = this.idx.length;
-				while(_g13 < _g4) t.push(this.uvs[this.idx[_g13++]].clone());
+				while(_g13 < _g4) {
+					var i3 = _g13++;
+					t.push(this.uvs[this.idx[i3]].clone());
+				}
 				this.uvs = t;
 			}
 			this.points = p;
@@ -22148,45 +23011,55 @@ h3d_prim_Polygon.prototype = $extend(h3d_prim_Primitive.prototype,{
 		this.normals = [];
 		var _g1 = 0;
 		var _g = this.points.length;
-		while(_g1 < _g) this.normals[_g1++] = new h3d_col_Point();
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.normals[i] = new h3d_col_Point();
+		}
 		var pos = 0;
 		var _g11 = 0;
 		var _g2 = this.triCount();
 		while(_g11 < _g2) {
-			++_g11;
+			var i1 = _g11++;
 			var i0;
-			var i1;
+			var i11;
 			var i2;
 			if(this.idx == null) {
 				i0 = pos++;
-				i1 = pos++;
+				i11 = pos++;
 				i2 = pos++;
 			} else {
 				i0 = this.idx[pos++];
-				i1 = this.idx[pos++];
+				i11 = this.idx[pos++];
 				i2 = this.idx[pos++];
 			}
 			var p0 = this.points[i0];
-			var p1 = this.points[i1];
+			var p1 = this.points[i11];
 			var p2 = this.points[i2];
-			var x = p1.x - p0.x;
-			var y = p1.y - p0.y;
-			var z = p1.z - p0.z;
-			var x1 = p2.x - p0.x;
-			var y1 = p2.y - p0.y;
-			var z1 = p2.z - p0.z;
-			var x2 = y * z1 - z * y1;
-			var y2 = z * x1 - x * z1;
-			var z2 = x * y1 - y * x1;
-			this.normals[i0].x += x2;
-			this.normals[i0].y += y2;
-			this.normals[i0].z += z2;
-			this.normals[i1].x += x2;
-			this.normals[i1].y += y2;
-			this.normals[i1].z += z2;
-			this.normals[i2].x += x2;
-			this.normals[i2].y += y2;
-			this.normals[i2].z += z2;
+			var n_z;
+			var n_y;
+			var n_x;
+			var _this_z;
+			var _this_y;
+			var _this_x = p1.x - p0.x;
+			_this_y = p1.y - p0.y;
+			_this_z = p1.z - p0.z;
+			var p_z;
+			var p_y;
+			var p_x = p2.x - p0.x;
+			p_y = p2.y - p0.y;
+			p_z = p2.z - p0.z;
+			n_x = _this_y * p_z - _this_z * p_y;
+			n_y = _this_z * p_x - _this_x * p_z;
+			n_z = _this_x * p_y - _this_y * p_x;
+			this.normals[i0].x += n_x;
+			this.normals[i0].y += n_y;
+			this.normals[i0].z += n_z;
+			this.normals[i11].x += n_x;
+			this.normals[i11].y += n_y;
+			this.normals[i11].z += n_z;
+			this.normals[i2].x += n_x;
+			this.normals[i2].y += n_y;
+			this.normals[i2].z += n_z;
 		}
 		var _g3 = 0;
 		var _g12 = this.normals;
@@ -22229,9 +23102,11 @@ h3d_prim_Polygon.prototype = $extend(h3d_prim_Primitive.prototype,{
 	}
 	,getCollider: function() {
 		var length = this.points.length * 3;
-		var vertexes = new Array(length);
+		var this1 = new Array(length);
+		var vertexes = this1;
 		var length1 = this.idx.length;
-		var indexes = new Array(length1);
+		var this2 = new Array(length1);
+		var indexes = this2;
 		var vid = 0;
 		var _g = 0;
 		var _g1 = this.points;
@@ -22323,25 +23198,40 @@ h3d_prim_UV.prototype = {
 	,__class__: h3d_prim_UV
 };
 var h3d_scene_Object = function(parent) {
-	this.flags = 0;
+	var this1 = 0;
+	this.flags = this1;
 	this.absPos = new h3d_Matrix();
 	this.absPos.identity();
 	this.x = 0;
-	this.flags |= 1;
+	var f = 1;
+	this.flags |= f;
 	this.y = 0;
-	this.flags |= 1;
+	var f1 = 1;
+	this.flags |= f1;
 	this.z = 0;
-	this.flags |= 1;
+	var f2 = 1;
+	this.flags |= f2;
 	this.scaleX = 1;
-	this.flags |= 1;
+	var f3 = 1;
+	this.flags |= f3;
 	this.scaleY = 1;
-	this.flags |= 1;
+	var f4 = 1;
+	this.flags |= f4;
 	this.scaleZ = 1;
-	this.flags |= 1;
+	var f5 = 1;
+	this.flags |= f5;
 	this.qRot = new h3d_Quat();
-	this.flags &= -2;
-	this.flags &= -5;
-	this.flags |= 2;
+	var f6 = 1;
+	this.flags &= ~f6;
+	var b = false;
+	var f7 = 4;
+	if(b) {
+		this.flags |= f7;
+	} else {
+		this.flags &= ~f7;
+	}
+	var f8 = 2;
+	this.flags |= f8;
 	this.childs = [];
 	if(parent != null) {
 		parent.addChild(this);
@@ -22375,71 +23265,81 @@ h3d_scene_Object.prototype = {
 		return (this.flags & 128) != 0;
 	}
 	,set_posChanged: function(b) {
+		var f = 1;
 		if(b) {
-			this.flags |= 1;
+			this.flags |= f;
 		} else {
-			this.flags &= -2;
+			this.flags &= ~f;
 		}
 		return b;
 	}
 	,set_culled: function(b) {
+		var f = 4;
 		if(b) {
-			this.flags |= 4;
+			this.flags |= f;
 		} else {
-			this.flags &= -5;
+			this.flags &= ~f;
 		}
 		return b;
 	}
 	,set_visible: function(b) {
-		if(!b) {
-			this.flags |= 4;
+		var b1 = !b;
+		var f = 4;
+		if(b1) {
+			this.flags |= f;
 		} else {
-			this.flags &= -5;
+			this.flags &= ~f;
 		}
+		var f1 = 2;
 		if(b) {
-			this.flags |= 2;
+			this.flags |= f1;
 		} else {
-			this.flags &= -3;
+			this.flags &= ~f1;
 		}
 		return b;
 	}
 	,set_allocated: function(b) {
+		var f = 32;
 		if(b) {
-			this.flags |= 32;
+			this.flags |= f;
 		} else {
-			this.flags &= -33;
+			this.flags &= ~f;
 		}
 		return b;
 	}
 	,set_followPositionOnly: function(b) {
+		var f = 8;
 		if(b) {
-			this.flags |= 8;
+			this.flags |= f;
 		} else {
-			this.flags &= -9;
+			this.flags &= ~f;
 		}
 		return b;
 	}
 	,set_lightCameraCenter: function(b) {
+		var f = 16;
 		if(b) {
-			this.flags |= 16;
+			this.flags |= f;
 		} else {
-			this.flags &= -17;
+			this.flags &= ~f;
 		}
 		return b;
 	}
 	,set_alwaysSync: function(b) {
+		var f = 64;
 		if(b) {
-			this.flags |= 64;
+			this.flags |= f;
 		} else {
-			this.flags &= -65;
+			this.flags &= ~f;
 		}
 		return b;
 	}
 	,set_inheritCulled: function(b) {
+		var f = 128;
 		if(b) {
-			this.flags |= 128;
+			this.flags |= f;
 		} else {
-			this.flags &= -129;
+			this.flags &= ~f;
 		}
 		return b;
 	}
@@ -22467,21 +23367,35 @@ h3d_scene_Object.prototype = {
 				v.y *= -1;
 				v.z *= -1;
 			}
-			this.scaleX = v.x;
-			this.flags |= 1;
-			this.scaleY = v.y;
-			this.flags |= 1;
-			this.scaleZ = v.z;
-			this.flags |= 1;
+			var s = v;
+			var v1 = s.x;
+			this.scaleX = v1;
+			var f = 1;
+			this.flags |= f;
+			var v2 = s.y;
+			this.scaleY = v2;
+			var f1 = 1;
+			this.flags |= f1;
+			var v3 = s.z;
+			this.scaleZ = v3;
+			var f2 = 1;
+			this.flags |= f2;
 			this.qRot.initRotateMatrix(this.defaultTransform);
-			this.x = this.defaultTransform._41;
-			this.flags |= 1;
-			this.y = this.defaultTransform._42;
-			this.flags |= 1;
-			this.z = this.defaultTransform._43;
-			this.flags |= 1;
+			var v4 = this.defaultTransform._41;
+			this.x = v4;
+			var f3 = 1;
+			this.flags |= f3;
+			var v5 = this.defaultTransform._42;
+			this.y = v5;
+			var f4 = 1;
+			this.flags |= f4;
+			var v6 = this.defaultTransform._43;
+			this.z = v6;
+			var f5 = 1;
+			this.flags |= f5;
 			this.defaultTransform = null;
-			this.flags |= 1;
+			var f6 = 1;
+			this.flags |= f6;
 		}
 		if(recursive) {
 			var _g = 0;
@@ -22536,18 +23450,20 @@ h3d_scene_Object.prototype = {
 			pt = new h3d_Vector();
 		}
 		var m = this.absPos;
+		var px = pt.x * m._11 + pt.y * m._21 + pt.z * m._31 + pt.w * m._41;
 		var py = pt.x * m._12 + pt.y * m._22 + pt.z * m._32 + pt.w * m._42;
 		var pz = pt.x * m._13 + pt.y * m._23 + pt.z * m._33 + pt.w * m._43;
-		pt.x = pt.x * m._11 + pt.y * m._21 + pt.z * m._31 + pt.w * m._41;
+		pt.x = px;
 		pt.y = py;
 		pt.z = pz;
 		return pt;
 	}
 	,globalToLocal: function(pt) {
 		var m = this.getInvPos();
+		var px = pt.x * m._11 + pt.y * m._21 + pt.z * m._31 + pt.w * m._41;
 		var py = pt.x * m._12 + pt.y * m._22 + pt.z * m._32 + pt.w * m._42;
 		var pz = pt.x * m._13 + pt.y * m._23 + pt.z * m._33 + pt.w * m._43;
-		pt.x = pt.x * m._11 + pt.y * m._21 + pt.z * m._31 + pt.w * m._41;
+		pt.x = px;
 		pt.y = py;
 		pt.z = pz;
 		return pt;
@@ -22579,9 +23495,11 @@ h3d_scene_Object.prototype = {
 			while(_g < _g1.length) {
 				var c = _g1[_g];
 				++_g;
-				c.flags |= 1;
+				var f = 1;
+				c.flags |= f;
 			}
-			this.flags &= -2;
+			var f1 = 1;
+			this.flags &= ~f1;
 			this.calcAbsPos();
 		}
 		var _g2 = 0;
@@ -22630,39 +23548,58 @@ h3d_scene_Object.prototype = {
 		if(o == null) {
 			o = new h3d_scene_Object();
 		}
-		o.x = this.x;
-		o.flags |= 1;
-		o.y = this.y;
-		o.flags |= 1;
-		o.z = this.z;
-		o.flags |= 1;
-		o.scaleX = this.scaleX;
-		o.flags |= 1;
-		o.scaleY = this.scaleY;
-		o.flags |= 1;
-		o.scaleZ = this.scaleZ;
-		o.flags |= 1;
+		var v = this.x;
+		o.x = v;
+		var f = 1;
+		o.flags |= f;
+		var v1 = this.y;
+		o.y = v1;
+		var f1 = 1;
+		o.flags |= f1;
+		var v2 = this.z;
+		o.z = v2;
+		var f2 = 1;
+		o.flags |= f2;
+		var v3 = this.scaleX;
+		o.scaleX = v3;
+		var f3 = 1;
+		o.flags |= f3;
+		var v4 = this.scaleY;
+		o.scaleY = v4;
+		var f4 = 1;
+		o.flags |= f4;
+		var v5 = this.scaleZ;
+		o.scaleZ = v5;
+		var f5 = 1;
+		o.flags |= f5;
 		o.name = this.name;
 		o.set_follow(this.follow);
-		if((this.flags & 8) != 0) {
-			o.flags |= 8;
-		} else {
-			o.flags &= -9;
-		}
-		var b = (this.flags & 2) != 0;
-		if(!b) {
-			o.flags |= 4;
-		} else {
-			o.flags &= -5;
-		}
+		var b = (this.flags & 8) != 0;
+		var f6 = 8;
 		if(b) {
-			o.flags |= 2;
+			o.flags |= f6;
 		} else {
-			o.flags &= -3;
+			o.flags &= ~f6;
+		}
+		var b1 = (this.flags & 2) != 0;
+		var b2 = !b1;
+		var f7 = 4;
+		if(b2) {
+			o.flags |= f7;
+		} else {
+			o.flags &= ~f7;
+		}
+		var f8 = 2;
+		if(b1) {
+			o.flags |= f8;
+		} else {
+			o.flags &= ~f8;
 		}
 		if(this.defaultTransform != null) {
-			o.defaultTransform = this.defaultTransform.clone();
-			o.flags |= 1;
+			var v6 = this.defaultTransform.clone();
+			o.defaultTransform = v6;
+			var f9 = 1;
+			o.flags |= f9;
 		}
 		var _g = 0;
 		var _g1 = this.childs;
@@ -22694,12 +23631,14 @@ h3d_scene_Object.prototype = {
 		}
 		if(o.parent != null) {
 			var old = (o.flags & 32) != 0;
-			o.flags &= -33;
+			var f = 32;
+			o.flags &= ~f;
 			o.parent.removeChild(o);
+			var f1 = 32;
 			if(old) {
-				o.flags |= 32;
+				o.flags |= f1;
 			} else {
-				o.flags &= -33;
+				o.flags &= ~f1;
 			}
 		}
 		this.childs.splice(pos,0,o);
@@ -22707,7 +23646,8 @@ h3d_scene_Object.prototype = {
 			o.onDelete();
 		}
 		o.parent = this;
-		o.flags |= 1;
+		var f2 = 1;
+		o.flags |= f2;
 		if((this.flags & 32) != 0) {
 			if((o.flags & 32) == 0) {
 				o.onAlloc();
@@ -22735,6 +23675,7 @@ h3d_scene_Object.prototype = {
 		}
 	}
 	,onParentChangedRec: function() {
+		this.onParentChanged();
 		var _g = 0;
 		var _g1 = this.childs;
 		while(_g < _g1.length) {
@@ -22746,7 +23687,8 @@ h3d_scene_Object.prototype = {
 	,onParentChanged: function() {
 	}
 	,onAlloc: function() {
-		this.flags |= 32;
+		var f = 32;
+		this.flags |= f;
 		var _g = 0;
 		var _g1 = this.childs;
 		while(_g < _g1.length) {
@@ -22756,7 +23698,8 @@ h3d_scene_Object.prototype = {
 		}
 	}
 	,onDelete: function() {
-		this.flags &= -33;
+		var f = 32;
+		this.flags &= ~f;
 		var _g = 0;
 		var _g1 = this.childs;
 		while(_g < _g1.length) {
@@ -22771,7 +23714,8 @@ h3d_scene_Object.prototype = {
 				o.onDelete();
 			}
 			o.parent = null;
-			o.flags |= 1;
+			var f = 1;
+			o.flags |= f;
 		}
 	}
 	,getScene: function() {
@@ -22801,7 +23745,8 @@ h3d_scene_Object.prototype = {
 	,draw: function(ctx) {
 	}
 	,set_follow: function(v) {
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		return this.follow = v;
 	}
 	,calcAbsPos: function() {
@@ -22821,9 +23766,12 @@ h3d_scene_Object.prototype = {
 		if(this.follow != null) {
 			this.follow.syncPos();
 			if((this.flags & 8) != 0) {
-				this.absPos._41 += this.follow.absPos._41;
-				this.absPos._42 += this.follow.absPos._42;
-				this.absPos._43 += this.follow.absPos._43;
+				var _g = this.absPos;
+				_g._41 += this.follow.absPos._41;
+				var _g1 = this.absPos;
+				_g1._42 += this.follow.absPos._42;
+				var _g2 = this.absPos;
+				_g2._43 += this.follow.absPos._43;
 			} else {
 				this.absPos.multiply3x4(this.absPos,this.follow.absPos);
 			}
@@ -22852,6 +23800,9 @@ h3d_scene_Object.prototype = {
 			var b31 = b._31;
 			var b32 = b._32;
 			var b33 = b._33;
+			var b41 = b._41;
+			var b42 = b._42;
+			var b43 = b._43;
 			_this._11 = m11 * b11 + m12 * b21 + m13 * b31;
 			_this._12 = m11 * b12 + m12 * b22 + m13 * b32;
 			_this._13 = m11 * b13 + m12 * b23 + m13 * b33;
@@ -22864,9 +23815,9 @@ h3d_scene_Object.prototype = {
 			_this._32 = a31 * b12 + a32 * b22 + a33 * b32;
 			_this._33 = a31 * b13 + a32 * b23 + a33 * b33;
 			_this._34 = 0;
-			_this._41 = a41 * b11 + a42 * b21 + a43 * b31 + b._41;
-			_this._42 = a41 * b12 + a42 * b22 + a43 * b32 + b._42;
-			_this._43 = a41 * b13 + a42 * b23 + a43 * b33 + b._43;
+			_this._41 = a41 * b11 + a42 * b21 + a43 * b31 + b41;
+			_this._42 = a41 * b12 + a42 * b22 + a43 * b32 + b42;
+			_this._43 = a41 * b13 + a42 * b23 + a43 * b33 + b43;
 			_this._44 = 1;
 		}
 		if(this.defaultTransform != null) {
@@ -22894,6 +23845,9 @@ h3d_scene_Object.prototype = {
 			var b311 = b1._31;
 			var b321 = b1._32;
 			var b331 = b1._33;
+			var b411 = b1._41;
+			var b421 = b1._42;
+			var b431 = b1._43;
 			_this1._11 = m111 * b111 + m121 * b211 + m131 * b311;
 			_this1._12 = m111 * b121 + m121 * b221 + m131 * b321;
 			_this1._13 = m111 * b131 + m121 * b231 + m131 * b331;
@@ -22906,9 +23860,9 @@ h3d_scene_Object.prototype = {
 			_this1._32 = a311 * b121 + a321 * b221 + a331 * b321;
 			_this1._33 = a311 * b131 + a321 * b231 + a331 * b331;
 			_this1._34 = 0;
-			_this1._41 = a411 * b111 + a421 * b211 + a431 * b311 + b1._41;
-			_this1._42 = a411 * b121 + a421 * b221 + a431 * b321 + b1._42;
-			_this1._43 = a411 * b131 + a421 * b231 + a431 * b331 + b1._43;
+			_this1._41 = a411 * b111 + a421 * b211 + a431 * b311 + b411;
+			_this1._42 = a411 * b121 + a421 * b221 + a431 * b321 + b421;
+			_this1._43 = a411 * b131 + a421 * b231 + a431 * b331 + b431;
 			_this1._44 = 1;
 		}
 		if(this.invPos != null) {
@@ -22938,10 +23892,12 @@ h3d_scene_Object.prototype = {
 			this.calcAbsPos();
 		}
 		this.sync(ctx);
-		if(this.follow == null) {
-			this.flags |= 1;
+		var b = this.follow == null;
+		var f = 1;
+		if(b) {
+			this.flags |= f;
 		} else {
-			this.flags &= -2;
+			this.flags &= ~f;
 		}
 		this.lastFrame = ctx.frame;
 		var p = 0;
@@ -22953,7 +23909,8 @@ h3d_scene_Object.prototype = {
 			}
 			if(c.lastFrame != ctx.frame) {
 				if(changed) {
-					c.flags |= 1;
+					var f1 = 1;
+					c.flags |= f1;
 				}
 				c.syncRec(ctx);
 			}
@@ -22971,14 +23928,16 @@ h3d_scene_Object.prototype = {
 			this.parent.syncPos();
 		}
 		if((this.flags & 1) != 0) {
-			this.flags &= -2;
+			var f = 1;
+			this.flags &= ~f;
 			this.calcAbsPos();
 			var _g = 0;
 			var _g1 = this.childs;
 			while(_g < _g1.length) {
 				var c = _g1[_g];
 				++_g;
-				c.flags |= 1;
+				var f1 = 1;
+				c.flags |= f1;
 			}
 		}
 	}
@@ -22992,14 +23951,16 @@ h3d_scene_Object.prototype = {
 			if(this.currentAnimation != null) {
 				this.currentAnimation.sync();
 			}
-			this.flags &= -2;
+			var f = 1;
+			this.flags &= ~f;
 			this.calcAbsPos();
 			var _g = 0;
 			var _g1 = this.childs;
 			while(_g < _g1.length) {
 				var c = _g1[_g];
 				++_g;
-				c.flags |= 1;
+				var f1 = 1;
+				c.flags |= f1;
 			}
 		}
 		this.emit(ctx);
@@ -23013,89 +23974,115 @@ h3d_scene_Object.prototype = {
 	}
 	,set_x: function(v) {
 		this.x = v;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		return v;
 	}
 	,set_y: function(v) {
 		this.y = v;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		return v;
 	}
 	,set_z: function(v) {
 		this.z = v;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		return v;
 	}
 	,set_scaleX: function(v) {
 		this.scaleX = v;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		return v;
 	}
 	,set_scaleY: function(v) {
 		this.scaleY = v;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		return v;
 	}
 	,set_scaleZ: function(v) {
 		this.scaleZ = v;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		return v;
 	}
 	,set_defaultTransform: function(v) {
 		this.defaultTransform = v;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		return v;
 	}
 	,setPos: function(x,y,z) {
 		this.x = x;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		this.y = y;
-		this.flags |= 1;
+		var f1 = 1;
+		this.flags |= f1;
 		this.z = z;
-		this.flags |= 1;
-		this.flags |= 1;
+		var f2 = 1;
+		this.flags |= f2;
+		var f3 = 1;
+		this.flags |= f3;
 	}
 	,rotate: function(rx,ry,rz) {
 		var qTmp = new h3d_Quat();
 		qTmp.initRotate(rx,ry,rz);
 		this.qRot.multiply(qTmp,this.qRot);
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 	}
 	,setRotate: function(rx,ry,rz) {
 		this.qRot.initRotate(rx,ry,rz);
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 	}
 	,setRotateAxis: function(ax,ay,az,angle) {
 		this.qRot.initRotateAxis(ax,ay,az,angle);
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 	}
 	,getRotationQuat: function() {
 		return this.qRot;
 	}
 	,setRotationQuat: function(q) {
 		this.qRot = q;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 	}
 	,scale: function(v) {
 		var _g = this;
-		_g.scaleX *= v;
-		_g.flags |= 1;
+		var v1 = _g.scaleX * v;
+		_g.scaleX = v1;
+		var f = 1;
+		_g.flags |= f;
 		var _g1 = this;
-		_g1.scaleY *= v;
-		_g1.flags |= 1;
+		var v2 = _g1.scaleY * v;
+		_g1.scaleY = v2;
+		var f1 = 1;
+		_g1.flags |= f1;
 		var _g2 = this;
-		_g2.scaleZ *= v;
-		_g2.flags |= 1;
-		this.flags |= 1;
+		var v3 = _g2.scaleZ * v;
+		_g2.scaleZ = v3;
+		var f2 = 1;
+		_g2.flags |= f2;
+		var f3 = 1;
+		this.flags |= f3;
 	}
 	,setScale: function(v) {
 		this.scaleX = v;
-		this.flags |= 1;
+		var f = 1;
+		this.flags |= f;
 		this.scaleY = v;
-		this.flags |= 1;
+		var f1 = 1;
+		this.flags |= f1;
 		this.scaleZ = v;
-		this.flags |= 1;
-		this.flags |= 1;
+		var f2 = 1;
+		this.flags |= f2;
+		var f3 = 1;
+		this.flags |= f3;
 	}
 	,toString: function() {
 		return Type.getClassName(js_Boot.getClass(this)).split(".").pop() + (this.name == null ? "" : "(" + this.name + ")");
@@ -23221,24 +24208,25 @@ h3d_scene_Mesh.prototype = $extend(h3d_scene_Object.prototype,{
 		b1.yMax = _this.yMax;
 		b1.zMin = _this.zMin;
 		b1.zMax = _this.zMax;
-		b1.transform(this.absPos);
-		if(b1.xMin < b.xMin) {
-			b.xMin = b1.xMin;
+		var tmp = b1;
+		tmp.transform(this.absPos);
+		if(tmp.xMin < b.xMin) {
+			b.xMin = tmp.xMin;
 		}
-		if(b1.xMax > b.xMax) {
-			b.xMax = b1.xMax;
+		if(tmp.xMax > b.xMax) {
+			b.xMax = tmp.xMax;
 		}
-		if(b1.yMin < b.yMin) {
-			b.yMin = b1.yMin;
+		if(tmp.yMin < b.yMin) {
+			b.yMin = tmp.yMin;
 		}
-		if(b1.yMax > b.yMax) {
-			b.yMax = b1.yMax;
+		if(tmp.yMax > b.yMax) {
+			b.yMax = tmp.yMax;
 		}
-		if(b1.zMin < b.zMin) {
-			b.zMin = b1.zMin;
+		if(tmp.zMin < b.zMin) {
+			b.zMin = tmp.zMin;
 		}
-		if(b1.zMax > b.zMax) {
-			b.zMax = b1.zMax;
+		if(tmp.zMax > b.zMax) {
+			b.zMax = tmp.zMax;
 		}
 		return b;
 	}
@@ -23356,7 +24344,8 @@ h3d_scene_Graphics.prototype = $extend(h3d_scene_Mesh.prototype,{
 			var ns = 1. / Math.sqrt(nx * nx + ny * ny);
 			nx *= ns;
 			ny *= ns;
-			var d = this.lineSize * 0.5 / (nx * nx1 * ns1 + ny * ny1 * ns1);
+			var size = nx * nx1 * ns1 + ny * ny1 * ns1;
+			var d = this.lineSize * 0.5 / size;
 			nx *= d;
 			ny *= d;
 			var hasIndex = i < count - 1 || closed;
@@ -23699,7 +24688,8 @@ h3d_scene_Interactive.prototype = $extend(h3d_scene_Object.prototype,{
 		if(this.cancelEvents) {
 			e.cancel = true;
 		}
-		switch(e.kind[1]) {
+		var _g = e.kind;
+		switch(_g[1]) {
 		case 0:
 			if(this.enableRightButton || e.button == 0) {
 				this.mouseDownButton = e.button;
@@ -23901,7 +24891,8 @@ var h3d_scene__$Object_ObjectFlags_$Impl_$ = {};
 $hxClasses["h3d.scene._Object.ObjectFlags_Impl_"] = h3d_scene__$Object_ObjectFlags_$Impl_$;
 h3d_scene__$Object_ObjectFlags_$Impl_$.__name__ = ["h3d","scene","_Object","ObjectFlags_Impl_"];
 h3d_scene__$Object_ObjectFlags_$Impl_$._new = function() {
-	return 0;
+	var this1 = 0;
+	return this1;
 };
 h3d_scene__$Object_ObjectFlags_$Impl_$.toInt = function(this1) {
 	return this1;
@@ -24121,7 +25112,8 @@ h3d_scene_Renderer.prototype = {
 	}
 	,getPassPriority: function(p) {
 		var pr = p.p.priority * 10;
-		switch(p.name) {
+		var _g = p.name;
+		switch(_g) {
 		case "additive":
 			pr -= 2;
 			break;
@@ -24160,12 +25152,14 @@ h3d_scene_Renderer.prototype = {
 		var p = passes;
 		var cam = this.ctx.camera.m;
 		while(p != null) {
-			p.depth = (p.obj.absPos._41 * cam._13 + p.obj.absPos._42 * cam._23 + p.obj.absPos._43 * cam._33 + cam._43) / (p.obj.absPos._41 * cam._14 + p.obj.absPos._42 * cam._24 + p.obj.absPos._43 * cam._34 + cam._44);
+			var z = p.obj.absPos._41 * cam._13 + p.obj.absPos._42 * cam._23 + p.obj.absPos._43 * cam._33 + cam._43;
+			var w = p.obj.absPos._41 * cam._14 + p.obj.absPos._42 * cam._24 + p.obj.absPos._43 * cam._34 + cam._44;
+			p.depth = z / w;
 			p = p.next;
 		}
 		if(frontToBack) {
 			var list = passes;
-			if(passes == null) {
+			if(list == null) {
 				return null;
 			} else {
 				var insize = 1;
@@ -24188,7 +25182,7 @@ h3d_scene_Renderer.prototype = {
 						var _g1 = 0;
 						var _g = insize;
 						while(_g1 < _g) {
-							++_g1;
+							var i = _g1++;
 							++psize;
 							q = q.next;
 							if(q == null) {
@@ -24229,7 +25223,7 @@ h3d_scene_Renderer.prototype = {
 			}
 		} else {
 			var list1 = passes;
-			if(passes == null) {
+			if(list1 == null) {
 				return null;
 			} else {
 				var insize1 = 1;
@@ -24252,7 +25246,7 @@ h3d_scene_Renderer.prototype = {
 						var _g11 = 0;
 						var _g2 = insize1;
 						while(_g11 < _g2) {
-							++_g11;
+							var i1 = _g11++;
 							++psize1;
 							q1 = q1.next;
 							if(q1 == null) {
@@ -24461,13 +25455,16 @@ h3d_scene_Scene.prototype = $extend(h3d_scene_Object.prototype,{
 		return r;
 	}
 	,sortHitPointByCameraDistance: function(i1,i2) {
-		if(i1.hitPoint.w > i2.hitPoint.w) {
+		var z1 = i1.hitPoint.w;
+		var z2 = i2.hitPoint.w;
+		if(z1 > z2) {
 			return -1;
 		}
 		return 1;
 	}
 	,dispatchEvent: function(event,to) {
-		to.handleEvent(event);
+		var i = to;
+		i.handleEvent(event);
 	}
 	,isInteractiveVisible: function(i) {
 		var o = i;
@@ -24489,23 +25486,32 @@ h3d_scene_Scene.prototype = $extend(h3d_scene_Object.prototype,{
 			var screenY = -(event.relY / stage.get_height() - 0.5) * 2;
 			var p0 = this.camera.unproject(screenX,screenY,0);
 			var p1 = this.camera.unproject(screenX,screenY,1);
-			var x = p0.x;
-			var y = p0.y;
-			var z = p0.z;
+			var p1_z;
+			var p1_y;
+			var p1_x = p0.x;
+			p1_y = p0.y;
+			p1_z = p0.z;
+			var p2_z;
+			var p2_y;
+			var p2_x = p1.x;
+			p2_y = p1.y;
+			p2_z = p1.z;
 			var r = new h3d_col_Ray();
-			r.px = x;
-			r.py = y;
-			r.pz = z;
-			r.lx = p1.x - x;
-			r.ly = p1.y - y;
-			r.lz = p1.z - z;
-			var r1 = new h3d_col_Ray();
-			r1.px = r.px;
-			r1.py = r.py;
-			r1.pz = r.pz;
-			r1.lx = r.lx;
-			r1.ly = r.ly;
-			r1.lz = r.lz;
+			r.px = p1_x;
+			r.py = p1_y;
+			r.pz = p1_z;
+			r.lx = p2_x - p1_x;
+			r.ly = p2_y - p1_y;
+			r.lz = p2_z - p1_z;
+			var r1 = r;
+			var r2 = new h3d_col_Ray();
+			r2.px = r1.px;
+			r2.py = r1.py;
+			r2.pz = r1.pz;
+			r2.lx = r1.lx;
+			r2.ly = r1.ly;
+			r2.lz = r1.lz;
+			var saveR = r2;
 			var hitTmp = new h3d_col_Point();
 			var _g = 0;
 			var _g1 = this.interactives;
@@ -24521,50 +25527,54 @@ h3d_scene_Scene.prototype = $extend(h3d_scene_Object.prototype,{
 				var p_z;
 				var p_y;
 				var p_x;
-				var x1 = r.px;
-				var y1 = r.py;
-				var z1 = r.pz;
-				p_x = x1;
-				p_y = y1;
-				p_z = z1;
-				p_x = x1 * minv._11 + y1 * minv._21 + z1 * minv._31 + minv._41;
-				p_y = x1 * minv._12 + y1 * minv._22 + z1 * minv._32 + minv._42;
-				p_z = x1 * minv._13 + y1 * minv._23 + z1 * minv._33 + minv._43;
-				r.px = p_x;
-				r.py = p_y;
-				r.pz = p_z;
+				var p_w;
+				p_x = r1.px;
+				p_y = r1.py;
+				p_z = r1.pz;
+				p_w = 1.;
+				var px = p_x * minv._11 + p_y * minv._21 + p_z * minv._31 + p_w * minv._41;
+				var py = p_x * minv._12 + p_y * minv._22 + p_z * minv._32 + p_w * minv._42;
+				var pz = p_x * minv._13 + p_y * minv._23 + p_z * minv._33 + p_w * minv._43;
+				p_x = px;
+				p_y = py;
+				p_z = pz;
+				r1.px = p_x;
+				r1.py = p_y;
+				r1.pz = p_z;
 				var l_z;
 				var l_y;
 				var l_x;
-				var x2 = r.lx;
-				var y2 = r.ly;
-				var z2 = r.lz;
-				l_x = x2;
-				l_y = y2;
-				l_z = z2;
-				l_x = x2 * minv._11 + y2 * minv._21 + z2 * minv._31;
-				l_y = x2 * minv._12 + y2 * minv._22 + z2 * minv._32;
-				l_z = x2 * minv._13 + y2 * minv._23 + z2 * minv._33;
-				r.lx = l_x;
-				r.ly = l_y;
-				r.lz = l_z;
-				r.normalize();
-				if(r.lx != r.lx) {
-					r.px = r1.px;
-					r.py = r1.py;
-					r.pz = r1.pz;
-					r.lx = r1.lx;
-					r.ly = r1.ly;
-					r.lz = r1.lz;
+				var l_w;
+				l_x = r1.lx;
+				l_y = r1.ly;
+				l_z = r1.lz;
+				l_w = 1.;
+				var px1 = l_x * minv._11 + l_y * minv._21 + l_z * minv._31;
+				var py1 = l_x * minv._12 + l_y * minv._22 + l_z * minv._32;
+				var pz1 = l_x * minv._13 + l_y * minv._23 + l_z * minv._33;
+				l_x = px1;
+				l_y = py1;
+				l_z = pz1;
+				r1.lx = l_x;
+				r1.ly = l_y;
+				r1.lz = l_z;
+				r1.normalize();
+				if(r1.lx != r1.lx) {
+					r1.px = saveR.px;
+					r1.py = saveR.py;
+					r1.pz = saveR.pz;
+					r1.lx = saveR.lx;
+					r1.ly = saveR.ly;
+					r1.lz = saveR.lz;
 					continue;
 				}
-				var hit = i.shape.rayIntersection(r,hitTmp);
-				r.px = r1.px;
-				r.py = r1.py;
-				r.pz = r1.pz;
-				r.lx = r1.lx;
-				r.ly = r1.ly;
-				r.lz = r1.lz;
+				var hit = i.shape.rayIntersection(r1,hitTmp);
+				r1.px = saveR.px;
+				r1.py = saveR.py;
+				r1.pz = saveR.pz;
+				r1.lx = saveR.lx;
+				r1.ly = saveR.ly;
+				r1.lz = saveR.lz;
 				if(hit == null) {
 					continue;
 				}
@@ -24582,28 +25592,32 @@ h3d_scene_Scene.prototype = $extend(h3d_scene_Object.prototype,{
 				while(_g2 < _g11.length) {
 					var i1 = _g11[_g2];
 					++_g2;
+					var m = i1.invPos;
 					var p_z1;
 					var p_y1;
 					var p_x1;
+					var p_w1;
 					var _this = i1.hitPoint;
-					var x3 = _this.x;
-					var y3 = _this.y;
-					var z3 = _this.z;
-					var w = _this.w;
-					p_x1 = x3;
-					p_y1 = y3;
-					p_z1 = z3;
-					var m = i1.absPos;
-					p_x1 = x3 * m._11 + y3 * m._21 + z3 * m._31 + w * m._41;
-					p_y1 = x3 * m._12 + y3 * m._22 + z3 * m._32 + w * m._42;
-					p_z1 = x3 * m._13 + y3 * m._23 + z3 * m._33 + w * m._43;
-					var m1 = this.camera.m;
-					var py = p_x1 * m1._12 + p_y1 * m1._22 + p_z1 * m1._32 + w * m1._42;
-					var pz = p_x1 * m1._13 + p_y1 * m1._23 + p_z1 * m1._33 + w * m1._43;
-					var iw = 1 / (p_x1 * m1._14 + p_y1 * m1._24 + p_z1 * m1._34 + w * m1._44);
-					p_x1 = (p_x1 * m1._11 + p_y1 * m1._21 + p_z1 * m1._31 + w * m1._41) * iw;
-					p_y1 = py * iw;
-					p_z1 = pz * iw;
+					p_x1 = _this.x;
+					p_y1 = _this.y;
+					p_z1 = _this.z;
+					p_w1 = _this.w;
+					var m1 = i1.absPos;
+					var px2 = p_x1 * m1._11 + p_y1 * m1._21 + p_z1 * m1._31 + p_w1 * m1._41;
+					var py2 = p_x1 * m1._12 + p_y1 * m1._22 + p_z1 * m1._32 + p_w1 * m1._42;
+					var pz2 = p_x1 * m1._13 + p_y1 * m1._23 + p_z1 * m1._33 + p_w1 * m1._43;
+					p_x1 = px2;
+					p_y1 = py2;
+					p_z1 = pz2;
+					var m2 = this.camera.m;
+					var px3 = p_x1 * m2._11 + p_y1 * m2._21 + p_z1 * m2._31 + p_w1 * m2._41;
+					var py3 = p_x1 * m2._12 + p_y1 * m2._22 + p_z1 * m2._32 + p_w1 * m2._42;
+					var pz3 = p_x1 * m2._13 + p_y1 * m2._23 + p_z1 * m2._33 + p_w1 * m2._43;
+					var iw = 1 / (p_x1 * m2._14 + p_y1 * m2._24 + p_z1 * m2._34 + p_w1 * m2._44);
+					p_x1 = px3 * iw;
+					p_y1 = py3 * iw;
+					p_z1 = pz3 * iw;
+					p_w1 = 1;
 					i1.hitPoint.w = p_z1;
 				}
 				this.hitInteractives.sort($bind(this,this.sortHitPointByCameraDistance));
@@ -24683,30 +25697,34 @@ h3d_scene_Scene.prototype = $extend(h3d_scene_Object.prototype,{
 			var p_z;
 			var p_y;
 			var p_x;
-			var x = ray.px;
-			var y = ray.py;
-			var z = ray.pz;
-			p_x = x;
-			p_y = y;
-			p_z = z;
-			p_x = x * m1._11 + y * m1._21 + z * m1._31 + m1._41;
-			p_y = x * m1._12 + y * m1._22 + z * m1._32 + m1._42;
-			p_z = x * m1._13 + y * m1._23 + z * m1._33 + m1._43;
+			var p_w;
+			p_x = ray.px;
+			p_y = ray.py;
+			p_z = ray.pz;
+			p_w = 1.;
+			var px = p_x * m1._11 + p_y * m1._21 + p_z * m1._31 + p_w * m1._41;
+			var py = p_x * m1._12 + p_y * m1._22 + p_z * m1._32 + p_w * m1._42;
+			var pz = p_x * m1._13 + p_y * m1._23 + p_z * m1._33 + p_w * m1._43;
+			p_x = px;
+			p_y = py;
+			p_z = pz;
 			ray.px = p_x;
 			ray.py = p_y;
 			ray.pz = p_z;
 			var l_z;
 			var l_y;
 			var l_x;
-			var x1 = ray.lx;
-			var y1 = ray.ly;
-			var z1 = ray.lz;
-			l_x = x1;
-			l_y = y1;
-			l_z = z1;
-			l_x = x1 * m1._11 + y1 * m1._21 + z1 * m1._31;
-			l_y = x1 * m1._12 + y1 * m1._22 + z1 * m1._32;
-			l_z = x1 * m1._13 + y1 * m1._23 + z1 * m1._33;
+			var l_w;
+			l_x = ray.lx;
+			l_y = ray.ly;
+			l_z = ray.lz;
+			l_w = 1.;
+			var px1 = l_x * m1._11 + l_y * m1._21 + l_z * m1._31;
+			var py1 = l_x * m1._12 + l_y * m1._22 + l_z * m1._32;
+			var pz1 = l_x * m1._13 + l_y * m1._23 + l_z * m1._33;
+			l_x = px1;
+			l_y = py1;
+			l_z = pz1;
 			ray.lx = l_x;
 			ray.ly = l_y;
 			ray.lz = l_z;
@@ -24793,7 +25811,7 @@ h3d_scene_Scene.prototype = $extend(h3d_scene_Object.prototype,{
 					var _g1 = 0;
 					var _g = insize;
 					while(_g1 < _g) {
-						++_g1;
+						var i = _g1++;
 						++psize;
 						q = q.next;
 						if(q == null) {
@@ -24926,6 +25944,7 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 		b1.yMax = _this.yMax;
 		b1.zMin = _this.zMin;
 		b1.zMax = _this.zMax;
+		var tmp = b1;
 		var b0 = this.skinData.allJoints[0];
 		if(b0 != null && b0.parent == null) {
 			var mtmp = this.absPos.clone();
@@ -24938,27 +25957,27 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 			if(b0.transPos != null) {
 				mtmp.multiply3x4(b0.transPos,mtmp);
 			}
-			b1.transform(mtmp);
+			tmp.transform(mtmp);
 		} else {
-			b1.transform(this.absPos);
+			tmp.transform(this.absPos);
 		}
-		if(b1.xMin < b.xMin) {
-			b.xMin = b1.xMin;
+		if(tmp.xMin < b.xMin) {
+			b.xMin = tmp.xMin;
 		}
-		if(b1.xMax > b.xMax) {
-			b.xMax = b1.xMax;
+		if(tmp.xMax > b.xMax) {
+			b.xMax = tmp.xMax;
 		}
-		if(b1.yMin < b.yMin) {
-			b.yMin = b1.yMin;
+		if(tmp.yMin < b.yMin) {
+			b.yMin = tmp.yMin;
 		}
-		if(b1.yMax > b.yMax) {
-			b.yMax = b1.yMax;
+		if(tmp.yMax > b.yMax) {
+			b.yMax = tmp.yMax;
 		}
-		if(b1.zMin < b.zMin) {
-			b.zMin = b1.zMin;
+		if(tmp.zMin < b.zMin) {
+			b.zMin = tmp.zMin;
 		}
-		if(b1.zMax > b.zMax) {
-			b.zMax = b1.zMax;
+		if(tmp.zMax > b.zMax) {
+			b.zMax = tmp.zMax;
 		}
 		return b;
 	}
@@ -25029,13 +26048,14 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 		var _g3 = 0;
 		var _g12 = this.skinData.allJoints;
 		while(_g3 < _g12.length) {
+			var j = _g12[_g3];
 			++_g3;
 			this.currentAbsPose.push(h3d_Matrix.I());
 		}
 		var _g13 = 0;
 		var _g4 = this.skinData.boundJoints.length;
 		while(_g13 < _g4) {
-			++_g13;
+			var i = _g13++;
 			this.currentPalette.push(h3d_Matrix.I());
 		}
 		if(this.skinData.splitJoints != null) {
@@ -25050,9 +26070,9 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 				var _g31 = 0;
 				var _g41 = a.joints;
 				while(_g31 < _g41.length) {
-					var j = _g41[_g31];
+					var j1 = _g41[_g31];
 					++_g31;
-					_g21.push(this.currentPalette[j.bindIndex]);
+					_g21.push(this.currentPalette[j1.bindIndex]);
 				}
 				tmp.push(_g21);
 			}
@@ -25104,6 +26124,9 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 					var b31 = b._31;
 					var b32 = b._32;
 					var b33 = b._33;
+					var b41 = b._41;
+					var b42 = b._42;
+					var b43 = b._43;
 					m._11 = m11 * b11 + m12 * b21 + m13 * b31;
 					m._12 = m11 * b12 + m12 * b22 + m13 * b32;
 					m._13 = m11 * b13 + m12 * b23 + m13 * b33;
@@ -25116,9 +26139,9 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 					m._32 = a31 * b12 + a32 * b22 + a33 * b32;
 					m._33 = a31 * b13 + a32 * b23 + a33 * b33;
 					m._34 = 0;
-					m._41 = a41 * b11 + a42 * b21 + a43 * b31 + b._41;
-					m._42 = a41 * b12 + a42 * b22 + a43 * b32 + b._42;
-					m._43 = a41 * b13 + a42 * b23 + a43 * b33 + b._43;
+					m._41 = a41 * b11 + a42 * b21 + a43 * b31 + b41;
+					m._42 = a41 * b12 + a42 * b22 + a43 * b32 + b42;
+					m._43 = a41 * b13 + a42 * b23 + a43 * b33 + b43;
 					m._44 = 1;
 				} else {
 					var b1 = this.currentAbsPose[j.parent.index];
@@ -25143,6 +26166,9 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 					var b311 = b1._31;
 					var b321 = b1._32;
 					var b331 = b1._33;
+					var b411 = b1._41;
+					var b421 = b1._42;
+					var b431 = b1._43;
 					m._11 = m111 * b111 + m121 * b211 + m131 * b311;
 					m._12 = m111 * b121 + m121 * b221 + m131 * b321;
 					m._13 = m111 * b131 + m121 * b231 + m131 * b331;
@@ -25155,9 +26181,9 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 					m._32 = a311 * b121 + a321 * b221 + a331 * b321;
 					m._33 = a311 * b131 + a321 * b231 + a331 * b331;
 					m._34 = 0;
-					m._41 = a411 * b111 + a421 * b211 + a431 * b311 + b1._41;
-					m._42 = a411 * b121 + a421 * b221 + a431 * b321 + b1._42;
-					m._43 = a411 * b131 + a421 * b231 + a431 * b331 + b1._43;
+					m._41 = a411 * b111 + a421 * b211 + a431 * b311 + b411;
+					m._42 = a411 * b121 + a421 * b221 + a431 * b321 + b421;
+					m._43 = a411 * b131 + a421 * b231 + a431 * b331 + b431;
 					m._44 = 1;
 				}
 				if(bid >= 0) {
@@ -25184,6 +26210,9 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 					var b312 = m._31;
 					var b322 = m._32;
 					var b332 = m._33;
+					var b412 = m._41;
+					var b422 = m._42;
+					var b432 = m._43;
 					_this._11 = m112 * b112 + m122 * b212 + m132 * b312;
 					_this._12 = m112 * b122 + m122 * b222 + m132 * b322;
 					_this._13 = m112 * b132 + m122 * b232 + m132 * b332;
@@ -25196,9 +26225,9 @@ h3d_scene_Skin.prototype = $extend(h3d_scene_MultiMaterial.prototype,{
 					_this._32 = a312 * b122 + a322 * b222 + a332 * b322;
 					_this._33 = a312 * b132 + a322 * b232 + a332 * b332;
 					_this._34 = 0;
-					_this._41 = a412 * b112 + a422 * b212 + a432 * b312 + m._41;
-					_this._42 = a412 * b122 + a422 * b222 + a432 * b322 + m._42;
-					_this._43 = a412 * b132 + a422 * b232 + a432 * b332 + m._43;
+					_this._41 = a412 * b112 + a422 * b212 + a432 * b312 + b412;
+					_this._42 = a412 * b122 + a422 * b222 + a432 * b322 + b422;
+					_this._43 = a412 * b132 + a422 * b232 + a432 * b332 + b432;
 					_this._44 = 1;
 				}
 			}
@@ -25730,11 +26759,14 @@ h3d_shader_Blur.prototype = $extend(h3d_shader_ScreenShader.prototype,{
 });
 var h3d_shader_ShaderBuffers = function(s) {
 	var length = s.globalsSize << 2;
-	this.globals = new Array(length);
+	var this1 = new Array(length);
+	this.globals = this1;
 	var length1 = s.paramsSize << 2;
-	this.params = new Array(length1);
+	var this2 = new Array(length1);
+	this.params = this2;
 	var length2 = s.textures2DCount + s.texturesCubeCount;
-	this.tex = new Array(length2);
+	var this3 = new Array(length2);
+	this.tex = this3;
 };
 $hxClasses["h3d.shader.ShaderBuffers"] = h3d_shader_ShaderBuffers;
 h3d_shader_ShaderBuffers.__name__ = ["h3d","shader","ShaderBuffers"];
@@ -25744,13 +26776,16 @@ h3d_shader_ShaderBuffers.prototype = {
 		var np = s.paramsSize << 2;
 		var nt = s.textures2DCount + s.texturesCubeCount;
 		if(this.globals.length < ng) {
-			this.globals = new Array(ng);
+			var this1 = new Array(ng);
+			this.globals = this1;
 		}
 		if(this.params.length < np) {
-			this.params = new Array(np);
+			var this2 = new Array(np);
+			this.params = this2;
 		}
 		if(this.tex.length < nt) {
-			this.tex = new Array(nt);
+			var this3 = new Array(nt);
+			this.tex = this3;
 		}
 	}
 	,__class__: h3d_shader_ShaderBuffers
@@ -25775,10 +26810,11 @@ var h3d_shader_ColorAdd = function(color) {
 	this.color__ = new h3d_Vector();
 	hxsl_Shader.call(this);
 	var _this = this.color__;
-	_this.x = (color >> 16 & 255) * 0.00392156862745098;
-	_this.y = (color >> 8 & 255) * 0.00392156862745098;
-	_this.z = (color & 255) * 0.00392156862745098;
-	_this.w = (color >>> 24) * 0.00392156862745098;
+	var s = 0.00392156862745098;
+	_this.x = (color >> 16 & 255) * s;
+	_this.y = (color >> 8 & 255) * s;
+	_this.z = (color & 255) * s;
+	_this.w = (color >>> 24) * s;
 };
 $hxClasses["h3d.shader.ColorAdd"] = h3d_shader_ColorAdd;
 h3d_shader_ColorAdd.__name__ = ["h3d","shader","ColorAdd"];
@@ -25815,10 +26851,11 @@ var h3d_shader_ColorKey = function(v) {
 	this.colorKey__ = new h3d_Vector();
 	hxsl_Shader.call(this);
 	var _this = this.colorKey__;
-	_this.x = (v >> 16 & 255) * 0.00392156862745098;
-	_this.y = (v >> 8 & 255) * 0.00392156862745098;
-	_this.z = (v & 255) * 0.00392156862745098;
-	_this.w = (v >>> 24) * 0.00392156862745098;
+	var s = 0.00392156862745098;
+	_this.x = (v >> 16 & 255) * s;
+	_this.y = (v >> 8 & 255) * s;
+	_this.z = (v & 255) * s;
+	_this.w = (v >>> 24) * s;
 };
 $hxClasses["h3d.shader.ColorKey"] = h3d_shader_ColorKey;
 h3d_shader_ColorKey.__name__ = ["h3d","shader","ColorKey"];
@@ -26095,8 +27132,10 @@ h3d_shader_Manager.prototype = {
 							var len = type[3][2];
 							var v2 = v;
 							var _g1 = 0;
-							while(_g1 < len) {
-								var n1 = v2[_g1++];
+							var _g2 = len;
+							while(_g1 < _g2) {
+								var i = _g1++;
+								var n1 = v2[i];
 								if(n1 == null) {
 									break;
 								}
@@ -26115,8 +27154,10 @@ h3d_shader_Manager.prototype = {
 						var v3 = v;
 						var size = 0;
 						var _g11 = 0;
-						while(_g11 < len1) {
-							var n2 = v3[_g11++];
+						var _g3 = len1;
+						while(_g11 < _g3) {
+							var i1 = _g11++;
+							var n2 = v3[i1];
 							if(n2 == null) {
 								break;
 							}
@@ -26133,8 +27174,10 @@ h3d_shader_Manager.prototype = {
 					var v4 = v;
 					var size1 = 0;
 					var _g12 = 0;
-					while(_g12 < len2) {
-						var n3 = v4[_g12++];
+					var _g4 = len2;
+					while(_g12 < _g4) {
+						var i2 = _g12++;
+						var n3 = v4[i2];
 						if(n3 == null) {
 							break;
 						}
@@ -26151,8 +27194,10 @@ h3d_shader_Manager.prototype = {
 					var len3 = type[3][2];
 					var v5 = v;
 					var _g13 = 0;
-					while(_g13 < len3) {
-						var m3 = v5[_g13++];
+					var _g5 = len3;
+					while(_g13 < _g5) {
+						var i3 = _g13++;
+						var m3 = v5[i3];
 						if(m3 == null) {
 							break;
 						}
@@ -26181,8 +27226,10 @@ h3d_shader_Manager.prototype = {
 					var v6 = v;
 					var size2 = 0;
 					var _g14 = 0;
-					while(_g14 < len4) {
-						var n4 = v6[_g14++];
+					var _g6 = len4;
+					while(_g14 < _g6) {
+						var i4 = _g14++;
+						var n4 = v6[i4];
 						if(n4 == null) {
 							break;
 						}
@@ -26277,7 +27324,8 @@ h3d_shader_Manager.prototype = {
 				}
 				v = v2;
 			}
-			_gthis.fillRec(v,p.type,buf1.params,p.pos);
+			var v3 = v;
+			_gthis.fillRec(v3,p.type,buf1.params,p.pos);
 			p = p.next;
 		}
 		var tid = 0;
@@ -26285,20 +27333,20 @@ h3d_shader_Manager.prototype = {
 		while(p1 != null) {
 			var t;
 			if(p1.perObjectGlobal != null) {
-				var v3 = _gthis.globals.map.get(p1.perObjectGlobal.gid);
-				if(v3 == null) {
+				var v4 = _gthis.globals.map.get(p1.perObjectGlobal.gid);
+				if(v4 == null) {
 					throw new js__$Boot_HaxeError("Missing global value " + p1.perObjectGlobal.path);
 				}
-				t = v3;
+				t = v4;
 			} else {
 				var si1 = shaders;
 				var n1 = p1.instance;
 				while(n1-- > 0) si1 = si1.next;
-				var v4 = si1.s.getParamValue(p1.index);
-				if(v4 == null) {
+				var v5 = si1.s.getParamValue(p1.index);
+				if(v5 == null) {
 					throw new js__$Boot_HaxeError("Missing param value " + Std.string(si1.s) + "." + p1.name);
 				}
-				t = v4;
+				t = v5;
 			}
 			var t1 = t;
 			if(t1 == null) {
@@ -26311,20 +27359,20 @@ h3d_shader_Manager.prototype = {
 		while(p2 != null) {
 			var t2;
 			if(p2.perObjectGlobal != null) {
-				var v5 = _gthis.globals.map.get(p2.perObjectGlobal.gid);
-				if(v5 == null) {
+				var v6 = _gthis.globals.map.get(p2.perObjectGlobal.gid);
+				if(v6 == null) {
 					throw new js__$Boot_HaxeError("Missing global value " + p2.perObjectGlobal.path);
 				}
-				t2 = v5;
+				t2 = v6;
 			} else {
 				var si2 = shaders;
 				var n2 = p2.instance;
 				while(n2-- > 0) si2 = si2.next;
-				var v6 = si2.s.getParamValue(p2.index);
-				if(v6 == null) {
+				var v7 = si2.s.getParamValue(p2.index);
+				if(v7 == null) {
 					throw new js__$Boot_HaxeError("Missing param value " + Std.string(si2.s) + "." + p2.name);
 				}
-				t2 = v6;
+				t2 = v7;
 			}
 			var t3 = t2;
 			if(t3 == null) {
@@ -26337,24 +27385,25 @@ h3d_shader_Manager.prototype = {
 		var s2 = s.fragment;
 		var p3 = s2.params;
 		while(p3 != null) {
-			var v7;
+			var v8;
 			if(p3.perObjectGlobal != null) {
-				var v8 = _gthis.globals.map.get(p3.perObjectGlobal.gid);
-				if(v8 == null) {
+				var v9 = _gthis.globals.map.get(p3.perObjectGlobal.gid);
+				if(v9 == null) {
 					throw new js__$Boot_HaxeError("Missing global value " + p3.perObjectGlobal.path);
 				}
-				v7 = v8;
+				v8 = v9;
 			} else {
 				var si3 = shaders;
 				var n3 = p3.instance;
 				while(n3-- > 0) si3 = si3.next;
-				var v9 = si3.s.getParamValue(p3.index);
-				if(v9 == null) {
+				var v10 = si3.s.getParamValue(p3.index);
+				if(v10 == null) {
 					throw new js__$Boot_HaxeError("Missing param value " + Std.string(si3.s) + "." + p3.name);
 				}
-				v7 = v9;
+				v8 = v10;
 			}
-			_gthis.fillRec(v7,p3.type,buf2.params,p3.pos);
+			var v11 = v8;
+			_gthis.fillRec(v11,p3.type,buf2.params,p3.pos);
 			p3 = p3.next;
 		}
 		var tid1 = 0;
@@ -26362,20 +27411,20 @@ h3d_shader_Manager.prototype = {
 		while(p4 != null) {
 			var t4;
 			if(p4.perObjectGlobal != null) {
-				var v10 = _gthis.globals.map.get(p4.perObjectGlobal.gid);
-				if(v10 == null) {
+				var v12 = _gthis.globals.map.get(p4.perObjectGlobal.gid);
+				if(v12 == null) {
 					throw new js__$Boot_HaxeError("Missing global value " + p4.perObjectGlobal.path);
 				}
-				t4 = v10;
+				t4 = v12;
 			} else {
 				var si4 = shaders;
 				var n4 = p4.instance;
 				while(n4-- > 0) si4 = si4.next;
-				var v11 = si4.s.getParamValue(p4.index);
-				if(v11 == null) {
+				var v13 = si4.s.getParamValue(p4.index);
+				if(v13 == null) {
 					throw new js__$Boot_HaxeError("Missing param value " + Std.string(si4.s) + "." + p4.name);
 				}
-				t4 = v11;
+				t4 = v13;
 			}
 			var t5 = t4;
 			if(t5 == null) {
@@ -26388,20 +27437,20 @@ h3d_shader_Manager.prototype = {
 		while(p5 != null) {
 			var t6;
 			if(p5.perObjectGlobal != null) {
-				var v12 = _gthis.globals.map.get(p5.perObjectGlobal.gid);
-				if(v12 == null) {
+				var v14 = _gthis.globals.map.get(p5.perObjectGlobal.gid);
+				if(v14 == null) {
 					throw new js__$Boot_HaxeError("Missing global value " + p5.perObjectGlobal.path);
 				}
-				t6 = v12;
+				t6 = v14;
 			} else {
 				var si5 = shaders;
 				var n5 = p5.instance;
 				while(n5-- > 0) si5 = si5.next;
-				var v13 = si5.s.getParamValue(p5.index);
-				if(v13 == null) {
+				var v15 = si5.s.getParamValue(p5.index);
+				if(v15 == null) {
 					throw new js__$Boot_HaxeError("Missing param value " + Std.string(si5.s) + "." + p5.name);
 				}
-				t6 = v13;
+				t6 = v15;
 			}
 			var t7 = t6;
 			if(t7 == null) {
@@ -26418,7 +27467,8 @@ h3d_shader_Manager.prototype = {
 		while(_g_l != _g_last) {
 			var s = _g_l.s;
 			_g_l = _g_l.next;
-			s.updateConstants(this.globals);
+			var s1 = s;
+			s1.updateConstants(this.globals);
 		}
 		return this.shaderCache.link(shaders,this.output);
 	}
@@ -26782,9 +27832,10 @@ haxe_EntryPoint.processEvents = function() {
 	return haxe_MainLoop.tick();
 };
 haxe_EntryPoint.run = function() {
-	haxe_EntryPoint.processEvents();
+	var nextTick = haxe_EntryPoint.processEvents();
 	var $window = window;
-	($window.requestAnimationFrame || $window.webkitRequestAnimationFrame || $window.mozRequestAnimationFrame)(haxe_EntryPoint.run);
+	var rqf = $window.requestAnimationFrame || $window.webkitRequestAnimationFrame || $window.mozRequestAnimationFrame;
+	rqf(haxe_EntryPoint.run);
 };
 var haxe__$Int64__$_$_$Int64 = function(high,low) {
 	this.high = high;
@@ -26855,7 +27906,7 @@ haxe_MainLoop.sortEvents = function() {
 			var _g1 = 0;
 			var _g = insize;
 			while(_g1 < _g) {
-				++_g1;
+				var i = _g1++;
 				++psize;
 				q = q.next;
 				if(q == null) {
@@ -27059,7 +28110,8 @@ haxe_Unserializer.prototype = {
 			if(typeof(k) != "string") {
 				throw new js__$Boot_HaxeError("Invalid object key");
 			}
-			o[k] = this.unserialize();
+			var v = this.unserialize();
+			o[k] = v;
 		}
 		this.pos++;
 	}
@@ -27076,7 +28128,8 @@ haxe_Unserializer.prototype = {
 		return Type.createEnum(edecl,tag,args);
 	}
 	,unserialize: function() {
-		switch(this.buf.charCodeAt(this.pos++)) {
+		var _g = this.buf.charCodeAt(this.pos++);
+		switch(_g) {
 		case 65:
 			var name = this.unserialize();
 			var cl = this.resolver.resolveClass(name);
@@ -27107,7 +28160,11 @@ haxe_Unserializer.prototype = {
 		case 77:
 			var h = new haxe_ds_ObjectMap();
 			this.cache.push(h);
-			while(this.buf.charCodeAt(this.pos) != 104) h.set(this.unserialize(),this.unserialize());
+			var buf = this.buf;
+			while(this.buf.charCodeAt(this.pos) != 104) {
+				var s = this.unserialize();
+				h.set(s,this.unserialize());
+			}
 			this.pos++;
 			return h;
 		case 82:
@@ -27117,6 +28174,7 @@ haxe_Unserializer.prototype = {
 			}
 			return this.scache[n];
 		case 97:
+			var buf1 = this.buf;
 			var a = [];
 			this.cache.push(a);
 			while(true) {
@@ -27137,13 +28195,14 @@ haxe_Unserializer.prototype = {
 		case 98:
 			var h1 = new haxe_ds_StringMap();
 			this.cache.push(h1);
+			var buf2 = this.buf;
 			while(this.buf.charCodeAt(this.pos) != 104) {
-				var s = this.unserialize();
+				var s1 = this.unserialize();
 				var value = this.unserialize();
-				if(__map_reserved[s] != null) {
-					h1.setReserved(s,value);
+				if(__map_reserved[s1] != null) {
+					h1.setReserved(s1,value);
 				} else {
-					h1.h[s] = value;
+					h1.h[s1] = value;
 				}
 			}
 			this.pos++;
@@ -27184,6 +28243,7 @@ haxe_Unserializer.prototype = {
 		case 108:
 			var l = new List();
 			this.cache.push(l);
+			var buf3 = this.buf;
 			while(this.buf.charCodeAt(this.pos) != 104) l.add(this.unserialize());
 			this.pos++;
 			return l;
@@ -27201,6 +28261,7 @@ haxe_Unserializer.prototype = {
 		case 113:
 			var h2 = new haxe_ds_IntMap();
 			this.cache.push(h2);
+			var buf4 = this.buf;
 			var c1 = this.buf.charCodeAt(this.pos++);
 			while(c1 == 58) {
 				var i = this.readDigits();
@@ -27220,7 +28281,7 @@ haxe_Unserializer.prototype = {
 			return this.cache[n2];
 		case 115:
 			var len = this.readDigits();
-			var buf = this.buf;
+			var buf5 = this.buf;
 			if(this.buf.charCodeAt(this.pos++) != 58 || this.length - this.pos < len) {
 				throw new js__$Boot_HaxeError("Invalid bytes length");
 			}
@@ -27231,24 +28292,25 @@ haxe_Unserializer.prototype = {
 			}
 			var i1 = this.pos;
 			var rest = len & 3;
+			var size = (len >> 2) * 3 + (rest >= 2 ? rest - 1 : 0);
 			var max = i1 + (len - rest);
-			var bytes = new haxe_io_Bytes(new ArrayBuffer((len >> 2) * 3 + (rest >= 2 ? rest - 1 : 0)));
+			var bytes = new haxe_io_Bytes(new ArrayBuffer(size));
 			var bpos = 0;
 			while(i1 < max) {
-				var c11 = codes[buf.charCodeAt(i1++)];
-				var c2 = codes[buf.charCodeAt(i1++)];
+				var c11 = codes[buf5.charCodeAt(i1++)];
+				var c2 = codes[buf5.charCodeAt(i1++)];
 				bytes.b[bpos++] = (c11 << 2 | c2 >> 4) & 255;
-				var c3 = codes[buf.charCodeAt(i1++)];
+				var c3 = codes[buf5.charCodeAt(i1++)];
 				bytes.b[bpos++] = (c2 << 4 | c3 >> 2) & 255;
-				var c4 = codes[buf.charCodeAt(i1++)];
+				var c4 = codes[buf5.charCodeAt(i1++)];
 				bytes.b[bpos++] = (c3 << 6 | c4) & 255;
 			}
 			if(rest >= 2) {
-				var c12 = codes[buf.charCodeAt(i1++)];
-				var c21 = codes[buf.charCodeAt(i1++)];
+				var c12 = codes[buf5.charCodeAt(i1++)];
+				var c21 = codes[buf5.charCodeAt(i1++)];
 				bytes.b[bpos++] = (c12 << 2 | c21 >> 4) & 255;
 				if(rest == 3) {
-					var c31 = codes[buf.charCodeAt(i1++)];
+					var c31 = codes[buf5.charCodeAt(i1++)];
 					bytes.b[bpos++] = (c21 << 4 | c31 >> 2) & 255;
 				}
 			}
@@ -27285,11 +28347,11 @@ haxe_Unserializer.prototype = {
 			if(this.buf.charCodeAt(this.pos++) != 58 || this.length - this.pos < len1) {
 				throw new js__$Boot_HaxeError("Invalid string length");
 			}
-			var s1 = HxOverrides.substr(this.buf,this.pos,len1);
+			var s2 = HxOverrides.substr(this.buf,this.pos,len1);
 			this.pos += len1;
-			s1 = decodeURIComponent(s1.split("+").join(" "));
-			this.scache.push(s1);
-			return s1;
+			s2 = decodeURIComponent(s2.split("+").join(" "));
+			this.scache.push(s2);
+			return s2;
 		case 122:
 			return 0;
 		default:
@@ -27309,7 +28371,9 @@ haxe_crypto_Adler32.read = function(i) {
 	var a = new haxe_crypto_Adler32();
 	var a2a = i.readByte();
 	var a2b = i.readByte();
-	a.a1 = i.readByte() << 8 | i.readByte();
+	var a1a = i.readByte();
+	var a1b = i.readByte();
+	a.a1 = a1a << 8 | a1b;
 	a.a2 = a2a << 8 | a2b;
 	return a;
 };
@@ -27320,7 +28384,9 @@ haxe_crypto_Adler32.prototype = {
 		var _g1 = pos;
 		var _g = pos + len;
 		while(_g1 < _g) {
-			a1 = (a1 + b.b[_g1++]) % 65521;
+			var p = _g1++;
+			var c = b.b[p];
+			a1 = (a1 + c) % 65521;
 			a2 = (a2 + a1) % 65521;
 		}
 		this.a1 = a1;
@@ -27390,8 +28456,9 @@ haxe_io_Bytes.prototype = {
 	}
 	,fill: function(pos,len,value) {
 		var _g1 = 0;
-		while(_g1 < len) {
-			++_g1;
+		var _g = len;
+		while(_g1 < _g) {
+			var i = _g1++;
 			this.b[pos++] = value & 255;
 		}
 	}
@@ -27450,9 +28517,12 @@ haxe_io_Bytes.prototype = {
 			} else if(c < 224) {
 				s += fcc((c & 63) << 6 | b[i++] & 127);
 			} else if(c < 240) {
-				s += fcc((c & 31) << 12 | (b[i++] & 127) << 6 | b[i++] & 127);
+				var c2 = b[i++];
+				s += fcc((c & 31) << 12 | (c2 & 127) << 6 | b[i++] & 127);
 			} else {
-				var u = (c & 15) << 18 | (b[i++] & 127) << 12 | (b[i++] & 127) << 6 | b[i++] & 127;
+				var c21 = b[i++];
+				var c3 = b[i++];
+				var u = (c & 15) << 18 | (c21 & 127) << 12 | (c3 & 127) << 6 | b[i++] & 127;
 				s += fcc((u >> 10) + 55232);
 				s += fcc(u & 1023 | 56320);
 			}
@@ -27492,17 +28562,21 @@ haxe_crypto_BaseCode.prototype = {
 	initTable: function() {
 		var tbl = [];
 		var _g = 0;
-		while(_g < 256) tbl[_g++] = -1;
+		while(_g < 256) {
+			var i = _g++;
+			tbl[i] = -1;
+		}
 		var _g1 = 0;
 		var _g2 = this.base.length;
 		while(_g1 < _g2) {
-			var i = _g1++;
-			tbl[this.base.b[i]] = i;
+			var i1 = _g1++;
+			tbl[this.base.b[i1]] = i1;
 		}
 		this.tbl = tbl;
 	}
 	,decodeBytes: function(b) {
 		var nbits = this.nbits;
+		var base = this.base;
 		if(this.tbl == null) {
 			this.initTable();
 		}
@@ -27540,7 +28614,7 @@ haxe_crypto_Crc32.prototype = {
 		var tmp = (this.crc ^ b) & 255;
 		var _g = 0;
 		while(_g < 8) {
-			++_g;
+			var j = _g++;
 			if((tmp & 1) == 1) {
 				tmp = tmp >>> 1 ^ -306674912;
 			} else {
@@ -27554,10 +28628,11 @@ haxe_crypto_Crc32.prototype = {
 		var _g1 = pos;
 		var _g = pos + len;
 		while(_g1 < _g) {
-			var tmp = (this.crc ^ b1.bytes[_g1++]) & 255;
+			var i = _g1++;
+			var tmp = (this.crc ^ b1.bytes[i]) & 255;
 			var _g2 = 0;
 			while(_g2 < 8) {
-				++_g2;
+				var j = _g2++;
 				if((tmp & 1) == 1) {
 					tmp = tmp >>> 1 ^ -306674912;
 				} else {
@@ -27578,7 +28653,8 @@ $hxClasses["haxe.crypto.Md5"] = haxe_crypto_Md5;
 haxe_crypto_Md5.__name__ = ["haxe","crypto","Md5"];
 haxe_crypto_Md5.encode = function(s) {
 	var m = new haxe_crypto_Md5();
-	return m.hex(m.doEncode(haxe_crypto_Md5.str2blks(s)));
+	var h = m.doEncode(haxe_crypto_Md5.str2blks(s));
+	return m.hex(h);
 };
 haxe_crypto_Md5.str2blks = function(str) {
 	var str1 = haxe_io_Bytes.ofString(str);
@@ -27586,37 +28662,50 @@ haxe_crypto_Md5.str2blks = function(str) {
 	var blks = [];
 	var blksSize = nblk * 16;
 	var _g1 = 0;
-	while(_g1 < blksSize) blks[_g1++] = 0;
-	var i = 0;
+	var _g = blksSize;
+	while(_g1 < _g) {
+		var i = _g1++;
+		blks[i] = 0;
+	}
+	var i1 = 0;
 	var max = str1.length;
 	var l = max * 8;
-	while(i < max) {
-		blks[i >> 2] |= str1.b[i] << (l + i) % 4 * 8;
-		++i;
+	while(i1 < max) {
+		blks[i1 >> 2] |= str1.b[i1] << (l + i1) % 4 * 8;
+		++i1;
 	}
-	blks[i >> 2] |= 128 << (l + i) % 4 * 8;
+	blks[i1 >> 2] |= 128 << (l + i1) % 4 * 8;
 	var k = nblk * 16 - 2;
 	blks[k] = l & 255;
-	blks[k] = (blks[k] |= (l >>> 8 & 255) << 8) | (l >>> 16 & 255) << 16;
+	blks[k] |= (l >>> 8 & 255) << 8;
+	blks[k] |= (l >>> 16 & 255) << 16;
 	blks[k] |= (l >>> 24 & 255) << 24;
 	return blks;
 };
 haxe_crypto_Md5.prototype = {
 	bitOR: function(a,b) {
-		return (a >>> 1 | b >>> 1) << 1 | (a & 1 | b & 1);
+		var lsb = a & 1 | b & 1;
+		var msb31 = a >>> 1 | b >>> 1;
+		return msb31 << 1 | lsb;
 	}
 	,bitXOR: function(a,b) {
-		return (a >>> 1 ^ b >>> 1) << 1 | a & 1 ^ b & 1;
+		var lsb = a & 1 ^ b & 1;
+		var msb31 = a >>> 1 ^ b >>> 1;
+		return msb31 << 1 | lsb;
 	}
 	,bitAND: function(a,b) {
-		return (a >>> 1 & b >>> 1) << 1 | a & 1 & (b & 1);
+		var lsb = a & 1 & (b & 1);
+		var msb31 = a >>> 1 & b >>> 1;
+		return msb31 << 1 | lsb;
 	}
 	,addme: function(x,y) {
 		var lsw = (x & 65535) + (y & 65535);
-		return (x >> 16) + (y >> 16) + (lsw >> 16) << 16 | lsw & 65535;
+		var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+		return msw << 16 | lsw & 65535;
 	}
 	,hex: function(a) {
 		var str = "";
+		var hex_chr = "0123456789abcdef";
 		var _g = 0;
 		while(_g < a.length) {
 			var num = a[_g];
@@ -27624,7 +28713,7 @@ haxe_crypto_Md5.prototype = {
 			var _g1 = 0;
 			while(_g1 < 4) {
 				var j = _g1++;
-				str += "0123456789abcdef".charAt(num >> j * 8 + 4 & 15) + "0123456789abcdef".charAt(num >> j * 8 & 15);
+				str += hex_chr.charAt(num >> j * 8 + 4 & 15) + hex_chr.charAt(num >> j * 8 & 15);
 			}
 		}
 		return str;
@@ -27652,12 +28741,14 @@ haxe_crypto_Md5.prototype = {
 		var b = -271733879;
 		var c = -1732584194;
 		var d = 271733878;
+		var step;
 		var i = 0;
 		while(i < x.length) {
 			var olda = a;
 			var oldb = b;
 			var oldc = c;
 			var oldd = d;
+			step = 0;
 			a = this.ff(a,b,c,d,x[i],7,-680876936);
 			d = this.ff(d,a,b,c,x[i + 1],12,-389564586);
 			c = this.ff(c,d,a,b,x[i + 2],17,606105819);
@@ -27745,8 +28836,10 @@ haxe_ds_ArraySort.rec = function(a,cmp,from,to) {
 			return;
 		}
 		var _g1 = from + 1;
-		while(_g1 < to) {
-			var j = _g1++;
+		var _g = to;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var j = i;
 			while(j > from) {
 				if(cmp(a[j],a[j - 1]) < 0) {
 					haxe_ds_ArraySort.swap(a,j - 1,j);
@@ -27922,7 +29015,8 @@ haxe_ds_BalancedTree.prototype = {
 		if(c == 0) {
 			return new haxe_ds_TreeNode(node.left,k,v,node.right,node == null ? 0 : node._height);
 		} else if(c < 0) {
-			return this.balance(this.setLoop(k,v,node.left),node.key,node.value,node.right);
+			var nl = this.setLoop(k,v,node.left);
+			return this.balance(nl,node.key,node.value,node.right);
 		} else {
 			var nr = this.setLoop(k,v,node.right);
 			return this.balance(node.left,node.key,node.value,nr);
@@ -28330,9 +29424,14 @@ haxe_io_Input.prototype = {
 				if(len < 0 || len > buf.length) {
 					throw new js__$Boot_HaxeError(haxe_io_Error.OutsideBounds);
 				}
+				var b1 = total.b;
 				var b2 = buf.b;
 				var _g1 = 0;
-				while(_g1 < len) total.b.push(b2[_g1++]);
+				var _g = len;
+				while(_g1 < _g) {
+					var i = _g1++;
+					total.b.push(b2[i]);
+				}
 			}
 		} catch( e ) {
 			if (e instanceof js__$Boot_HaxeError) e = e.val;
@@ -28482,6 +29581,10 @@ haxe_io_Output.prototype = {
 		}
 		return len;
 	}
+	,flush: function() {
+	}
+	,close: function() {
+	}
 	,set_bigEndian: function(b) {
 		this.bigEndian = b;
 		return b;
@@ -28539,10 +29642,14 @@ haxe_io_BytesOutput.prototype = $extend(haxe_io_Output.prototype,{
 		if(pos < 0 || len < 0 || pos + len > buf.length) {
 			throw new js__$Boot_HaxeError(haxe_io_Error.OutsideBounds);
 		}
+		var b1 = _this.b;
 		var b2 = buf.b;
 		var _g1 = pos;
 		var _g = pos + len;
-		while(_g1 < _g) _this.b.push(b2[_g1++]);
+		while(_g1 < _g) {
+			var i = _g1++;
+			_this.b.push(b2[i]);
+		}
 		return len;
 	}
 	,getBytes: function() {
@@ -28576,12 +29683,13 @@ var haxe_io_FPHelper = function() { };
 $hxClasses["haxe.io.FPHelper"] = haxe_io_FPHelper;
 haxe_io_FPHelper.__name__ = ["haxe","io","FPHelper"];
 haxe_io_FPHelper.i32ToFloat = function(i) {
+	var sign = 1 - (i >>> 31 << 1);
 	var exp = i >>> 23 & 255;
 	var sig = i & 8388607;
 	if(sig == 0 && exp == 0) {
 		return 0.0;
 	}
-	return (1 - (i >>> 31 << 1)) * (1 + Math.pow(2,-23) * sig) * Math.pow(2,exp - 127);
+	return sign * (1 + Math.pow(2,-23) * sig) * Math.pow(2,exp - 127);
 };
 haxe_io_FPHelper.floatToI32 = function(f) {
 	if(f == 0) {
@@ -28602,12 +29710,13 @@ haxe_io_FPHelper.floatToI32 = function(f) {
 	return (f < 0 ? -2147483648 : 0) | exp + 127 << 23 | sig;
 };
 haxe_io_FPHelper.i64ToDouble = function(low,high) {
+	var sign = 1 - (high >>> 31 << 1);
 	var exp = (high >> 20 & 2047) - 1023;
 	var sig = (high & 1048575) * 4294967296. + (low >>> 31) * 2147483648. + (low & 2147483647);
 	if(sig == 0 && exp == -1023) {
 		return 0.0;
 	}
-	return (1 - (high >>> 31 << 1)) * (1.0 + Math.pow(2,-52) * sig) * Math.pow(2,exp);
+	return sign * (1.0 + Math.pow(2,-52) * sig) * Math.pow(2,exp);
 };
 haxe_io_FPHelper.doubleToI64 = function(v) {
 	var i64 = haxe_io_FPHelper.i64tmp;
@@ -28626,8 +29735,10 @@ haxe_io_FPHelper.doubleToI64 = function(v) {
 		var av = v < 0 ? -v : v;
 		var exp = Math.floor(Math.log(av) / 0.6931471805599453);
 		var sig = Math.round((av / Math.pow(2,exp) - 1) * 4503599627370496.);
-		i64.low = sig | 0;
-		i64.high = (v < 0 ? -2147483648 : 0) | exp + 1023 << 20 | (sig / 4294967296.0 | 0);
+		var sig_l = sig | 0;
+		var sig_h = sig / 4294967296.0 | 0;
+		i64.low = sig_l;
+		i64.high = (v < 0 ? -2147483648 : 0) | exp + 1023 << 20 | sig_h;
 	}
 	return i64;
 };
@@ -28795,7 +29906,10 @@ haxe_xml__$Fast_NodeListAccess.prototype = {
 	resolve: function(name) {
 		var l = new List();
 		var x = this.__x.elementsNamed(name);
-		while(x.hasNext()) l.add(new haxe_xml_Fast(x.next()));
+		while(x.hasNext()) {
+			var x1 = x.next();
+			l.add(new haxe_xml_Fast(x1));
+		}
 		return l;
 	}
 	,__class__: haxe_xml__$Fast_NodeListAccess
@@ -28905,8 +30019,10 @@ var haxe_xml_XmlParserException = function(message,xml,position) {
 	this.lineNumber = 1;
 	this.positionAtLine = 0;
 	var _g1 = 0;
-	while(_g1 < position) {
-		var c = xml.charCodeAt(_g1++);
+	var _g = position;
+	while(_g1 < _g) {
+		var i = _g1++;
+		var c = xml.charCodeAt(i);
 		if(c == 10) {
 			this.lineNumber++;
 			this.positionAtLine = 0;
@@ -29049,8 +30165,8 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 				}
 				tmp = HxOverrides.substr(str,start,p - start);
 				aname = tmp;
-				if(xml.exists(tmp)) {
-					throw new js__$Boot_HaxeError(new haxe_xml_XmlParserException("Duplicate attribute [" + tmp + "]",str,p));
+				if(xml.exists(aname)) {
+					throw new js__$Boot_HaxeError(new haxe_xml_XmlParserException("Duplicate attribute [" + aname + "]",str,p));
 				}
 				state = 0;
 				next = 6;
@@ -29174,7 +30290,8 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 		case 14:
 			if(c == 63 && str.charCodeAt(p + 1) == 62) {
 				++p;
-				parent.addChild(Xml.createProcessingInstruction(HxOverrides.substr(str,start + 1,p - start - 2)));
+				var str1 = HxOverrides.substr(str,start + 1,p - start - 2);
+				parent.addChild(Xml.createProcessingInstruction(str1));
 				++nsubs;
 				state = 1;
 			}
@@ -29200,7 +30317,8 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 			break;
 		case 17:
 			if(c == 93 && str.charCodeAt(p + 1) == 93 && str.charCodeAt(p + 2) == 62) {
-				parent.addChild(Xml.createCData(HxOverrides.substr(str,start,p - start)));
+				var child1 = Xml.createCData(HxOverrides.substr(str,start,p - start));
+				parent.addChild(child1);
 				++nsubs;
 				p += 2;
 				state = 1;
@@ -29221,7 +30339,8 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 						buf.b += Std.string("&" + s + ";");
 					} else {
 						var _this1 = haxe_xml_Parser.escapes;
-						buf.b += Std.string(__map_reserved[s] != null ? _this1.getReserved(s) : _this1.h[s]);
+						var x = __map_reserved[s] != null ? _this1.getReserved(s) : _this1.h[s];
+						buf.b += Std.string(x);
 					}
 				}
 				start = p + 1;
@@ -29249,6 +30368,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 			var len6 = p - start;
 			buf.b += len6 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len6);
 			parent.addChild(Xml.createPCData(buf.b));
+			++nsubs;
 		}
 		return p;
 	}
@@ -29257,6 +30377,7 @@ haxe_xml_Parser.doParse = function(str,strict,p,parent) {
 		var len7 = p - start;
 		buf.b += len7 == null ? HxOverrides.substr(str,start,null) : HxOverrides.substr(str,start,len7);
 		parent.addChild(Xml.createPCData(buf.b));
+		++nsubs;
 		return p;
 	}
 	throw new js__$Boot_HaxeError(new haxe_xml_XmlParserException("Unexpected end",str,p));
@@ -29282,8 +30403,10 @@ haxe_zip_HuffTools.prototype = {
 		case 0:
 			return 0;
 		case 1:
-			var da = this.treeDepth(t[2]);
-			var db = this.treeDepth(t[3]);
+			var b = t[3];
+			var a = t[2];
+			var da = this.treeDepth(a);
+			var db = this.treeDepth(b);
 			return 1 + (da < db ? da : db);
 		case 2:
 			throw new js__$Boot_HaxeError("assert");
@@ -29297,7 +30420,9 @@ haxe_zip_HuffTools.prototype = {
 		}
 		if(d == 1) {
 			if(t[1] == 1) {
-				return haxe_zip_Huffman.NeedBit(this.treeCompress(t[2]),this.treeCompress(t[3]));
+				var b = t[3];
+				var a = t[2];
+				return haxe_zip_Huffman.NeedBit(this.treeCompress(a),this.treeCompress(b));
 			} else {
 				throw new js__$Boot_HaxeError("assert");
 			}
@@ -29305,8 +30430,9 @@ haxe_zip_HuffTools.prototype = {
 		var size = 1 << d;
 		var table = [];
 		var _g1 = 0;
-		while(_g1 < size) {
-			++_g1;
+		var _g = size;
+		while(_g1 < _g) {
+			var i = _g1++;
 			table.push(haxe_zip_Huffman.Found(-1));
 		}
 		this.treeWalk(table,0,0,d,t);
@@ -29314,9 +30440,11 @@ haxe_zip_HuffTools.prototype = {
 	}
 	,treeWalk: function(table,p,cd,d,t) {
 		if(t[1] == 1) {
+			var b = t[3];
+			var a = t[2];
 			if(d > 0) {
-				this.treeWalk(table,p,cd + 1,d - 1,t[2]);
-				this.treeWalk(table,p | 1 << cd,cd + 1,d - 1,t[3]);
+				this.treeWalk(table,p,cd + 1,d - 1,a);
+				this.treeWalk(table,p | 1 << cd,cd + 1,d - 1,b);
 			} else {
 				table[p] = this.treeCompress(t);
 			}
@@ -29343,14 +30471,17 @@ haxe_zip_HuffTools.prototype = {
 			throw new js__$Boot_HaxeError("Invalid huffman");
 		}
 		var _g1 = 0;
-		while(_g1 < maxbits) {
-			++_g1;
+		var _g = maxbits;
+		while(_g1 < _g) {
+			var i = _g1++;
 			counts.push(0);
 			tmp.push(0);
 		}
 		var _g11 = 0;
-		while(_g11 < nlengths) {
-			var p = lengths[_g11++ + pos];
+		var _g2 = nlengths;
+		while(_g11 < _g2) {
+			var i1 = _g11++;
+			var p = lengths[i1 + pos];
 			if(p >= maxbits) {
 				throw new js__$Boot_HaxeError("Invalid huffman");
 			}
@@ -29358,21 +30489,22 @@ haxe_zip_HuffTools.prototype = {
 		}
 		var code = 0;
 		var _g12 = 1;
-		var _g = maxbits - 1;
-		while(_g12 < _g) {
-			var i = _g12++;
-			code = code + counts[i] << 1;
-			tmp[i] = code;
+		var _g3 = maxbits - 1;
+		while(_g12 < _g3) {
+			var i2 = _g12++;
+			code = code + counts[i2] << 1;
+			tmp[i2] = code;
 		}
 		var bits = new haxe_ds_IntMap();
 		var _g13 = 0;
-		while(_g13 < nlengths) {
-			var i1 = _g13++;
-			var l = lengths[i1 + pos];
+		var _g4 = nlengths;
+		while(_g13 < _g4) {
+			var i3 = _g13++;
+			var l = lengths[i3 + pos];
 			if(l != 0) {
 				var n = tmp[l - 1];
 				tmp[l - 1] = n + 1;
-				bits.h[n << 5 | l] = i1;
+				bits.h[n << 5 | l] = i3;
 			}
 		}
 		return this.treeCompress(haxe_zip_Huffman.NeedBit(this.treeMake(bits,maxbits,0,1),this.treeMake(bits,maxbits,1,1)));
@@ -29475,7 +30607,7 @@ var haxe_zip_InflateImpl = function(i,header,crc) {
 	this.lengths = [];
 	var _g = 0;
 	while(_g < 19) {
-		++_g;
+		var i1 = _g++;
 		this.lengths.push(-1);
 	}
 	this.window = new haxe_zip__$InflateImpl_Window(crc);
@@ -29494,9 +30626,14 @@ haxe_zip_InflateImpl.run = function(i,bufsize) {
 		if(len < 0 || len > buf.length) {
 			throw new js__$Boot_HaxeError(haxe_io_Error.OutsideBounds);
 		}
+		var b1 = output.b;
 		var b2 = buf.b;
 		var _g1 = 0;
-		while(_g1 < len) output.b.push(b2[_g1++]);
+		var _g = len;
+		while(_g1 < _g) {
+			var i1 = _g1++;
+			output.b.push(b2[i1]);
+		}
 		if(len < bufsize) {
 			break;
 		}
@@ -29575,8 +30712,9 @@ haxe_zip_InflateImpl.prototype = {
 	,addDistOne: function(n) {
 		var c = this.window.getLastChar();
 		var _g1 = 0;
-		while(_g1 < n) {
-			++_g1;
+		var _g = n;
+		while(_g1 < _g) {
+			var i = _g1++;
 			this.addByte(c);
 		}
 	}
@@ -29586,11 +30724,16 @@ haxe_zip_InflateImpl.prototype = {
 	,applyHuffman: function(h) {
 		switch(h[1]) {
 		case 0:
-			return h[2];
+			var n = h[2];
+			return n;
 		case 1:
-			return this.applyHuffman(this.getBit() ? h[3] : h[2]);
+			var b = h[3];
+			var a = h[2];
+			return this.applyHuffman(this.getBit() ? b : a);
 		case 2:
-			return this.applyHuffman(h[3][this.getBits(h[2])]);
+			var tbl = h[3];
+			var n1 = h[2];
+			return this.applyHuffman(tbl[this.getBits(n1)]);
 		}
 	}
 	,inflateLengths: function(a,max) {
@@ -29632,27 +30775,33 @@ haxe_zip_InflateImpl.prototype = {
 		}
 	}
 	,inflateLoop: function() {
-		switch(this.state[1]) {
+		var _g = this.state;
+		switch(_g[1]) {
 		case 0:
 			var cmf = this.input.readByte();
-			if((cmf & 15) != 8) {
+			var cm = cmf & 15;
+			var cinfo = cmf >> 4;
+			if(cm != 8) {
 				throw new js__$Boot_HaxeError("Invalid data");
 			}
 			var flg = this.input.readByte();
+			var fdict = (flg & 32) != 0;
 			if(((cmf << 8) + flg) % 31 != 0) {
 				throw new js__$Boot_HaxeError("Invalid data");
 			}
-			if((flg & 32) != 0) {
+			if(fdict) {
 				throw new js__$Boot_HaxeError("Unsupported dictionary");
 			}
 			this.state = haxe_zip__$InflateImpl_State.Block;
 			return true;
 		case 1:
 			this["final"] = this.getBit();
-			switch(this.getBits(2)) {
+			var _g1 = this.getBits(2);
+			switch(_g1) {
 			case 0:
 				this.len = this.input.readUInt16();
-				if(this.input.readUInt16() != 65535 - this.len) {
+				var nlen = this.input.readUInt16();
+				if(nlen != 65535 - this.len) {
 					throw new js__$Boot_HaxeError("Invalid data");
 				}
 				this.state = haxe_zip__$InflateImpl_State.Flat;
@@ -29668,16 +30817,23 @@ haxe_zip_InflateImpl.prototype = {
 				var hlit = this.getBits(5) + 257;
 				var hdist = this.getBits(5) + 1;
 				var hclen = this.getBits(4) + 4;
-				var _g1 = 0;
-				while(_g1 < hclen) this.lengths[haxe_zip_InflateImpl.CODE_LENGTHS_POS[_g1++]] = this.getBits(3);
-				var _g = hclen;
-				while(_g < 19) this.lengths[haxe_zip_InflateImpl.CODE_LENGTHS_POS[_g++]] = 0;
+				var _g11 = 0;
+				var _g2 = hclen;
+				while(_g11 < _g2) {
+					var i = _g11++;
+					this.lengths[haxe_zip_InflateImpl.CODE_LENGTHS_POS[i]] = this.getBits(3);
+				}
+				var _g3 = hclen;
+				while(_g3 < 19) {
+					var i1 = _g3++;
+					this.lengths[haxe_zip_InflateImpl.CODE_LENGTHS_POS[i1]] = 0;
+				}
 				this.huffman = this.htools.make(this.lengths,0,19,8);
 				var lengths = [];
-				var _g11 = 0;
-				var _g2 = hlit + hdist;
-				while(_g11 < _g2) {
-					++_g11;
+				var _g12 = 0;
+				var _g4 = hlit + hdist;
+				while(_g12 < _g4) {
+					var i2 = _g12++;
 					lengths.push(0);
 				}
 				this.inflateLengths(lengths,hlit + hdist);
@@ -29732,7 +30888,8 @@ haxe_zip_InflateImpl.prototype = {
 				this.state = haxe_zip__$InflateImpl_State.Done;
 				return true;
 			}
-			if(!calc.equals(haxe_crypto_Adler32.read(this.input))) {
+			var crc = haxe_crypto_Adler32.read(this.input);
+			if(!calc.equals(crc)) {
 				throw new js__$Boot_HaxeError("Invalid CRC");
 			}
 			this.state = haxe_zip__$InflateImpl_State.Done;
@@ -29807,8 +30964,9 @@ hxd_BitmapData.prototype = {
 		throw new js__$Boot_HaxeError("Not implemented");
 	}
 	,line: function(x0,y0,x1,y1,color) {
+		var dx = x1 - x0;
 		var dy = y1 - y0;
-		if(x1 - x0 == 0) {
+		if(dx == 0) {
 			if(y1 < y0) {
 				var tmp = y0;
 				y0 = y1;
@@ -29816,7 +30974,10 @@ hxd_BitmapData.prototype = {
 			}
 			var _g1 = y0;
 			var _g = y1 + 1;
-			while(_g1 < _g) this.setPixel(x0,_g1++,color);
+			while(_g1 < _g) {
+				var y = _g1++;
+				this.setPixel(x0,y,color);
+			}
 		} else if(dy == 0) {
 			if(x1 < x0) {
 				var tmp1 = x0;
@@ -29825,7 +30986,10 @@ hxd_BitmapData.prototype = {
 			}
 			var _g11 = x0;
 			var _g2 = x1 + 1;
-			while(_g11 < _g2) this.setPixel(_g11++,y0,color);
+			while(_g11 < _g2) {
+				var x = _g11++;
+				this.setPixel(x,y0,color);
+			}
 		} else {
 			throw new js__$Boot_HaxeError("TODO : brensenham line");
 		}
@@ -29897,7 +31061,9 @@ hxd_BitmapData.prototype = {
 	,getPixels: function() {
 		var w = this.ctx.canvas.width;
 		var h = this.ctx.canvas.height;
-		return new hxd_Pixels(w,h,haxe_io_Bytes.ofData(this.ctx.getImageData(0,0,w,h).data.buffer),hxd_PixelFormat.RGBA);
+		var data = this.ctx.getImageData(0,0,w,h).data;
+		var pixels = data.buffer;
+		return new hxd_Pixels(w,h,haxe_io_Bytes.ofData(pixels),hxd_PixelFormat.RGBA);
 	}
 	,setPixels: function(pixels) {
 		if(pixels.width != this.ctx.canvas.width || pixels.height != this.ctx.canvas.height) {
@@ -29934,25 +31100,65 @@ var hxd_Charset = function() {
 		_gthis.map.set(65281 + i,33 + i);
 	}
 	var _g1 = 192;
-	while(_g1 < 199) _gthis.map.set(_g1++,65);
+	var _g2 = 199;
+	while(_g1 < _g2) {
+		var i1 = _g1++;
+		_gthis.map.set(i1,65);
+	}
 	var _g11 = 224;
-	while(_g11 < 231) _gthis.map.set(_g11++,97);
+	var _g3 = 231;
+	while(_g11 < _g3) {
+		var i2 = _g11++;
+		_gthis.map.set(i2,97);
+	}
 	var _g12 = 200;
-	while(_g12 < 204) _gthis.map.set(_g12++,69);
+	var _g4 = 204;
+	while(_g12 < _g4) {
+		var i3 = _g12++;
+		_gthis.map.set(i3,69);
+	}
 	var _g13 = 232;
-	while(_g13 < 236) _gthis.map.set(_g13++,101);
+	var _g5 = 236;
+	while(_g13 < _g5) {
+		var i4 = _g13++;
+		_gthis.map.set(i4,101);
+	}
 	var _g14 = 204;
-	while(_g14 < 208) _gthis.map.set(_g14++,73);
+	var _g6 = 208;
+	while(_g14 < _g6) {
+		var i5 = _g14++;
+		_gthis.map.set(i5,73);
+	}
 	var _g15 = 236;
-	while(_g15 < 240) _gthis.map.set(_g15++,105);
+	var _g7 = 240;
+	while(_g15 < _g7) {
+		var i6 = _g15++;
+		_gthis.map.set(i6,105);
+	}
 	var _g16 = 210;
-	while(_g16 < 215) _gthis.map.set(_g16++,79);
+	var _g8 = 215;
+	while(_g16 < _g8) {
+		var i7 = _g16++;
+		_gthis.map.set(i7,79);
+	}
 	var _g17 = 242;
-	while(_g17 < 247) _gthis.map.set(_g17++,111);
+	var _g9 = 247;
+	while(_g17 < _g9) {
+		var i8 = _g17++;
+		_gthis.map.set(i8,111);
+	}
 	var _g18 = 217;
-	while(_g18 < 221) _gthis.map.set(_g18++,85);
+	var _g10 = 221;
+	while(_g18 < _g10) {
+		var i9 = _g18++;
+		_gthis.map.set(i9,85);
+	}
 	var _g19 = 249;
-	while(_g19 < 253) _gthis.map.set(_g19++,117);
+	var _g20 = 253;
+	while(_g19 < _g20) {
+		var i10 = _g19++;
+		_gthis.map.set(i10,117);
+	}
 	_gthis.map.set(199,67);
 	_gthis.map.set(231,67);
 	_gthis.map.set(208,68);
@@ -30071,8 +31277,9 @@ hxd_Event.__name__ = ["hxd","Event"];
 hxd_Event.prototype = {
 	toString: function() {
 		var tmp = Std.string(this.kind) + "[" + (this.relX | 0) + "," + (this.relY | 0) + "]";
+		var _g = this.kind;
 		var tmp1;
-		switch(this.kind[1]) {
+		switch(_g[1]) {
 		case 0:case 1:case 10:
 			tmp1 = ",button=" + this.button;
 			break;
@@ -30222,7 +31429,8 @@ hxd_Key.dispose = function() {
 	}
 };
 hxd_Key.onEvent = function(e) {
-	switch(e.kind[1]) {
+	var _g = e.kind;
+	switch(_g[1]) {
 	case 0:
 		if(e.button < 2) {
 			hxd_Key.keyPressed[e.button] = h3d_Engine.CURRENT.frameCount + 1;
@@ -30409,7 +31617,19 @@ hxd_Math.distance = function(dx,dy,dz) {
 	return Math.sqrt(dx * dx + dy * dy + dz * dz);
 };
 hxd_Math.colorLerp = function(c1,c2,k) {
-	return ((c1 >>> 24) * (1 - k) + (c2 >>> 24) * k | 0) << 24 | ((c1 >> 16 & 255) * (1 - k) + (c2 >> 16 & 255) * k | 0) << 16 | ((c1 >> 8 & 255) * (1 - k) + (c2 >> 8 & 255) * k | 0) << 8 | ((c1 & 255) * (1 - k) + (c2 & 255) * k | 0);
+	var a1 = c1 >>> 24;
+	var r1 = c1 >> 16 & 255;
+	var g1 = c1 >> 8 & 255;
+	var b1 = c1 & 255;
+	var a2 = c2 >>> 24;
+	var r2 = c2 >> 16 & 255;
+	var g2 = c2 >> 8 & 255;
+	var b2 = c2 & 255;
+	var a = a1 * (1 - k) + a2 * k | 0;
+	var r = r1 * (1 - k) + r2 * k | 0;
+	var g = g1 * (1 - k) + g2 * k | 0;
+	var b = b1 * (1 - k) + b2 * k | 0;
+	return a << 24 | r << 16 | g << 8 | b;
 };
 hxd_Math.angle = function(da) {
 	da %= 6.28318530717958623;
@@ -30448,8 +31668,9 @@ hxd_Math.angleMove = function(a,b,max) {
 hxd_Math.shuffle = function(a) {
 	var len = a.length;
 	var _g1 = 0;
-	while(_g1 < len) {
-		++_g1;
+	var _g = len;
+	while(_g1 < _g) {
+		var i = _g1++;
 		var x = Std.random(len);
 		var y = Std.random(len);
 		var tmp = a[x];
@@ -30601,15 +31822,18 @@ hxd_Pixels.prototype = {
 		var stride = width * this.bpp;
 		var outP = 0;
 		var _g1 = 0;
-		while(_g1 < height) {
-			var y1 = y + _g1++;
-			out.blit(outP,this.bytes,(x + ((this.flags & 4) != 0 ? this.height - 1 - y1 : y1) * this.width) * this.bpp + this.offset,stride);
+		var _g = height;
+		while(_g1 < _g) {
+			var dy = _g1++;
+			var y1 = y + dy;
+			var p = (x + ((this.flags & 1 << hxd_Flags.FlipY[1]) != 0 ? this.height - 1 - y1 : y1) * this.width) * this.bpp + this.offset;
+			out.blit(outP,this.bytes,p,stride);
 			outP += stride;
 		}
 		return new hxd_Pixels(width,height,out,this.innerFormat);
 	}
 	,yflip: function(y) {
-		if((this.flags & 4) != 0) {
+		if((this.flags & 1 << hxd_Flags.FlipY[1]) != 0) {
 			return this.height - 1 - y;
 		} else {
 			return y;
@@ -30622,28 +31846,32 @@ hxd_Pixels.prototype = {
 		if(srcX < 0 || srcX < 0 || srcX + width > src.width || srcY + height > src.height) {
 			throw new js__$Boot_HaxeError("Pixels.blit() outside src bounds");
 		}
-		if((this.flags & 1) != 0) {
+		if((this.flags & 1 << hxd_Flags.ReadOnly[1]) != 0) {
 			this.copyInner();
 		}
 		src.convert(this.innerFormat);
 		var stride = width * this.bpp;
 		var _g1 = 0;
-		while(_g1 < height) {
+		var _g = height;
+		while(_g1 < _g) {
 			var dy = _g1++;
 			var y1 = dy + srcY;
+			var srcP = (srcX + ((src.flags & 1 << hxd_Flags.FlipY[1]) != 0 ? src.height - 1 - y1 : y1) * src.width) * this.bpp + src.offset;
 			var y2 = dy + y;
-			this.bytes.blit((x + ((this.flags & 4) != 0 ? this.height - 1 - y2 : y2) * this.width) * this.bpp + this.offset,src.bytes,(srcX + ((src.flags & 4) != 0 ? src.height - 1 - y1 : y1) * src.width) * this.bpp + src.offset,stride);
+			var dstP = (x + ((this.flags & 1 << hxd_Flags.FlipY[1]) != 0 ? this.height - 1 - y2 : y2) * this.width) * this.bpp + this.offset;
+			this.bytes.blit(dstP,src.bytes,srcP,stride);
 		}
 	}
 	,clear: function(color) {
-		if((this.flags & 1) != 0) {
+		if((this.flags & 1 << hxd_Flags.ReadOnly[1]) != 0) {
 			this.copyInner();
 		}
 		if(color == 0) {
 			this.bytes.fill(this.offset,this.width * this.height * this.bpp,0);
 			return;
 		}
-		switch(this.innerFormat[1]) {
+		var _g = this.innerFormat;
+		switch(_g[1]) {
 		case 0:
 			color = color >>> 24 | color >> 8 & 65280 | color << 8 & 16711680 | color << 24;
 			break;
@@ -30659,14 +31887,15 @@ hxd_Pixels.prototype = {
 		var _g2 = 0;
 		var _g1 = this.width * this.height;
 		while(_g2 < _g1) {
-			++_g2;
+			var i = _g2++;
 			this.bytes.setInt32(p,color);
 			p += 4;
 		}
 	}
 	,toVector: function() {
 		var length = this.width * this.height;
-		var vec = new Array(length);
+		var this1 = new Array(length);
+		var vec = this1;
 		var idx = 0;
 		var p = this.offset;
 		var dl = 0;
@@ -30674,16 +31903,17 @@ hxd_Pixels.prototype = {
 			p += (this.height - 1) * this.width * this.bpp;
 			dl = -this.width * 2 * this.bpp;
 		}
-		switch(this.innerFormat[1]) {
+		var _g = this.innerFormat;
+		switch(_g[1]) {
 		case 0:
 			var _g1 = 0;
-			var _g = this.height;
-			while(_g1 < _g) {
-				_g1++;
+			var _g2 = this.height;
+			while(_g1 < _g2) {
+				var y = _g1++;
 				var _g3 = 0;
-				var _g2 = this.width;
-				while(_g3 < _g2) {
-					_g3++;
+				var _g21 = this.width;
+				while(_g3 < _g21) {
+					var x = _g3++;
 					var v = this.bytes.getInt32(p);
 					vec[idx++] = v >>> 24 | v >> 8 & 65280 | v << 8 & 16711680 | v << 24;
 					p += 4;
@@ -30695,11 +31925,11 @@ hxd_Pixels.prototype = {
 			var _g11 = 0;
 			var _g4 = this.height;
 			while(_g11 < _g4) {
-				_g11++;
+				var y1 = _g11++;
 				var _g31 = 0;
-				var _g21 = this.width;
-				while(_g31 < _g21) {
-					_g31++;
+				var _g22 = this.width;
+				while(_g31 < _g22) {
+					var x1 = _g31++;
 					vec[idx++] = this.bytes.getInt32(p);
 					p += 4;
 				}
@@ -30710,11 +31940,11 @@ hxd_Pixels.prototype = {
 			var _g12 = 0;
 			var _g5 = this.height;
 			while(_g12 < _g5) {
-				_g12++;
+				var y2 = _g12++;
 				var _g32 = 0;
-				var _g22 = this.width;
-				while(_g32 < _g22) {
-					_g32++;
+				var _g23 = this.width;
+				while(_g32 < _g23) {
+					var x2 = _g32++;
 					var v1 = this.bytes.getInt32(p);
 					vec[idx++] = v1 & -16711936 | v1 << 16 & 16711680 | v1 >> 16 & 255;
 					p += 4;
@@ -30741,30 +31971,31 @@ hxd_Pixels.prototype = {
 		var p = 0;
 		var b = this.offset;
 		var _g1 = 0;
-		while(_g1 < h) {
-			++_g1;
+		var _g = h;
+		while(_g1 < _g) {
+			var y = _g1++;
 			out.blit(p,this.bytes,b,w * 4);
 			p += w * 4;
 			b += w * 4;
 			var _g3 = 0;
 			var _g2 = tw - w;
 			while(_g3 < _g2) {
-				++_g3;
+				var i = _g3++;
 				out.setInt32(p,0);
 				p += 4;
 			}
 		}
 		var _g11 = 0;
-		var _g = (th - h) * tw;
-		while(_g11 < _g) {
-			++_g11;
+		var _g4 = (th - h) * tw;
+		while(_g11 < _g4) {
+			var i1 = _g11++;
 			out.setInt32(p,0);
 			p += 4;
 		}
 		if(copy) {
 			return new hxd_Pixels(tw,th,out,this.innerFormat);
 		}
-		if((this.flags & 1) == 0) {
+		if((this.flags & 1 << hxd_Flags.ReadOnly[1]) == 0) {
 			hxd_impl_Tmp.saveBytes(this.bytes);
 		}
 		this.bytes = out;
@@ -30777,10 +32008,10 @@ hxd_Pixels.prototype = {
 		this.bytes = hxd_impl_Tmp.getBytes(this.width * this.height * 4);
 		this.bytes.blit(0,old,this.offset,this.width * this.height * 4);
 		this.offset = 0;
-		this.flags &= 268435454;
+		this.flags &= 268435455 - (1 << hxd_Flags.ReadOnly[1]);
 	}
 	,willChange: function() {
-		if((this.flags & 1) != 0) {
+		if((this.flags & 1 << hxd_Flags.ReadOnly[1]) != 0) {
 			this.copyInner();
 		}
 	}
@@ -30788,16 +32019,16 @@ hxd_Pixels.prototype = {
 		if(b == null) {
 			b = false;
 		}
-		if((this.flags & 4) != 0 == b) {
+		if((this.flags & 1 << hxd_Flags.FlipY[1]) != 0 == b) {
 			return;
 		}
-		if((this.flags & 1) != 0) {
+		if((this.flags & 1 << hxd_Flags.ReadOnly[1]) != 0) {
 			this.copyInner();
 		}
 		if(b) {
-			this.flags |= 4;
+			this.flags |= 1 << hxd_Flags.FlipY[1];
 		} else {
-			this.flags &= 268435451;
+			this.flags &= 268435455 - (1 << hxd_Flags.FlipY[1]);
 		}
 		var stride = this.width * this.bpp;
 		var _g1 = 0;
@@ -30809,7 +32040,7 @@ hxd_Pixels.prototype = {
 			var _g3 = 0;
 			var _g2 = stride >> 2;
 			while(_g3 < _g2) {
-				++_g3;
+				var x = _g3++;
 				var a = this.bytes.getInt32(p1);
 				var b1 = this.bytes.getInt32(p2);
 				this.bytes.setInt32(p1,b1);
@@ -30823,22 +32054,25 @@ hxd_Pixels.prototype = {
 		if(this.innerFormat == target) {
 			return;
 		}
-		if((this.flags & 1) != 0) {
+		if((this.flags & 1 << hxd_Flags.ReadOnly[1]) != 0) {
 			this.copyInner();
 		}
-		switch(this.innerFormat[1]) {
+		var _g = this.innerFormat;
+		switch(_g[1]) {
 		case 0:
 			switch(target[1]) {
 			case 1:
-				hxd_impl_Memory.select(this.bytes);
+				var mem = hxd_impl_Memory.select(this.bytes);
 				var _g1 = 0;
-				var _g = this.width * this.height;
-				while(_g1 < _g) {
-					var p = (_g1++ << 2) + this.offset;
+				var _g2 = this.width * this.height;
+				while(_g1 < _g2) {
+					var i = _g1++;
+					var p = (i << 2) + this.offset;
 					var a = hxd_impl_Memory.current.b[p];
 					var r = hxd_impl_Memory.current.b[p + 1];
 					var g = hxd_impl_Memory.current.b[p + 2];
-					hxd_impl_Memory.current.b[p] = hxd_impl_Memory.current.b[p + 3] & 255;
+					var b = hxd_impl_Memory.current.b[p + 3];
+					hxd_impl_Memory.current.b[p] = b & 255;
 					hxd_impl_Memory.current.b[p + 1] = g & 255;
 					hxd_impl_Memory.current.b[p + 2] = r & 255;
 					hxd_impl_Memory.current.b[p + 3] = a & 255;
@@ -30846,11 +32080,12 @@ hxd_Pixels.prototype = {
 				hxd_impl_Memory.end();
 				break;
 			case 2:
-				hxd_impl_Memory.select(this.bytes);
+				var mem1 = hxd_impl_Memory.select(this.bytes);
 				var _g11 = 0;
-				var _g2 = this.width * this.height;
-				while(_g11 < _g2) {
-					var p1 = (_g11++ << 2) + this.offset;
+				var _g3 = this.width * this.height;
+				while(_g11 < _g3) {
+					var i1 = _g11++;
+					var p1 = (i1 << 2) + this.offset;
 					var a1 = hxd_impl_Memory.current.b[p1];
 					hxd_impl_Memory.current.b[p1] = hxd_impl_Memory.current.b[p1 + 1] & 255;
 					hxd_impl_Memory.current.b[p1 + 1] = hxd_impl_Memory.current.b[p1 + 2] & 255;
@@ -30866,15 +32101,17 @@ hxd_Pixels.prototype = {
 		case 1:
 			switch(target[1]) {
 			case 0:
-				hxd_impl_Memory.select(this.bytes);
+				var mem2 = hxd_impl_Memory.select(this.bytes);
 				var _g12 = 0;
-				var _g3 = this.width * this.height;
-				while(_g12 < _g3) {
-					var p2 = (_g12++ << 2) + this.offset;
+				var _g4 = this.width * this.height;
+				while(_g12 < _g4) {
+					var i2 = _g12++;
+					var p2 = (i2 << 2) + this.offset;
 					var a2 = hxd_impl_Memory.current.b[p2];
 					var r1 = hxd_impl_Memory.current.b[p2 + 1];
 					var g1 = hxd_impl_Memory.current.b[p2 + 2];
-					hxd_impl_Memory.current.b[p2] = hxd_impl_Memory.current.b[p2 + 3] & 255;
+					var b1 = hxd_impl_Memory.current.b[p2 + 3];
+					hxd_impl_Memory.current.b[p2] = b1 & 255;
 					hxd_impl_Memory.current.b[p2 + 1] = g1 & 255;
 					hxd_impl_Memory.current.b[p2 + 2] = r1 & 255;
 					hxd_impl_Memory.current.b[p2 + 3] = a2 & 255;
@@ -30882,14 +32119,16 @@ hxd_Pixels.prototype = {
 				hxd_impl_Memory.end();
 				break;
 			case 2:
-				hxd_impl_Memory.select(this.bytes);
+				var mem3 = hxd_impl_Memory.select(this.bytes);
 				var _g13 = 0;
-				var _g4 = this.width * this.height;
-				while(_g13 < _g4) {
-					var p3 = (_g13++ << 2) + this.offset;
-					var b = hxd_impl_Memory.current.b[p3];
-					hxd_impl_Memory.current.b[p3] = hxd_impl_Memory.current.b[p3 + 2] & 255;
-					hxd_impl_Memory.current.b[p3 + 2] = b & 255;
+				var _g5 = this.width * this.height;
+				while(_g13 < _g5) {
+					var i3 = _g13++;
+					var p3 = (i3 << 2) + this.offset;
+					var b2 = hxd_impl_Memory.current.b[p3];
+					var r2 = hxd_impl_Memory.current.b[p3 + 2];
+					hxd_impl_Memory.current.b[p3] = r2 & 255;
+					hxd_impl_Memory.current.b[p3 + 2] = b2 & 255;
 				}
 				hxd_impl_Memory.end();
 				break;
@@ -30900,11 +32139,12 @@ hxd_Pixels.prototype = {
 		case 2:
 			switch(target[1]) {
 			case 0:
-				hxd_impl_Memory.select(this.bytes);
+				var mem4 = hxd_impl_Memory.select(this.bytes);
 				var _g14 = 0;
-				var _g5 = this.width * this.height;
-				while(_g14 < _g5) {
-					var p4 = (_g14++ << 2) + this.offset;
+				var _g6 = this.width * this.height;
+				while(_g14 < _g6) {
+					var i4 = _g14++;
+					var p4 = (i4 << 2) + this.offset;
 					var a3 = hxd_impl_Memory.current.b[p4 + 3];
 					hxd_impl_Memory.current.b[p4 + 3] = hxd_impl_Memory.current.b[p4 + 2] & 255;
 					hxd_impl_Memory.current.b[p4 + 2] = hxd_impl_Memory.current.b[p4 + 1] & 255;
@@ -30914,14 +32154,16 @@ hxd_Pixels.prototype = {
 				hxd_impl_Memory.end();
 				break;
 			case 1:
-				hxd_impl_Memory.select(this.bytes);
+				var mem5 = hxd_impl_Memory.select(this.bytes);
 				var _g15 = 0;
-				var _g6 = this.width * this.height;
-				while(_g15 < _g6) {
-					var p5 = (_g15++ << 2) + this.offset;
-					var b1 = hxd_impl_Memory.current.b[p5];
-					hxd_impl_Memory.current.b[p5] = hxd_impl_Memory.current.b[p5 + 2] & 255;
-					hxd_impl_Memory.current.b[p5 + 2] = b1 & 255;
+				var _g7 = this.width * this.height;
+				while(_g15 < _g7) {
+					var i5 = _g15++;
+					var p5 = (i5 << 2) + this.offset;
+					var b3 = hxd_impl_Memory.current.b[p5];
+					var r3 = hxd_impl_Memory.current.b[p5 + 2];
+					hxd_impl_Memory.current.b[p5] = r3 & 255;
+					hxd_impl_Memory.current.b[p5 + 2] = b3 & 255;
 				}
 				hxd_impl_Memory.end();
 				break;
@@ -30935,8 +32177,9 @@ hxd_Pixels.prototype = {
 		this.set_innerFormat(target);
 	}
 	,getPixel: function(x,y) {
-		var p = (x + ((this.flags & 4) != 0 ? this.height - 1 - y : y) * this.width) * this.bpp + this.offset;
-		switch(this.innerFormat[1]) {
+		var p = (x + ((this.flags & 1 << hxd_Flags.FlipY[1]) != 0 ? this.height - 1 - y : y) * this.width) * this.bpp + this.offset;
+		var _g = this.innerFormat;
+		switch(_g[1]) {
 		case 0:
 			var v = this.bytes.getInt32(p);
 			return v >>> 24 | v >> 8 & 65280 | v << 8 & 16711680 | v << 24;
@@ -30951,11 +32194,12 @@ hxd_Pixels.prototype = {
 		}
 	}
 	,setPixel: function(x,y,color) {
-		var p = (x + ((this.flags & 4) != 0 ? this.height - 1 - y : y) * this.width) * this.bpp + this.offset;
-		if((this.flags & 1) != 0) {
+		var p = (x + ((this.flags & 1 << hxd_Flags.FlipY[1]) != 0 ? this.height - 1 - y : y) * this.width) * this.bpp + this.offset;
+		if((this.flags & 1 << hxd_Flags.ReadOnly[1]) != 0) {
 			this.copyInner();
 		}
-		switch(this.innerFormat[1]) {
+		var _g = this.innerFormat;
+		switch(_g[1]) {
 		case 0:
 			this.bytes.setInt32(p,color >>> 24 | color >> 8 & 65280 | color << 8 & 16711680 | color << 24);
 			break;
@@ -30971,7 +32215,7 @@ hxd_Pixels.prototype = {
 	}
 	,dispose: function() {
 		if(this.bytes != null) {
-			if((this.flags & 1) == 0) {
+			if((this.flags & 1 << hxd_Flags.ReadOnly[1]) == 0) {
 				hxd_impl_Tmp.saveBytes(this.bytes);
 			}
 			this.bytes = null;
@@ -30983,7 +32227,8 @@ hxd_Pixels.prototype = {
 		}
 		var png;
 		this.setFlip(false);
-		if(this.innerFormat[1] == 0) {
+		var _g = this.innerFormat;
+		if(_g[1] == 0) {
 			png = format_png_Tools.build32ARGB(this.width,this.height,this.bytes,level);
 		} else {
 			this.convert(hxd_PixelFormat.BGRA);
@@ -30996,7 +32241,7 @@ hxd_Pixels.prototype = {
 	,clone: function() {
 		var p = new hxd_Pixels(this.width,this.height,null,this.innerFormat);
 		p.flags = this.flags;
-		p.flags &= 268435454;
+		p.flags &= 268435455 - (1 << hxd_Flags.ReadOnly[1]);
 		if(this.bytes != null) {
 			var size = this.width * this.height * this.bpp;
 			p.bytes = hxd_impl_Tmp.getBytes(size);
@@ -31096,7 +32341,8 @@ hxd_SceneEvents.prototype = {
 		var checkOver = false;
 		var checkPush = false;
 		var cancelFocus = false;
-		switch(event.kind[1]) {
+		var _g = event.kind;
+		switch(_g[1]) {
 		case 0:
 			cancelFocus = true;
 			checkPush = true;
@@ -31235,7 +32481,8 @@ hxd_SceneEvents.prototype = {
 				++_g;
 				var ox = e.relX;
 				var oy = e.relY;
-				switch(e.kind[1]) {
+				var _g1 = e.kind;
+				switch(_g1[1]) {
 				case 0:case 1:
 					this.mouseX = e.relX;
 					this.mouseY = e.relY;
@@ -31330,7 +32577,8 @@ var hxd_Stage = function() {
 	};
 	var curW = this.get_width();
 	var curH = this.get_height();
-	new haxe_Timer(100).run = function() {
+	var t0 = new haxe_Timer(100);
+	t0.run = function() {
 		_gthis.canvasPos = _gthis.canvas.getBoundingClientRect();
 		var cw = _gthis.get_width();
 		var ch = _gthis.get_height();
@@ -31365,7 +32613,8 @@ hxd_Stage.prototype = {
 		while(_g_head != null) {
 			var val = _g_head.item;
 			_g_head = _g_head.next;
-			val(e);
+			var et = val;
+			et(e);
 		}
 	}
 	,addEventTarget: function(et) {
@@ -31376,8 +32625,9 @@ hxd_Stage.prototype = {
 		while(_g_head != null) {
 			var val = _g_head.item;
 			_g_head = _g_head.next;
-			if(Reflect.compareMethods(val,et)) {
-				this.eventTargets.remove(val);
+			var e = val;
+			if(Reflect.compareMethods(e,et)) {
+				this.eventTargets.remove(e);
 				break;
 			}
 		}
@@ -31390,7 +32640,8 @@ hxd_Stage.prototype = {
 		while(_g_head != null) {
 			var val = _g_head.item;
 			_g_head = _g_head.next;
-			if(Reflect.compareMethods(val,f)) {
+			var e = val;
+			if(Reflect.compareMethods(e,f)) {
 				this.resizeEvents.remove(f);
 				break;
 			}
@@ -31401,8 +32652,11 @@ hxd_Stage.prototype = {
 		while(_g_head != null) {
 			var val = _g_head.item;
 			_g_head = _g_head.next;
-			val();
+			var r = val;
+			r();
 		}
+	}
+	,resize: function(width,height) {
 	}
 	,setFullScreen: function(v) {
 	}
@@ -31507,7 +32761,8 @@ $hxClasses["hxd.System"] = hxd_System;
 hxd_System.__name__ = ["hxd","System"];
 hxd_System.loopFunc = function() {
 	var $window = window;
-	($window.requestAnimationFrame || $window.webkitRequestAnimationFrame || $window.mozRequestAnimationFrame)(hxd_System.loopFunc);
+	var rqf = $window.requestAnimationFrame || $window.webkitRequestAnimationFrame || $window.mozRequestAnimationFrame;
+	rqf(hxd_System.loopFunc);
 	if(hxd_System.LOOP != null) {
 		hxd_System.LOOP();
 	}
@@ -31641,7 +32896,8 @@ $hxClasses["hxd.earcut.Earcut"] = hxd_earcut_Earcut;
 hxd_earcut_Earcut.__name__ = ["hxd","earcut","Earcut"];
 hxd_earcut_Earcut.prototype = {
 	triangulate_h2d__Graphics_GPoint: function(points,holes) {
-		var outerLen = holes != null && holes.length > 0 ? holes[0] : points.length;
+		var hasHoles = holes != null && holes.length > 0;
+		var outerLen = hasHoles ? holes[0] : points.length;
 		if(outerLen < 3) {
 			return [];
 		}
@@ -31657,7 +32913,9 @@ hxd_earcut_Earcut.prototype = {
 		var _g = holes.length;
 		while(_g1 < _g) {
 			var i = _g1++;
-			var node = this.setLinkedList_eliminateHoles_T(points,holes[i],i == holes.length - 1 ? points.length : holes[i + 1],false);
+			var s = holes[i];
+			var e = i == holes.length - 1 ? points.length : holes[i + 1];
+			var node = this.setLinkedList_eliminateHoles_T(points,s,e,false);
 			if(node == node.next) {
 				node.steiner = true;
 			}
@@ -31677,7 +32935,8 @@ hxd_earcut_Earcut.prototype = {
 		var sum = 0.;
 		var j = end - 1;
 		var _g1 = start;
-		while(_g1 < end) {
+		var _g = end;
+		while(_g1 < _g) {
 			var i = _g1++;
 			sum += (points[j].x - points[i].x) * (points[i].y + points[j].y);
 			j = i;
@@ -31703,9 +32962,12 @@ hxd_earcut_Earcut.prototype = {
 		var first = node;
 		if(clockwise == sum > 0) {
 			var _g11 = start;
-			while(_g11 < end) {
+			var _g2 = end;
+			while(_g11 < _g2) {
 				var i1 = _g11++;
 				var p = points[i1];
+				var x = p.x;
+				var y = p.y;
 				var n1 = this.cache;
 				if(n1 == null) {
 					n1 = new hxd_earcut_EarNode();
@@ -31716,8 +32978,8 @@ hxd_earcut_Earcut.prototype = {
 				}
 				n1.i = i1;
 				n1.z = -1;
-				n1.x = p.x;
-				n1.y = p.y;
+				n1.x = x;
+				n1.y = y;
 				n1.next = null;
 				n1.prev = node;
 				n1.steiner = false;
@@ -31732,6 +32994,8 @@ hxd_earcut_Earcut.prototype = {
 			var i2 = end - 1;
 			while(i2 >= start) {
 				var p1 = points[i2];
+				var x1 = p1.x;
+				var y1 = p1.y;
 				var n2 = this.cache;
 				if(n2 == null) {
 					n2 = new hxd_earcut_EarNode();
@@ -31742,8 +33006,8 @@ hxd_earcut_Earcut.prototype = {
 				}
 				n2.i = i2;
 				n2.z = -1;
-				n2.x = p1.x;
-				n2.y = p1.y;
+				n2.x = x1;
+				n2.y = y1;
 				n2.next = null;
 				n2.prev = node;
 				n2.steiner = false;
@@ -31764,7 +33028,8 @@ hxd_earcut_Earcut.prototype = {
 		var sum = 0.;
 		var j = end - 1;
 		var _g1 = start;
-		while(_g1 < end) {
+		var _g = end;
+		while(_g1 < _g) {
 			var i = _g1++;
 			sum += (points[j].x - points[i].x) * (points[i].y + points[j].y);
 			j = i;
@@ -31790,9 +33055,12 @@ hxd_earcut_Earcut.prototype = {
 		var first = node;
 		if(clockwise == sum > 0) {
 			var _g11 = start;
-			while(_g11 < end) {
+			var _g2 = end;
+			while(_g11 < _g2) {
 				var i1 = _g11++;
 				var p = points[i1];
+				var x = p.x;
+				var y = p.y;
 				var n1 = this.cache;
 				if(n1 == null) {
 					n1 = new hxd_earcut_EarNode();
@@ -31803,8 +33071,8 @@ hxd_earcut_Earcut.prototype = {
 				}
 				n1.i = i1;
 				n1.z = -1;
-				n1.x = p.x;
-				n1.y = p.y;
+				n1.x = x;
+				n1.y = y;
 				n1.next = null;
 				n1.prev = node;
 				n1.steiner = false;
@@ -31819,6 +33087,8 @@ hxd_earcut_Earcut.prototype = {
 			var i2 = end - 1;
 			while(i2 >= start) {
 				var p1 = points[i2];
+				var x1 = p1.x;
+				var y1 = p1.y;
 				var n2 = this.cache;
 				if(n2 == null) {
 					n2 = new hxd_earcut_EarNode();
@@ -31829,8 +33099,8 @@ hxd_earcut_Earcut.prototype = {
 				}
 				n2.i = i2;
 				n2.z = -1;
-				n2.x = p1.x;
-				n2.y = p1.y;
+				n2.x = x1;
+				n2.y = y1;
 				n2.next = null;
 				n2.prev = node;
 				n2.steiner = false;
@@ -32160,17 +33430,17 @@ hxd_earcut_Earcut.prototype = {
 				continue;
 			}
 			ear = next;
-			if(next == stop) {
+			if(ear == stop) {
 				switch(pass) {
 				case 0:
-					this.earcutLinked(this.filterPoints(next),1);
+					this.earcutLinked(this.filterPoints(ear),1);
 					break;
 				case 1:
-					ear = this.cureLocalIntersections(next);
+					ear = this.cureLocalIntersections(ear);
 					this.earcutLinked(ear,2);
 					break;
 				case 2:
-					this.splitEarcut(next);
+					this.splitEarcut(ear);
 					break;
 				}
 				break;
@@ -32179,8 +33449,9 @@ hxd_earcut_Earcut.prototype = {
 	}
 	,isEar: function(ear) {
 		var a = ear.prev;
+		var b = ear;
 		var c = ear.next;
-		if((ear.y - a.y) * (c.x - ear.x) - (ear.x - a.x) * (c.y - ear.y) >= 0) {
+		if((b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y) >= 0) {
 			return false;
 		}
 		var p = ear.next.next;
@@ -32188,8 +33459,8 @@ hxd_earcut_Earcut.prototype = {
 			var tmp;
 			var ax = a.x;
 			var ay = a.y;
-			var bx = ear.x;
-			var by = ear.y;
+			var bx = b.x;
+			var by = b.y;
 			var cx = c.x;
 			var cy = c.y;
 			var px = p.x;
@@ -32210,12 +33481,17 @@ hxd_earcut_Earcut.prototype = {
 	}
 	,isEarHashed: function(ear) {
 		var a = ear.prev;
+		var b = ear;
 		var c = ear.next;
-		if((ear.y - a.y) * (c.x - ear.x) - (ear.x - a.x) * (c.y - ear.y) >= 0) {
+		if((b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y) >= 0) {
 			return false;
 		}
-		var x = 32767 * ((a.x < ear.x ? a.x < c.x ? a.x : c.x : ear.x < c.x ? ear.x : c.x) - this.minX) / this.size | 0;
-		var y = 32767 * ((a.y < ear.y ? a.y < c.y ? a.y : c.y : ear.y < c.y ? ear.y : c.y) - this.minY) / this.size | 0;
+		var minTX = a.x < b.x ? a.x < c.x ? a.x : c.x : b.x < c.x ? b.x : c.x;
+		var minTY = a.y < b.y ? a.y < c.y ? a.y : c.y : b.y < c.y ? b.y : c.y;
+		var maxTX = a.x > b.x ? a.x > c.x ? a.x : c.x : b.x > c.x ? b.x : c.x;
+		var maxTY = a.y > b.y ? a.y > c.y ? a.y : c.y : b.y > c.y ? b.y : c.y;
+		var x = 32767 * (minTX - this.minX) / this.size | 0;
+		var y = 32767 * (minTY - this.minY) / this.size | 0;
 		x = (x | x << 8) & 16711935;
 		x = (x | x << 4) & 252645135;
 		x = (x | x << 2) & 858993459;
@@ -32225,8 +33501,8 @@ hxd_earcut_Earcut.prototype = {
 		y = (y | y << 2) & 858993459;
 		y = (y | y << 1) & 1431655765;
 		var minZ = x | y << 1;
-		var x1 = 32767 * ((a.x > ear.x ? a.x > c.x ? a.x : c.x : ear.x > c.x ? ear.x : c.x) - this.minX) / this.size | 0;
-		var y1 = 32767 * ((a.y > ear.y ? a.y > c.y ? a.y : c.y : ear.y > c.y ? ear.y : c.y) - this.minY) / this.size | 0;
+		var x1 = 32767 * (maxTX - this.minX) / this.size | 0;
+		var y1 = 32767 * (maxTY - this.minY) / this.size | 0;
 		x1 = (x1 | x1 << 8) & 16711935;
 		x1 = (x1 | x1 << 4) & 252645135;
 		x1 = (x1 | x1 << 2) & 858993459;
@@ -32243,8 +33519,8 @@ hxd_earcut_Earcut.prototype = {
 			if(p != ear.prev && p != ear.next) {
 				var ax = a.x;
 				var ay = a.y;
-				var bx = ear.x;
-				var by = ear.y;
+				var bx = b.x;
+				var by = b.y;
 				var cx = c.x;
 				var cy = c.y;
 				var px = p.x;
@@ -32276,8 +33552,8 @@ hxd_earcut_Earcut.prototype = {
 			if(p != ear.prev && p != ear.next) {
 				var ax1 = a.x;
 				var ay1 = a.y;
-				var bx1 = ear.x;
-				var by1 = ear.y;
+				var bx1 = b.x;
+				var by1 = b.y;
 				var cx1 = c.x;
 				var cy1 = c.y;
 				var px1 = p.x;
@@ -32380,7 +33656,7 @@ hxd_earcut_Earcut.prototype = {
 					p4.nextZ.prevZ = p4.prevZ;
 				}
 				start = b;
-				p = b;
+				p = start;
 			}
 			p = p.next;
 			if(!(p != start)) {
@@ -32411,6 +33687,9 @@ hxd_earcut_Earcut.prototype = {
 		}
 	}
 	,splitPolygon: function(a,b) {
+		var i = a.i;
+		var x = a.x;
+		var y = a.y;
 		var n = this.cache;
 		if(n == null) {
 			n = new hxd_earcut_EarNode();
@@ -32419,16 +33698,19 @@ hxd_earcut_Earcut.prototype = {
 		} else {
 			this.cache = n.next;
 		}
-		n.i = a.i;
+		n.i = i;
 		n.z = -1;
-		n.x = a.x;
-		n.y = a.y;
+		n.x = x;
+		n.y = y;
 		n.next = null;
 		n.prev = null;
 		n.steiner = false;
 		n.prevZ = null;
 		n.nextZ = null;
 		var a2 = n;
+		var i1 = b.i;
+		var x1 = b.x;
+		var y1 = b.y;
 		var n1 = this.cache;
 		if(n1 == null) {
 			n1 = new hxd_earcut_EarNode();
@@ -32437,10 +33719,10 @@ hxd_earcut_Earcut.prototype = {
 		} else {
 			this.cache = n1.next;
 		}
-		n1.i = b.i;
+		n1.i = i1;
 		n1.z = -1;
-		n1.x = b.x;
-		n1.y = b.y;
+		n1.x = x1;
+		n1.y = y1;
 		n1.next = null;
 		n1.prev = null;
 		n1.steiner = false;
@@ -32626,7 +33908,7 @@ hxd_earcut_Earcut.prototype = {
 				var _g1 = 0;
 				var _g = inSize;
 				while(_g1 < _g) {
-					++_g1;
+					var i = _g1++;
 					++pSize;
 					q = q.nextZ;
 					if(q == null) {
@@ -32739,7 +34021,7 @@ hxd_fmt_grd_Reader.prototype = {
 		var _g1 = 0;
 		var _g = len - 1;
 		while(_g1 < _g) {
-			++_g1;
+			var i = _g1++;
 			res += String.fromCharCode(input.readInt16());
 		}
 		input.readInt16();
@@ -32793,11 +34075,13 @@ hxd_fmt_grd_Reader.prototype = {
 		if(len == 0) {
 			len = 4;
 		}
-		var obj = { name : name, type : i.readString(len)};
+		var type = i.readString(len);
+		var obj = { name : name, type : type};
 		var numProperties = i.readInt32();
 		var _g1 = 0;
-		while(_g1 < numProperties) {
-			++_g1;
+		var _g = numProperties;
+		while(_g1 < _g) {
+			var pi = _g1++;
 			len = i.readInt32();
 			if(len == 0) {
 				len = 4;
@@ -32815,8 +34099,9 @@ hxd_fmt_grd_Reader.prototype = {
 		var res = [];
 		var len = i.readInt32();
 		var _g1 = 0;
-		while(_g1 < len) {
-			++_g1;
+		var _g = len;
+		while(_g1 < _g) {
+			var li = _g1++;
 			res.push(this.parseValue(i));
 		}
 		return res;
@@ -32831,7 +34116,8 @@ hxd_fmt_grd_Reader.prototype = {
 		if(len == 0) {
 			len = 4;
 		}
-		return { type : type, value : i.readString(len)};
+		var value = i.readString(len);
+		return { type : type, value : value};
 	}
 	,read: function() {
 		var d = new hxd_fmt_grd_Data();
@@ -32866,7 +34152,8 @@ hxd_fmt_grd_Reader.prototype = {
 			++_g;
 			var color = hxd_fmt_grd_Color.RGB(0,0,0);
 			var type;
-			switch(e.Type.value) {
+			var _g1 = e.Type.value;
+			switch(_g1) {
 			case "BckC":
 				type = hxd_fmt_grd_ColorStopType.Background;
 				break;
@@ -32880,7 +34167,8 @@ hxd_fmt_grd_Reader.prototype = {
 				throw new js__$Boot_HaxeError("unhalndled color stop type : " + Std.string(e.Type.value));
 			}
 			if(type == hxd_fmt_grd_ColorStopType.User) {
-				switch(e.Clr.type) {
+				var _g2 = e.Clr.type;
+				switch(_g2) {
 				case "HSBC":
 					color = hxd_fmt_grd_Color.HSB(e.Clr.H,e.Clr.Strt,e.Clr.Brgh);
 					break;
@@ -32927,7 +34215,8 @@ hxd_fmt_grd_Reader.prototype = {
 		var _g = trns.length;
 		while(_g1 < _g) {
 			var i = _g1++;
-			if(trns[i].location >= clr.location) {
+			var t = trns[i];
+			if(t.location >= clr.location) {
 				index = i;
 				break;
 			}
@@ -32941,11 +34230,13 @@ hxd_fmt_grd_Reader.prototype = {
 		var prev = trns[index - 1];
 		var next = trns[index];
 		var w = next.location - prev.location;
+		var h = next.opacity - prev.opacity;
 		if(w == 0) {
 			return prev.opacity;
 		}
-		var m = (next.opacity - prev.opacity) / w;
-		return m * clr.location + (prev.opacity - m * prev.location);
+		var m = h / w;
+		var b = prev.opacity - m * prev.location;
+		return m * clr.location + b;
 	}
 	,__class__: hxd_fmt_grd_Reader
 };
@@ -32953,7 +34244,8 @@ var hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$ = {};
 $hxClasses["hxd.fmt.hmd._Data.GeometryDataFormat_Impl_"] = hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$;
 hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$.__name__ = ["hxd","fmt","hmd","_Data","GeometryDataFormat_Impl_"];
 hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$._new = function(v) {
-	return v;
+	var this1 = v;
+	return this1;
 };
 hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$.getSize = function(this1) {
 	return this1 & 7;
@@ -32962,7 +34254,9 @@ hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$.toInt = function(this1) {
 	return this1;
 };
 hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$.toString = function(this1) {
-	switch(this1) {
+	var this2 = this1;
+	var _g = this2;
+	switch(_g) {
 	case 1:
 		return "DFloat";
 	case 2:
@@ -32976,7 +34270,8 @@ hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$.toString = function(this1) {
 	}
 };
 hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$.fromInt = function(v) {
-	return v;
+	var this1 = v;
+	return this1;
 };
 var hxd_fmt_hmd_Property = $hxClasses["hxd.fmt.hmd.Property"] = { __ename__ : true, __constructs__ : ["CameraFOVY","HasMaterialFlags"] };
 hxd_fmt_hmd_Property.CameraFOVY = function(v) { var $x = ["CameraFOVY",0,v]; $x.__enum__ = hxd_fmt_hmd_Property; $x.toString = $estr; return $x; };
@@ -33235,8 +34530,10 @@ hxd_fmt_hmd_Library.prototype = {
 		vtmp_z = 0.;
 		vtmp_w = 1.;
 		var models = modelIndex < 0 ? this.header.models : [this.header.models[modelIndex]];
-		var outVertex = new Array(0);
-		var outIndex = new Array(0);
+		var this1 = new Array(0);
+		var outVertex = this1;
+		var this2 = new Array(0);
+		var outIndex = this2;
 		var stride = 0;
 		var mid = -1;
 		var _g = 0;
@@ -33271,13 +34568,15 @@ hxd_fmt_hmd_Library.prototype = {
 			var _g21 = 0;
 			var _g12 = data.vertexes.length / stride | 0;
 			while(_g21 < _g12) {
-				var p = _g21++ * stride;
+				var i = _g21++;
+				var p = i * stride;
 				vtmp_x = data.vertexes[p++];
 				vtmp_y = data.vertexes[p++];
 				vtmp_z = data.vertexes[p++];
+				var px = vtmp_x * pos._11 + vtmp_y * pos._21 + vtmp_z * pos._31 + vtmp_w * pos._41;
 				var py = vtmp_x * pos._12 + vtmp_y * pos._22 + vtmp_z * pos._32 + vtmp_w * pos._42;
 				var pz = vtmp_x * pos._13 + vtmp_y * pos._23 + vtmp_z * pos._33 + vtmp_w * pos._43;
-				vtmp_x = vtmp_x * pos._11 + vtmp_y * pos._21 + vtmp_z * pos._31 + vtmp_w * pos._41;
+				vtmp_x = px;
 				vtmp_y = py;
 				vtmp_z = pz;
 				outVertex.push(vtmp_x);
@@ -33286,7 +34585,7 @@ hxd_fmt_hmd_Library.prototype = {
 				var _g4 = 0;
 				var _g3 = stride - 3;
 				while(_g4 < _g3) {
-					_g4++;
+					var j = _g4++;
 					outVertex.push(data.vertexes[p++]);
 				}
 			}
@@ -33309,8 +34608,9 @@ hxd_fmt_hmd_Library.prototype = {
 		var _g1 = 0;
 		var _g = format.length;
 		while(_g1 < _g) {
-			var i = format.length - 1 - _g1++;
-			var f = format[i];
+			var i = _g1++;
+			var i1 = format.length - 1 - i;
+			var f = format[i1];
 			var size = f.format & 7;
 			var offset = 0;
 			var found = false;
@@ -33331,7 +34631,7 @@ hxd_fmt_hmd_Library.prototype = {
 			if(found) {
 				map = new hxd_fmt_hmd__$Library_FormatMap(size,offset,null,map);
 			} else {
-				var def = defaults == null ? null : defaults[i];
+				var def = defaults == null ? null : defaults[i1];
 				if(def == null) {
 					throw new js__$Boot_HaxeError("Missing required " + f.name);
 				}
@@ -33352,7 +34652,10 @@ hxd_fmt_hmd_Library.prototype = {
 			var ipos = 0;
 			var _g11 = 0;
 			var _g4 = material;
-			while(_g11 < _g4) ipos += geom.indexCounts[_g11++];
+			while(_g11 < _g4) {
+				var i2 = _g11++;
+				ipos += geom.indexCounts[i2];
+			}
 			this.entry.skip(ipos * 2);
 			isize = geom.indexCounts[material] * 2;
 		}
@@ -33361,9 +34664,11 @@ hxd_fmt_hmd_Library.prototype = {
 		var buf = new hxd_fmt_hmd_GeometryBuffer();
 		if(material == null) {
 			var length = stride * geom.vertexCount;
-			buf.vertexes = new Array(length);
+			var this1 = new Array(length);
+			buf.vertexes = this1;
 			var length1 = geom.get_indexCount();
-			buf.indexes = new Array(length1);
+			var this2 = new Array(length1);
+			buf.indexes = this2;
 			var w = 0;
 			var _g12 = 0;
 			var _g5 = geom.vertexCount;
@@ -33375,9 +34680,13 @@ hxd_fmt_hmd_Library.prototype = {
 						var r = vid * geom.vertexStride;
 						var _g31 = 0;
 						var _g21 = m.size;
-						while(_g31 < _g21) buf.vertexes[w++] = vbuf.getFloat(r + m.offset + _g31++ << 2);
+						while(_g31 < _g21) {
+							var i3 = _g31++;
+							buf.vertexes[w++] = vbuf.getFloat(r + m.offset + i3 << 2);
+						}
 					} else {
-						switch(m.size) {
+						var _g22 = m.size;
+						switch(_g22) {
 						case 1:
 							buf.vertexes[w++] = m.def.x;
 							break;
@@ -33403,19 +34712,25 @@ hxd_fmt_hmd_Library.prototype = {
 			var r1 = 0;
 			var _g13 = 0;
 			var _g6 = buf.indexes.length;
-			while(_g13 < _g6) buf.indexes[_g13++] = ibuf.b[r1++] | ibuf.b[r1++] << 8;
+			while(_g13 < _g6) {
+				var i4 = _g13++;
+				buf.indexes[i4] = ibuf.b[r1++] | ibuf.b[r1++] << 8;
+			}
 		} else {
 			var icount = geom.indexCounts[material];
 			var length2 = geom.vertexCount;
-			var vmap = new Array(length2);
-			var vertexes = new Array(0);
-			buf.indexes = new Array(icount);
+			var this3 = new Array(length2);
+			var vmap = this3;
+			var this4 = new Array(0);
+			var vertexes = this4;
+			var this5 = new Array(icount);
+			buf.indexes = this5;
 			var r2 = 0;
 			var vcount = 0;
 			var _g14 = 0;
 			var _g7 = buf.indexes.length;
 			while(_g14 < _g7) {
-				var i1 = _g14++;
+				var i5 = _g14++;
 				var vid1 = ibuf.b[r2++] | ibuf.b[r2++] << 8;
 				var rid = vmap[vid1];
 				if(rid == 0) {
@@ -33426,10 +34741,14 @@ hxd_fmt_hmd_Library.prototype = {
 						if(m1.def == null) {
 							var r3 = vid1 * geom.vertexStride;
 							var _g32 = 0;
-							var _g22 = m1.size;
-							while(_g32 < _g22) vertexes.push(vbuf.getFloat(r3 + m1.offset + _g32++ << 2));
+							var _g23 = m1.size;
+							while(_g32 < _g23) {
+								var i6 = _g32++;
+								vertexes.push(vbuf.getFloat(r3 + m1.offset + i6 << 2));
+							}
 						} else {
-							switch(m1.size) {
+							var _g24 = m1.size;
+							switch(_g24) {
 							case 1:
 								vertexes.push(m1.def.x);
 								break;
@@ -33452,7 +34771,7 @@ hxd_fmt_hmd_Library.prototype = {
 						m1 = m1.next;
 					}
 				}
-				buf.indexes[i1] = rid - 1;
+				buf.indexes[i5] = rid - 1;
 			}
 			buf.vertexes = vertexes;
 		}
@@ -33489,20 +34808,20 @@ hxd_fmt_hmd_Library.prototype = {
 			t.killAlphaThreshold__ = m.killAlpha;
 		}
 		if(m.props != null && m.props.indexOf(hxd_fmt_hmd_Property.HasMaterialFlags) >= 0) {
-			if((m.flags & 1) != 0) {
+			if((m.flags & 1 << hxd_fmt_hmd_MaterialFlag.HasLighting[1]) != 0) {
 				mat.passes.enableLights = true;
 			}
-			if((m.flags & 2) != 0) {
+			if((m.flags & 1 << hxd_fmt_hmd_MaterialFlag.CastShadows[1]) != 0) {
 				mat.set_castShadows(true);
 			}
-			if((m.flags & 4) != 0) {
+			if((m.flags & 1 << hxd_fmt_hmd_MaterialFlag.ReceiveShadows[1]) != 0) {
 				mat.set_receiveShadows(true);
 			}
-			if((m.flags & 16) != 0) {
+			if((m.flags & 1 << hxd_fmt_hmd_MaterialFlag.IsVolumeDecal[1]) != 0) {
 				var s = h3d_mat_Defaults.makeVolumeDecal(this.header.geometries[model.geometry].bounds);
 				mat.passes.addShader(s);
 			}
-			if((m.flags & 8) != 0) {
+			if((m.flags & 1 << hxd_fmt_hmd_MaterialFlag.TextureWrap[1]) != 0) {
 				mat.get_texture().set_wrap(h3d_mat_Wrap.Repeat);
 			}
 		}
@@ -33652,8 +34971,10 @@ hxd_fmt_hmd_Library.prototype = {
 				}
 			}
 			obj.name = m.name;
-			obj.defaultTransform = m.position.toMatrix();
-			obj.flags |= 1;
+			var v = m.position.toMatrix();
+			obj.defaultTransform = v;
+			var f = 1;
+			obj.flags |= f;
 			objs.push(obj);
 			var p = objs[m.parent];
 			if(p != null) {
@@ -33730,7 +35051,8 @@ hxd_fmt_hmd_Library.prototype = {
 				if((o.flags & 1 << hxd_fmt_hmd_AnimationFlag.SinglePosition[1]) != 0) {
 					frameCount = 1;
 				}
-				var fl = new Array(frameCount);
+				var this1 = new Array(frameCount);
+				var fl = this1;
 				var size = ((pos ? 3 : 0) + (rot ? 3 : 0) + (scale ? 3 : 0)) * 4 * frameCount;
 				var data = hxd_impl_Tmp.getBytes(size);
 				this.entry.read(data,0,size);
@@ -33786,7 +35108,8 @@ hxd_fmt_hmd_Library.prototype = {
 			}
 			if((o.flags & 1 << hxd_fmt_hmd_AnimationFlag.HasUV[1]) != 0) {
 				var length = a.frames * 2;
-				var fl1 = new Array(length);
+				var this2 = new Array(length);
+				var fl1 = this2;
 				var size1 = 8 * a.frames;
 				var data1 = hxd_impl_Tmp.getBytes(size1);
 				this.entry.read(data1,0,size1);
@@ -33801,7 +35124,8 @@ hxd_fmt_hmd_Library.prototype = {
 			}
 			if((o.flags & 1 << hxd_fmt_hmd_AnimationFlag.HasAlpha[1]) != 0) {
 				var length1 = a.frames;
-				var fl2 = new Array(length1);
+				var this3 = new Array(length1);
+				var fl2 = this3;
 				var size2 = 4 * a.frames;
 				var data2 = hxd_impl_Tmp.getBytes(size2);
 				this.entry.read(data2,0,size2);
@@ -33821,7 +35145,8 @@ hxd_fmt_hmd_Library.prototype = {
 					var p1 = _g33[_g23];
 					++_g23;
 					var length2 = a.frames;
-					var fl3 = new Array(length2);
+					var this4 = new Array(length2);
+					var fl3 = this4;
 					var size3 = 4 * a.frames;
 					var data3 = hxd_impl_Tmp.getBytes(size3);
 					this.entry.read(data3,0,size3);
@@ -33855,7 +35180,8 @@ hxd_fmt_hmd_Reader.prototype = {
 		case 1:
 			return hxd_fmt_hmd_Property.HasMaterialFlags;
 		default:
-			throw new js__$Boot_HaxeError("Unknown property #" + _g);
+			var unk = _g;
+			throw new js__$Boot_HaxeError("Unknown property #" + unk);
 		}
 	}
 	,readProps: function() {
@@ -33868,8 +35194,9 @@ hxd_fmt_hmd_Reader.prototype = {
 		}
 		var _g = [];
 		var _g2 = 0;
-		while(_g2 < n) {
-			++_g2;
+		var _g1 = n;
+		while(_g2 < _g1) {
+			var i = _g2++;
 			_g.push(this.readProperty());
 		}
 		return _g;
@@ -33925,7 +35252,7 @@ hxd_fmt_hmd_Reader.prototype = {
 		var _g1 = 0;
 		var _g = this.i.readUInt16();
 		while(_g1 < _g) {
-			++_g1;
+			var k = _g1++;
 			var j = new hxd_fmt_hmd_SkinJoint();
 			j.props = this.readProps();
 			j.name = this.readName();
@@ -33946,18 +35273,19 @@ hxd_fmt_hmd_Reader.prototype = {
 		if(count > 0) {
 			s.split = [];
 			var _g11 = 0;
-			while(_g11 < count) {
-				++_g11;
+			var _g2 = count;
+			while(_g11 < _g2) {
+				var k1 = _g11++;
 				var ss = new hxd_fmt_hmd_SkinSplit();
 				ss.materialIndex = this.i.readByte();
-				var _g2 = [];
+				var _g21 = [];
 				var _g4 = 0;
 				var _g3 = this.i.readByte();
 				while(_g4 < _g3) {
-					++_g4;
-					_g2.push(this.i.readUInt16());
+					var k2 = _g4++;
+					_g21.push(this.i.readUInt16());
 				}
-				ss.joints = _g2;
+				ss.joints = _g21;
 				s.split.push(ss);
 			}
 		}
@@ -33983,7 +35311,7 @@ hxd_fmt_hmd_Reader.prototype = {
 		var _g1 = 0;
 		var _g = this.i.readInt32();
 		while(_g1 < _g) {
-			_g1++;
+			var k = _g1++;
 			var g = new hxd_fmt_hmd_Geometry();
 			g.props = this.readProps();
 			g.vertexCount = this.i.readInt32();
@@ -33992,8 +35320,10 @@ hxd_fmt_hmd_Reader.prototype = {
 			var _g4 = 0;
 			var _g3 = this.i.readByte();
 			while(_g4 < _g3) {
-				_g4++;
-				_g2.push(new hxd_fmt_hmd_GeometryFormat(this.readName(),this.i.readByte()));
+				var k1 = _g4++;
+				var tmp = this.readName();
+				var this1 = this.i.readByte();
+				_g2.push(new hxd_fmt_hmd_GeometryFormat(tmp,this1));
 			}
 			g.vertexFormat = _g2;
 			g.vertexPosition = this.i.readInt32();
@@ -34001,7 +35331,7 @@ hxd_fmt_hmd_Reader.prototype = {
 			var _g5 = 0;
 			var _g41 = this.i.readByte();
 			while(_g5 < _g41) {
-				_g5++;
+				var k2 = _g5++;
 				_g31.push(this.i.readInt32());
 			}
 			g.indexCounts = _g31;
@@ -34013,7 +35343,7 @@ hxd_fmt_hmd_Reader.prototype = {
 		var _g11 = 0;
 		var _g6 = this.i.readInt32();
 		while(_g11 < _g6) {
-			_g11++;
+			var k3 = _g11++;
 			var m = new hxd_fmt_hmd_Material();
 			m.props = this.readProps();
 			m.name = this.readName();
@@ -34025,7 +35355,8 @@ hxd_fmt_hmd_Reader.prototype = {
 				m.killAlpha = null;
 			}
 			if(m.props != null && m.props.indexOf(hxd_fmt_hmd_Property.HasMaterialFlags) >= 0) {
-				m.flags = this.i.readInt32();
+				var this2 = this.i.readInt32();
+				m.flags = this2;
 			}
 			d.materials.push(m);
 		}
@@ -34033,7 +35364,7 @@ hxd_fmt_hmd_Reader.prototype = {
 		var _g12 = 0;
 		var _g7 = this.i.readInt32();
 		while(_g12 < _g7) {
-			_g12++;
+			var k4 = _g12++;
 			var m1 = new hxd_fmt_hmd_Model();
 			m1.props = this.readProps();
 			m1.name = this.readName();
@@ -34049,7 +35380,7 @@ hxd_fmt_hmd_Reader.prototype = {
 			var _g32 = 0;
 			var _g21 = this.i.readByte();
 			while(_g32 < _g21) {
-				_g32++;
+				var k5 = _g32++;
 				m1.materials.push(this.i.readInt32());
 			}
 			m1.skin = this.readSkin();
@@ -34058,7 +35389,7 @@ hxd_fmt_hmd_Reader.prototype = {
 		var _g13 = 0;
 		var _g8 = this.i.readInt32();
 		while(_g13 < _g8) {
-			_g13++;
+			var k6 = _g13++;
 			var a = new hxd_fmt_hmd_Animation();
 			a.props = this.readProps();
 			a.name = this.readName();
@@ -34072,17 +35403,18 @@ hxd_fmt_hmd_Reader.prototype = {
 			var _g33 = 0;
 			var _g22 = this.i.readInt32();
 			while(_g33 < _g22) {
-				_g33++;
+				var k7 = _g33++;
 				var o = new hxd_fmt_hmd_AnimationObject();
 				o.name = this.readName();
-				o.flags = this.i.readByte();
+				var this3 = this.i.readByte();
+				o.flags = this3;
 				a.objects.push(o);
 				if((o.flags & 1 << hxd_fmt_hmd_AnimationFlag.HasProps[1]) != 0) {
 					var _g42 = [];
 					var _g61 = 0;
 					var _g51 = this.i.readByte();
 					while(_g61 < _g51) {
-						_g61++;
+						var i = _g61++;
 						_g42.push(this.readName());
 					}
 					o.props = _g42;
@@ -34093,7 +35425,7 @@ hxd_fmt_hmd_Reader.prototype = {
 				var _g34 = 0;
 				var _g23 = this.i.readInt32();
 				while(_g34 < _g23) {
-					_g34++;
+					var k8 = _g34++;
 					var e = new hxd_fmt_hmd_AnimationEvent();
 					e.frame = this.i.readInt32();
 					e.data = this.readName();
@@ -34338,13 +35670,15 @@ hxd_fs__$EmbedFileSystem_EmbedEntry.prototype = $extend(hxd_fs_FileEntry.prototy
 		}
 		var image = new Image();
 		image.onload = function(_) {
-			onLoaded(image);
+			var this1 = image;
+			onLoaded(this1);
 		};
 		var extra = "";
+		var bytes = rawData.length * 6 >> 3;
 		var _g11 = 0;
-		var _g2 = (3 - (rawData.length * 6 >> 3) * 4 % 3) % 3;
+		var _g2 = (3 - bytes * 4 % 3) % 3;
 		while(_g11 < _g2) {
-			++_g11;
+			var i = _g11++;
 			extra += "=";
 		}
 		var tmp = "data:image/" + this.get_extension() + ";base64," + rawData;
@@ -34485,7 +35819,8 @@ var hxd_fs__$LoadedBitmap_LoadedBitmap_$Impl_$ = {};
 $hxClasses["hxd.fs._LoadedBitmap.LoadedBitmap_Impl_"] = hxd_fs__$LoadedBitmap_LoadedBitmap_$Impl_$;
 hxd_fs__$LoadedBitmap_LoadedBitmap_$Impl_$.__name__ = ["hxd","fs","_LoadedBitmap","LoadedBitmap_Impl_"];
 hxd_fs__$LoadedBitmap_LoadedBitmap_$Impl_$._new = function(data) {
-	return data;
+	var this1 = data;
+	return this1;
 };
 hxd_fs__$LoadedBitmap_LoadedBitmap_$Impl_$.toBitmap = function(this1) {
 	var bmp = new hxd_BitmapData(this1.width,this1.height);
@@ -34641,14 +35976,15 @@ hxd_impl_Tmp.getBytes = function(size) {
 	var _g = hxd_impl_Tmp.bytes.length;
 	while(_g1 < _g) {
 		var i = _g1++;
-		if(hxd_impl_Tmp.bytes[i].length >= size) {
+		var b = hxd_impl_Tmp.bytes[i];
+		if(b.length >= size) {
 			found = i;
 		}
 	}
 	if(found >= 0) {
-		var b = hxd_impl_Tmp.bytes[found];
+		var b1 = hxd_impl_Tmp.bytes[found];
 		hxd_impl_Tmp.bytes.splice(found,1);
-		return b;
+		return b1;
 	}
 	var sz = 1024;
 	while(sz < size) sz = sz * 3 >> 1;
@@ -34797,6 +36133,9 @@ hxd_res_Resource.prototype = {
 		return this.entry.get_path();
 	}
 	,watch: function(onChanged) {
+		if(hxd_res_Resource.LIVE_UPDATE) {
+			this.entry.watch(onChanged);
+		}
 	}
 	,__class__: hxd_res_Resource
 };
@@ -34807,7 +36146,8 @@ var hxd_res_Any = function(loader,entry) {
 $hxClasses["hxd.res.Any"] = hxd_res_Any;
 hxd_res_Any.__name__ = ["hxd","res","Any"];
 hxd_res_Any.fromBytes = function(path,bytes) {
-	return new hxd_res_Loader(new hxd_res__$Any_SingleFileSystem(path,bytes)).load(path);
+	var fs = new hxd_res__$Any_SingleFileSystem(path,bytes);
+	return new hxd_res_Loader(fs).load(path);
 };
 hxd_res_Any.__super__ = hxd_res_Resource;
 hxd_res_Any.prototype = $extend(hxd_res_Resource.prototype,{
@@ -34850,7 +36190,10 @@ hxd_res_Any.prototype = $extend(hxd_res_Resource.prototype,{
 	,iterator: function() {
 		var _g1 = [];
 		var _g2 = this.entry.iterator();
-		while(_g2.i < _g2.l) _g1.push(new hxd_res_Any(this.loader,_g2.a[_g2.i++]));
+		while(_g2.i < _g2.l) {
+			var f = _g2.a[_g2.i++];
+			_g1.push(new hxd_res_Any(this.loader,f));
+		}
 		return new hxd_impl_ArrayIterator_$hxd_$res_$Any(_g1);
 	}
 	,__class__: hxd_res_Any
@@ -34948,9 +36291,11 @@ hxd_res_Atlas.prototype = $extend(hxd_res_Resource.prototype,{
 				if(line1 == "") {
 					break;
 				}
-				if(line1.split(": ").length > 1) {
+				var prop = line1.split(": ");
+				if(prop.length > 1) {
 					continue;
 				}
+				var key = line1;
 				var tileX = 0;
 				var tileY = 0;
 				var tileW = 0;
@@ -34962,13 +36307,14 @@ hxd_res_Atlas.prototype = $extend(hxd_res_Resource.prototype,{
 				var index = 0;
 				while(lines.length > 0) {
 					var line2 = StringTools.trim(lines.shift());
-					var prop = line2.split(": ");
-					if(prop.length == 1) {
+					var prop1 = line2.split(": ");
+					if(prop1.length == 1) {
 						lines.unshift(line2);
 						break;
 					}
-					var v = prop[1];
-					switch(prop[0]) {
+					var v = prop1[1];
+					var _g = prop1[0];
+					switch(_g) {
 					case "index":
 						index = Std.parseInt(v);
 						if(index < 0) {
@@ -35001,20 +36347,20 @@ hxd_res_Atlas.prototype = $extend(hxd_res_Resource.prototype,{
 						tileY = Std.parseInt(vals3[1]);
 						break;
 					default:
-						haxe_Log.trace("Unknown prop " + prop[0],{ fileName : "Atlas.hx", lineNumber : 104, className : "hxd.res.Atlas", methodName : "getContents"});
+						haxe_Log.trace("Unknown prop " + prop1[0],{ fileName : "Atlas.hx", lineNumber : 104, className : "hxd.res.Atlas", methodName : "getContents"});
 					}
 				}
 				tileDY = origH - (tileH + tileDY);
 				var t = file.sub(tileX,tileY,tileW,tileH,tileDX,tileDY);
 				var _this = this.contents;
-				var tl = __map_reserved[line1] != null ? _this.getReserved(line1) : _this.h[line1];
+				var tl = __map_reserved[key] != null ? _this.getReserved(key) : _this.h[key];
 				if(tl == null) {
 					tl = [];
 					var _this1 = this.contents;
-					if(__map_reserved[line1] != null) {
-						_this1.setReserved(line1,tl);
+					if(__map_reserved[key] != null) {
+						_this1.setReserved(key,tl);
 					} else {
-						_this1.h[line1] = tl;
+						_this1.h[key] = tl;
 					}
 				}
 				tl[index] = { t : t, width : origW, height : origH};
@@ -35043,16 +36389,18 @@ hxd_res_BitmapFont.prototype = $extend(hxd_res_Resource.prototype,{
 		var glyphs = new haxe_ds_IntMap();
 		var _g = this.entry.getSign();
 		if(_g == 1836597052) {
-			var xml = new haxe_xml_Fast(Xml.parse(this.entry.getBytes().toString()).firstElement());
-			size = Std.parseInt(xml.att.resolve("size"));
-			lineHeight = Std.parseInt(xml.att.resolve("height"));
-			name = xml.att.resolve("family");
-			var c = xml.get_elements();
+			var xml = Xml.parse(this.entry.getBytes().toString());
+			var xml1 = new haxe_xml_Fast(xml.firstElement());
+			size = Std.parseInt(xml1.att.resolve("size"));
+			lineHeight = Std.parseInt(xml1.att.resolve("height"));
+			name = xml1.att.resolve("family");
+			var c = xml1.get_elements();
 			while(c.hasNext()) {
 				var c1 = c.next();
 				var r = c1.att.resolve("rect").split(" ");
 				var o = c1.att.resolve("offset").split(" ");
-				var fc = new h2d_FontChar(tile.sub(Std.parseInt(r[0]),Std.parseInt(r[1]),Std.parseInt(r[2]),Std.parseInt(r[3]),Std.parseInt(o[0]),Std.parseInt(o[1])),Std.parseInt(c1.att.resolve("width")) - 1);
+				var t = tile.sub(Std.parseInt(r[0]),Std.parseInt(r[1]),Std.parseInt(r[2]),Std.parseInt(r[3]),Std.parseInt(o[0]),Std.parseInt(o[1]));
+				var fc = new h2d_FontChar(t,Std.parseInt(c1.att.resolve("width")) - 1);
 				var k = c1.get_elements();
 				while(k.hasNext()) {
 					var k1 = k.next();
@@ -35068,7 +36416,8 @@ hxd_res_BitmapFont.prototype = $extend(hxd_res_Resource.prototype,{
 				}
 			}
 		} else {
-			throw new js__$Boot_HaxeError("Unknown font signature " + StringTools.hex(_g,8));
+			var sign = _g;
+			throw new js__$Boot_HaxeError("Unknown font signature " + StringTools.hex(sign,8));
 		}
 		if(glyphs.h[32] == null) {
 			var value = new h2d_FontChar(tile.sub(0,0,0,0),size >> 1);
@@ -35103,7 +36452,8 @@ hxd_res_Font.__super__ = hxd_res_Resource;
 hxd_res_Font.prototype = $extend(hxd_res_Resource.prototype,{
 	build: function(size,options) {
 		var _this_r = new RegExp("[^A-Za-z0-9_]","g".split("u").join(""));
-		return hxd_res_FontBuilder.getFont("R_" + this.entry.get_path().replace(_this_r,"_"),size,options);
+		var name = "R_" + this.entry.get_path().replace(_this_r,"_");
+		return hxd_res_FontBuilder.getFont(name,size,options);
 	}
 	,__class__: hxd_res_Font
 });
@@ -35138,7 +36488,10 @@ hxd_res_FontBuilder.getFont = function(name,size,options) {
 hxd_res_FontBuilder.dispose = function() {
 	var _this = hxd_res_FontBuilder.FONTS;
 	var f = new haxe_ds__$StringMap_StringMapIterator(_this,_this.arrayKeys());
-	while(f.hasNext()) f.next().dispose();
+	while(f.hasNext()) {
+		var f1 = f.next();
+		f1.dispose();
+	}
 	hxd_res_FontBuilder.FONTS = new haxe_ds_StringMap();
 };
 hxd_res_FontBuilder.prototype = {
@@ -35155,7 +36508,8 @@ hxd_res_FontBuilder.prototype = {
 		var _g = this.options.chars.length;
 		while(_g1 < _g) {
 			var i = _g1++;
-			var w = Math.ceil(ctx.measureText(this.options.chars.charAt(i)).width) + 1;
+			var textChar = this.options.chars.charAt(i);
+			var w = Math.ceil(ctx.measureText(textChar).width) + 1;
 			if(w == 1) {
 				continue;
 			}
@@ -35215,7 +36569,8 @@ hxd_res_FontBuilder.prototype = {
 				all.push(t);
 				var this1 = this.font.glyphs;
 				var key = HxOverrides.cca(this.options.chars,i1);
-				this1.h[key] = new h2d_FontChar(t,w1 - 1);
+				var value = new h2d_FontChar(t,w1 - 1);
+				this1.h[key] = value;
 				if(h1 > lineH) {
 					lineH = h1;
 				}
@@ -35302,17 +36657,23 @@ hxd_res_Gradients.appendPixels = function(pixels,dat,wid,hei,yoff) {
 		var _g2 = cs.colorStop.color;
 		switch(_g2[1]) {
 		case 0:
-			color = new h3d_Vector(_g2[2] / 255,_g2[3] / 255,_g2[4] / 255);
+			var b = _g2[4];
+			var g = _g2[3];
+			var r = _g2[2];
+			color = new h3d_Vector(r / 255,g / 255,b / 255);
 			break;
 		case 1:
-			color = hxd_res_Gradients.HSVtoRGB(_g2[2],_g2[3] / 100,_g2[4] / 100);
+			var b1 = _g2[4];
+			var s = _g2[3];
+			var h = _g2[2];
+			color = hxd_res_Gradients.HSVtoRGB(h,s / 100,b1 / 100);
 			break;
 		}
 		color.w = cs.opacity / 100;
 		colors.push({ value : color, loc : (wid - 1) * cs.colorStop.location / dat.interpolation | 0});
 	}
-	colors.sort(function(a,b) {
-		return a.loc - b.loc;
+	colors.sort(function(a,b2) {
+		return a.loc - b2.loc;
 	});
 	if(colors[0].loc > 0) {
 		colors.unshift({ value : colors[0].value, loc : 0});
@@ -35338,20 +36699,26 @@ hxd_res_Gradients.appendPixels = function(pixels,dat,wid,hei,yoff) {
 		while(px <= nextLoc) {
 			var k = (px - prevLoc) / (nextLoc - prevLoc);
 			var a1 = prevCol.x;
+			var x = a1 + k * (nextCol.x - a1);
 			var a2 = prevCol.y;
+			var y = a2 + k * (nextCol.y - a2);
 			var a3 = prevCol.z;
+			var z = a3 + k * (nextCol.z - a3);
 			var a4 = prevCol.w;
-			tmpCol_x = a1 + k * (nextCol.x - a1);
-			tmpCol_y = a2 + k * (nextCol.y - a2);
-			tmpCol_z = a3 + k * (nextCol.z - a3);
-			tmpCol_w = a4 + k * (nextCol.w - a4);
+			var w = a4 + k * (nextCol.w - a4);
+			tmpCol_x = x;
+			tmpCol_y = y;
+			tmpCol_z = z;
+			tmpCol_w = w;
 			var _g11 = 0;
-			while(_g11 < hei) {
+			var _g3 = hei;
+			while(_g11 < _g3) {
+				var py = _g11++;
 				var f = tmpCol_w;
 				var f1 = tmpCol_x;
 				var f2 = tmpCol_y;
 				var f3 = tmpCol_z;
-				pixels.setPixel(px,yoff + _g11++,((f < 0. ? 0. : f > 1. ? 1. : f) * 255 + 0.499 | 0) << 24 | ((f1 < 0. ? 0. : f1 > 1. ? 1. : f1) * 255 + 0.499 | 0) << 16 | ((f2 < 0. ? 0. : f2 > 1. ? 1. : f2) * 255 + 0.499 | 0) << 8 | ((f3 < 0. ? 0. : f3 > 1. ? 1. : f3) * 255 + 0.499 | 0));
+				pixels.setPixel(px,yoff + py,((f < 0. ? 0. : f > 1. ? 1. : f) * 255 + 0.499 | 0) << 24 | ((f1 < 0. ? 0. : f1 > 1. ? 1. : f1) * 255 + 0.499 | 0) << 16 | ((f2 < 0. ? 0. : f2 > 1. ? 1. : f2) * 255 + 0.499 | 0) << 8 | ((f3 < 0. ? 0. : f3 > 1. ? 1. : f3) * 255 + 0.499 | 0));
 			}
 			++px;
 		}
@@ -35423,15 +36790,20 @@ hxd_res_Gradients.prototype = $extend(hxd_res_Resource.prototype,{
 		var data = this.getData();
 		var _g = [];
 		var d = new haxe_ds__$StringMap_StringMapIterator(data,data.arrayKeys());
-		while(d.hasNext()) _g.push(d.next());
-		var tile = h2d_Tile.fromTexture(hxd_res_Gradients.createTexture(_g,resolution));
+		while(d.hasNext()) {
+			var d1 = d.next();
+			_g.push(d1);
+		}
+		var grads = _g;
+		var tex = hxd_res_Gradients.createTexture(grads,resolution);
+		var tile = h2d_Tile.fromTexture(tex);
 		var map = new haxe_ds_StringMap();
 		var y = 1;
 		var _g1 = 0;
-		while(_g1 < _g.length) {
-			var d1 = _g[_g1];
+		while(_g1 < grads.length) {
+			var d2 = grads[_g1];
 			++_g1;
-			var key = d1.name;
+			var key = d2.name;
 			var value = tile.sub(0,y,resolution,1);
 			if(__map_reserved[key] != null) {
 				map.setReserved(key,value);
@@ -35479,7 +36851,8 @@ hxd_res_Image.prototype = $extend(hxd_res_Resource.prototype,{
 		var width = 0;
 		var height = 0;
 		var format;
-		switch(f.readUInt16()) {
+		var _g = f.readUInt16();
+		switch(_g) {
 		case 18759:
 			format = 2;
 			f.readInt32();
@@ -35504,16 +36877,19 @@ hxd_res_Image.prototype = $extend(hxd_res_Resource.prototype,{
 			format = 0;
 			f.set_bigEndian(true);
 			try {
-				while(true) switch(f.readUInt16()) {
-				case 65472:case 65474:
-					f.readUInt16();
-					f.readByte();
-					height = f.readUInt16();
-					width = f.readUInt16();
-					throw "__break__";
-					break;
-				default:
-					f.skip(f.readUInt16() - 2);
+				while(true) {
+					var _g1 = f.readUInt16();
+					switch(_g1) {
+					case 65472:case 65474:
+						var len = f.readUInt16();
+						var prec = f.readByte();
+						height = f.readUInt16();
+						width = f.readUInt16();
+						throw "__break__";
+						break;
+					default:
+						f.skip(f.readUInt16() - 2);
+					}
 				}
 			} catch( e ) { if( e != "__break__" ) throw e; }
 			break;
@@ -35527,7 +36903,8 @@ hxd_res_Image.prototype = $extend(hxd_res_Resource.prototype,{
 	,getPixels: function(fmt,flipY) {
 		this.getSize();
 		var pixels;
-		switch(this.inf.format) {
+		var _g = this.inf.format;
+		switch(_g) {
 		case 0:
 			var bytes = this.entry.getBytes();
 			var p;
@@ -35540,7 +36917,8 @@ hxd_res_Image.prototype = $extend(hxd_res_Resource.prototype,{
 			pixels = new hxd_Pixels(p.width,p.height,p.pixels,hxd_PixelFormat.BGRA);
 			break;
 		case 1:
-			var png = new format_png_Reader(new haxe_io_BytesInput(this.entry.getBytes()));
+			var bytes1 = this.entry.getBytes();
+			var png = new format_png_Reader(new haxe_io_BytesInput(bytes1));
 			png.checkCRC = false;
 			pixels = hxd_Pixels.alloc(this.inf.width,this.inf.height,hxd_PixelFormat.BGRA);
 			var pdata = png.read();
@@ -35551,11 +36929,12 @@ hxd_res_Image.prototype = $extend(hxd_res_Resource.prototype,{
 				format_png_Tools.extract32(pdata,pixels.bytes,flipY);
 			}
 			if(flipY) {
-				pixels.flags |= 4;
+				pixels.flags |= 1 << hxd_Flags.FlipY[1];
 			}
 			break;
 		case 2:
-			var gif = new format_gif_Reader(new haxe_io_BytesInput(this.entry.getBytes())).read();
+			var bytes2 = this.entry.getBytes();
+			var gif = new format_gif_Reader(new haxe_io_BytesInput(bytes2)).read();
 			pixels = new hxd_Pixels(this.inf.width,this.inf.height,format_gif_Tools.extractFullBGRA(gif,0),hxd_PixelFormat.BGRA);
 			break;
 		}
@@ -35606,7 +36985,7 @@ hxd_res_Image.prototype = $extend(hxd_res_Resource.prototype,{
 				this.entry.load(load);
 			}
 		} else {
-			this.tex.flags |= 256;
+			this.tex.flags |= 1 << h3d_mat_TextureFlags.Loading[1];
 			this.entry.loadBitmap(function(bmp) {
 				var bmp1 = hxd_fs__$LoadedBitmap_LoadedBitmap_$Impl_$.toBitmap(bmp);
 				_gthis.tex.alloc();
@@ -35621,7 +37000,7 @@ hxd_res_Image.prototype = $extend(hxd_res_Resource.prototype,{
 				bmp1.ctx = null;
 				bmp1.pixel = null;
 				_gthis.tex.realloc = $bind(_gthis,_gthis.loadTexture);
-				_gthis.tex.flags &= 268435199;
+				_gthis.tex.flags &= 268435455 - (1 << h3d_mat_TextureFlags.Loading[1]);
 				if(_gthis.tex.onLoaded != null) {
 					_gthis.tex.onLoaded();
 				}
@@ -35787,7 +37166,8 @@ var hxd_res__$NanoJpeg_FastBytes_$Impl_$ = {};
 $hxClasses["hxd.res._NanoJpeg.FastBytes_Impl_"] = hxd_res__$NanoJpeg_FastBytes_$Impl_$;
 hxd_res__$NanoJpeg_FastBytes_$Impl_$.__name__ = ["hxd","res","_NanoJpeg","FastBytes_Impl_"];
 hxd_res__$NanoJpeg_FastBytes_$Impl_$._new = function(b) {
-	return b;
+	var this1 = b;
+	return this1;
 };
 hxd_res__$NanoJpeg_FastBytes_$Impl_$.get = function(this1,i) {
 	return this1.b[i];
@@ -35804,9 +37184,15 @@ hxd_res__$NanoJpeg_Component.prototype = {
 };
 var hxd_res_NanoJpeg = function() {
 	this.comps = [new hxd_res__$NanoJpeg_Component(),new hxd_res__$NanoJpeg_Component(),new hxd_res__$NanoJpeg_Component()].slice(0);
-	this.qtab = [new Array(64),new Array(64),new Array(64),new Array(64)].slice(0);
-	this.counts = new Array(16);
-	this.block = new Array(64);
+	var this1 = new Array(64);
+	var this2 = new Array(64);
+	var this3 = new Array(64);
+	var this4 = new Array(64);
+	this.qtab = [this1,this2,this3,this4].slice(0);
+	var this5 = new Array(16);
+	this.counts = this5;
+	var this6 = new Array(64);
+	this.block = this6;
 	this.njZZ = [0,1,8,16,9,2,3,10,17,24,32,25,18,11,4,5,12,19,26,33,40,48,41,34,27,20,13,6,7,14,21,28,35,42,49,56,57,50,43,36,29,22,15,23,30,37,44,51,58,59,52,45,38,31,39,46,53,60,61,54,47,55,62,63].slice(0);
 	this.vlctab = [null,null,null,null,null,null,null,null].slice(0);
 };
@@ -35873,7 +37259,10 @@ hxd_res_NanoJpeg.prototype = {
 		this.buf = 0;
 		this.bufbits = 0;
 		var _g1 = 0;
-		while(_g1 < 3) this.comps[_g1++].dcpred = 0;
+		while(_g1 < 3) {
+			var i1 = _g1++;
+			this.comps[i1].dcpred = 0;
+		}
 	}
 	,cleanup: function() {
 		this.bytes = null;
@@ -35900,6 +37289,7 @@ hxd_res_NanoJpeg.prototype = {
 		this.pos += count;
 		this.size -= count;
 		this.length -= count;
+		var flag = this.size < 0;
 	}
 	,syntax: function(flag) {
 	}
@@ -35928,6 +37318,7 @@ hxd_res_NanoJpeg.prototype = {
 			this.bufbits += 8;
 			this.buf = this.buf << 8 | newbyte;
 			if(newbyte == 255) {
+				var flag = this.size == 0;
 				var marker = this.bytes.b[this.pos];
 				this.pos++;
 				this.size--;
@@ -35957,26 +37348,37 @@ hxd_res_NanoJpeg.prototype = {
 		return r;
 	}
 	,njDecodeLength: function() {
+		var flag = this.size < 2;
 		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		var flag1 = this.length > this.size;
 		this.pos += 2;
 		this.size -= 2;
 		this.length -= 2;
+		var flag2 = this.size < 0;
 	}
 	,njSkipMarker: function() {
+		var flag = this.size < 2;
 		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		var flag1 = this.length > this.size;
 		this.pos += 2;
 		this.size -= 2;
 		this.length -= 2;
+		var flag2 = this.size < 0;
 		var count = this.length;
 		this.pos += count;
 		this.size -= count;
 		this.length -= count;
+		var flag3 = this.size < 0;
 	}
 	,njDecodeSOF: function() {
+		var flag = this.size < 2;
 		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		var flag1 = this.length > this.size;
 		this.pos += 2;
 		this.size -= 2;
 		this.length -= 2;
+		var flag2 = this.size < 0;
+		var flag3 = this.length < 9;
 		if(this.bytes.b[this.pos] != 8) {
 			this.notSupported();
 		}
@@ -35986,31 +37388,39 @@ hxd_res_NanoJpeg.prototype = {
 		this.pos += 6;
 		this.size -= 6;
 		this.length -= 6;
-		switch(this.ncomp) {
+		var flag4 = this.size < 0;
+		var _g = this.ncomp;
+		switch(_g) {
 		case 1:case 3:
 			break;
 		default:
 			this.notSupported();
 		}
+		var flag5 = this.length < this.ncomp * 3;
 		var ssxmax = 0;
 		var ssymax = 0;
 		var _g2 = 0;
 		var _g1 = this.ncomp;
 		while(_g2 < _g1) {
-			var c = this.comps[_g2++];
+			var i = _g2++;
+			var c = this.comps[i];
 			c.cid = this.bytes.b[this.pos];
 			c.ssx = this.bytes.b[this.pos + 1] >> 4;
+			var flag6 = c.ssx == 0;
 			if((c.ssx & c.ssx - 1) != 0) {
 				this.notSupported();
 			}
 			c.ssy = this.bytes.b[this.pos + 1] & 15;
+			var flag7 = c.ssy == 0;
 			if((c.ssy & c.ssy - 1) != 0) {
 				this.notSupported();
 			}
 			c.qtsel = this.bytes.b[this.pos + 2];
+			var flag8 = (c.qtsel & 252) != 0;
 			this.pos += 3;
 			this.size -= 3;
 			this.length -= 3;
+			var flag9 = this.size < 0;
 			this.qtused |= 1 << c.qtsel;
 			if(c.ssx > ssxmax) {
 				ssxmax = c.ssx;
@@ -36022,8 +37432,8 @@ hxd_res_NanoJpeg.prototype = {
 		if(this.ncomp == 1) {
 			var c1 = this.comps[0];
 			ssymax = 1;
-			ssxmax = 1;
-			c1.ssx = c1.ssy = 1;
+			ssxmax = ssymax;
+			c1.ssx = c1.ssy = ssxmax;
 		}
 		this.mbsizex = ssxmax << 3;
 		this.mbsizey = ssymax << 3;
@@ -36032,7 +37442,8 @@ hxd_res_NanoJpeg.prototype = {
 		var _g21 = 0;
 		var _g11 = this.ncomp;
 		while(_g21 < _g11) {
-			var c2 = this.comps[_g21++];
+			var i1 = _g21++;
+			var c2 = this.comps[i1];
 			c2.width = (this.width * c2.ssx + ssxmax - 1) / ssxmax | 0;
 			c2.stride = c2.width + 7 & 2147483640;
 			c2.height = (this.height * c2.ssy + ssymax - 1) / ssymax | 0;
@@ -36046,12 +37457,16 @@ hxd_res_NanoJpeg.prototype = {
 		this.pos += count;
 		this.size -= count;
 		this.length -= count;
+		var flag10 = this.size < 0;
 	}
 	,njDecodeDQT: function() {
+		var flag = this.size < 2;
 		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		var flag1 = this.length > this.size;
 		this.pos += 2;
 		this.size -= 2;
 		this.length -= 2;
+		var flag2 = this.size < 0;
 		while(this.length >= 65) {
 			var i = this.bytes.b[this.pos];
 			this.qtavail |= 1 << i;
@@ -36064,13 +37479,18 @@ hxd_res_NanoJpeg.prototype = {
 			this.pos += 65;
 			this.size -= 65;
 			this.length -= 65;
+			var flag3 = this.size < 0;
 		}
+		var flag4 = this.length != 0;
 	}
 	,njDecodeDHT: function() {
+		var flag = this.size < 2;
 		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		var flag1 = this.length > this.size;
 		this.pos += 2;
 		this.size -= 2;
 		this.length -= 2;
+		var flag2 = this.size < 0;
 		while(this.length >= 17) {
 			var i = this.bytes.b[this.pos];
 			i = i >> 4 & 1 | (i & 3) << 1;
@@ -36082,6 +37502,7 @@ hxd_res_NanoJpeg.prototype = {
 			this.pos += 17;
 			this.size -= 17;
 			this.length -= 17;
+			var flag3 = this.size < 0;
 			var vlc = this.vlctab[i];
 			var vpos = 0;
 			var remain = 65536;
@@ -36094,14 +37515,17 @@ hxd_res_NanoJpeg.prototype = {
 				if(currcnt == 0) {
 					continue;
 				}
+				var flag4 = this.length < currcnt;
 				remain -= currcnt << 16 - codelen1;
 				var _g2 = 0;
-				while(_g2 < currcnt) {
-					var code = this.bytes.b[this.pos + _g2++];
+				var _g11 = currcnt;
+				while(_g2 < _g11) {
+					var i1 = _g2++;
+					var code = this.bytes.b[this.pos + i1];
 					var _g4 = 0;
 					var _g3 = spread;
 					while(_g4 < _g3) {
-						++_g4;
+						var j = _g4++;
 						vlc.b[vpos++] = codelen1 & 255;
 						vlc.b[vpos++] = code & 255;
 					}
@@ -36109,23 +37533,30 @@ hxd_res_NanoJpeg.prototype = {
 				this.pos += currcnt;
 				this.size -= currcnt;
 				this.length -= currcnt;
+				var flag5 = this.size < 0;
 			}
 			while(remain-- != 0) {
 				vlc.b[vpos] = 0;
 				vpos += 2;
 			}
 		}
+		var flag6 = this.length != 0;
 	}
 	,njDecodeDRI: function() {
+		var flag = this.size < 2;
 		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		var flag1 = this.length > this.size;
 		this.pos += 2;
 		this.size -= 2;
 		this.length -= 2;
+		var flag2 = this.size < 0;
+		var flag3 = this.length < 2;
 		this.rstinterval = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
 		var count = this.length;
 		this.pos += count;
 		this.size -= count;
 		this.length -= count;
+		var flag4 = this.size < 0;
 	}
 	,njGetVLC: function(vlc) {
 		var value = this.njShowBits(16);
@@ -36143,8 +37574,8 @@ hxd_res_NanoJpeg.prototype = {
 		var r = this.njShowBits(bits);
 		this.bufbits -= bits;
 		value = r;
-		if(r < 1 << bits - 1) {
-			value = r + ((-1 << bits) + 1);
+		if(value < 1 << bits - 1) {
+			value += (-1 << bits) + 1;
 		}
 		return value;
 	}
@@ -36235,7 +37666,7 @@ hxd_res_NanoJpeg.prototype = {
 			}
 			var _g = 0;
 			while(_g < 8) {
-				++_g;
+				var i = _g++;
 				out.b[po] = x1 & 255;
 				po += stride;
 			}
@@ -36288,12 +37719,17 @@ hxd_res_NanoJpeg.prototype = {
 		out.b[po] = (x16 < 0 ? 0 : x16 > 255 ? 255 : x16) & 255;
 	}
 	,njDecodeBlock: function(c,po) {
-		var out = c.pixels;
+		var this1 = c.pixels;
+		var out = this1;
 		var value;
 		var coef = 0;
 		var _g = 0;
-		while(_g < 64) this.block[_g++] = 0;
-		var c1 = c.dcpred;
+		while(_g < 64) {
+			var i = _g++;
+			this.block[i] = 0;
+		}
+		var c1 = c;
+		var c2 = c1.dcpred;
 		var vlc = this.vlctab[c.dctabsel];
 		var value1 = this.njShowBits(16);
 		var bits = vlc.b[value1 << 1];
@@ -36311,12 +37747,12 @@ hxd_res_NanoJpeg.prototype = {
 			var r = this.njShowBits(bits);
 			this.bufbits -= bits;
 			value1 = r;
-			if(r < 1 << bits - 1) {
-				value1 = r + ((-1 << bits) + 1);
+			if(value1 < 1 << bits - 1) {
+				value1 += (-1 << bits) + 1;
 			}
 			tmp = value1;
 		}
-		c.dcpred = c1 + tmp;
+		c1.dcpred = c2 + tmp;
 		var qt = this.qtab[c.qtsel];
 		var at = this.vlctab[c.actabsel];
 		this.block[0] = c.dcpred * qt[0];
@@ -36336,14 +37772,15 @@ hxd_res_NanoJpeg.prototype = {
 				var r1 = this.njShowBits(bits1);
 				this.bufbits -= bits1;
 				value2 = r1;
-				if(r1 < 1 << bits1 - 1) {
-					value2 = r1 + ((-1 << bits1) + 1);
+				if(value2 < 1 << bits1 - 1) {
+					value2 += (-1 << bits1) + 1;
 				}
 				value = value2;
 			}
 			if(this.vlcCode == 0) {
 				break;
 			}
+			var flag = (this.vlcCode & 15) == 0 && this.vlcCode != 240;
 			coef += (this.vlcCode >> 4) + 1;
 			this.block[this.njZZ[coef]] = value * qt[coef];
 			if(!(coef < 63)) {
@@ -36352,7 +37789,8 @@ hxd_res_NanoJpeg.prototype = {
 		}
 		var _g1 = 0;
 		while(_g1 < 8) {
-			var bp = _g1++ * 8;
+			var coef1 = _g1++;
+			var bp = coef1 * 8;
 			var x0;
 			var x1;
 			var x2;
@@ -36413,8 +37851,8 @@ hxd_res_NanoJpeg.prototype = {
 		}
 		var _g2 = 0;
 		while(_g2 < 8) {
-			var coef1 = _g2++;
-			var po1 = coef1 + po;
+			var coef2 = _g2++;
+			var po1 = coef2 + po;
 			var stride = c.stride;
 			var x01;
 			var x11;
@@ -36425,15 +37863,15 @@ hxd_res_NanoJpeg.prototype = {
 			var x61;
 			var x71;
 			var x81;
-			x11 = this.block[coef1 + 32] << 8;
-			x21 = this.block[coef1 + 48];
-			x31 = this.block[coef1 + 16];
-			x41 = this.block[coef1 + 8];
-			x51 = this.block[coef1 + 56];
-			x61 = this.block[coef1 + 40];
-			x71 = this.block[coef1 + 24];
+			x11 = this.block[coef2 + 32] << 8;
+			x21 = this.block[coef2 + 48];
+			x31 = this.block[coef2 + 16];
+			x41 = this.block[coef2 + 8];
+			x51 = this.block[coef2 + 56];
+			x61 = this.block[coef2 + 40];
+			x71 = this.block[coef2 + 24];
 			if((x11 | x21 | x31 | x41 | x51 | x61 | x71) == 0) {
-				var x = (this.block[coef1] + 32 >> 6) + 128;
+				var x = (this.block[coef2] + 32 >> 6) + 128;
 				if(x < 0) {
 					x11 = 0;
 				} else if(x > 255) {
@@ -36443,12 +37881,12 @@ hxd_res_NanoJpeg.prototype = {
 				}
 				var _g3 = 0;
 				while(_g3 < 8) {
-					++_g3;
+					var i1 = _g3++;
 					out.b[po1] = x11 & 255;
 					po1 += stride;
 				}
 			} else {
-				x01 = (this.block[coef1] << 8) + 8192;
+				x01 = (this.block[coef2] << 8) + 8192;
 				x81 = 565 * (x41 + x51) + 4;
 				x41 = x81 + 2276 * x41 >> 3;
 				x51 = x81 - 3406 * x51 >> 3;
@@ -36500,52 +37938,69 @@ hxd_res_NanoJpeg.prototype = {
 		throw new js__$Boot_HaxeError("This JPG file is not supported");
 	}
 	,njDecodeScan: function() {
+		var flag = this.size < 2;
 		this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+		var flag1 = this.length > this.size;
 		this.pos += 2;
 		this.size -= 2;
 		this.length -= 2;
+		var flag2 = this.size < 0;
+		var flag3 = this.length < 4 + 2 * this.ncomp;
 		if(this.bytes.b[this.pos] != this.ncomp) {
 			this.notSupported();
 		}
 		this.pos += 1;
 		this.size -= 1;
 		this.length -= 1;
+		var flag4 = this.size < 0;
 		var _g1 = 0;
 		var _g = this.ncomp;
 		while(_g1 < _g) {
-			var c = this.comps[_g1++];
+			var i = _g1++;
+			var c = this.comps[i];
+			var flag5 = this.bytes.b[this.pos] != c.cid;
+			var flag6 = (this.bytes.b[this.pos + 1] & 236) != 0;
 			c.dctabsel = this.bytes.b[this.pos + 1] >> 4 << 1;
 			c.actabsel = (this.bytes.b[this.pos + 1] & 3) << 1 | 1;
 			this.pos += 2;
 			this.size -= 2;
 			this.length -= 2;
+			var flag7 = this.size < 0;
 		}
 		var start = this.bytes.b[this.pos];
-		if(!this.progressive && start != 0 || this.bytes.b[this.pos + 1] != 63 - start || this.bytes.b[this.pos + 2] != 0) {
+		var count = this.bytes.b[this.pos + 1];
+		var other = this.bytes.b[this.pos + 2];
+		if(!this.progressive && start != 0 || count != 63 - start || other != 0) {
 			this.notSupported();
 		}
-		var count = this.length;
-		this.pos += count;
-		this.size -= count;
-		this.length -= count;
+		var count1 = this.length;
+		this.pos += count1;
+		this.size -= count1;
+		this.length -= count1;
+		var flag8 = this.size < 0;
 		if(this.progressive) {
 			throw new js__$Boot_HaxeError("Unsupported progressive JPG");
 		}
 		var mbx = 0;
 		var mby = 0;
 		var rstcount = this.rstinterval;
+		var nextrst = 0;
 		while(true) {
 			var _g11 = 0;
 			var _g2 = this.ncomp;
 			while(_g11 < _g2) {
-				var c1 = this.comps[_g11++];
+				var i1 = _g11++;
+				var c1 = this.comps[i1];
 				var _g3 = 0;
 				var _g21 = c1.ssy;
 				while(_g3 < _g21) {
 					var sby = _g3++;
 					var _g5 = 0;
 					var _g4 = c1.ssx;
-					while(_g5 < _g4) this.njDecodeBlock(c1,(mby * c1.ssy + sby) * c1.stride + mbx * c1.ssx + _g5++ << 3);
+					while(_g5 < _g4) {
+						var sbx = _g5++;
+						this.njDecodeBlock(c1,(mby * c1.ssy + sby) * c1.stride + mbx * c1.ssx + sbx << 3);
+					}
 				}
 			}
 			if(++mbx >= this.mbwidth) {
@@ -36556,25 +38011,32 @@ hxd_res_NanoJpeg.prototype = {
 			}
 			if(this.rstinterval != 0 && --rstcount == 0) {
 				this.bufbits &= 248;
-				this.njShowBits(16);
+				var r = this.njShowBits(16);
 				this.bufbits -= 16;
+				var i2 = r;
+				nextrst = nextrst + 1 & 7;
 				rstcount = this.rstinterval;
 				var _g6 = 0;
-				while(_g6 < 3) this.comps[_g6++].dcpred = 0;
+				while(_g6 < 3) {
+					var i3 = _g6++;
+					this.comps[i3].dcpred = 0;
+				}
 			}
 		}
 	}
 	,njUpsampleH: function(c) {
 		var xmax = c.width - 3;
 		var cout = hxd_impl_Tmp.getBytes(c.width * c.height << 1);
-		var lout = cout;
-		var lin = c.pixels;
+		var this1 = cout;
+		var lout = this1;
+		var this2 = c.pixels;
+		var lin = this2;
 		var pi = 0;
 		var po = 0;
 		var _g1 = 0;
 		var _g = c.height;
 		while(_g1 < _g) {
-			++_g1;
+			var y = _g1++;
 			var x = 139 * lin.b[pi] + -11 * lin.b[pi + 1] + 64 >> 7;
 			lout.b[po] = (x < 0 ? 0 : x > 255 ? 255 : x) & 255;
 			var x1 = 104 * lin.b[pi] + 27 * lin.b[pi + 1] + -3 * lin.b[pi + 2] + 64 >> 7;
@@ -36582,7 +38044,8 @@ hxd_res_NanoJpeg.prototype = {
 			var x2 = 28 * lin.b[pi] + 109 * lin.b[pi + 1] + -9 * lin.b[pi + 2] + 64 >> 7;
 			lout.b[po + 2] = (x2 < 0 ? 0 : x2 > 255 ? 255 : x2) & 255;
 			var _g3 = 0;
-			while(_g3 < xmax) {
+			var _g2 = xmax;
+			while(_g3 < _g2) {
 				var x3 = _g3++;
 				var x4 = -9 * lin.b[pi + x3] + 111 * lin.b[pi + x3 + 1] + 29 * lin.b[pi + x3 + 2] + -3 * lin.b[pi + x3 + 3] + 64 >> 7;
 				lout.b[po + (x3 << 1) + 3] = (x4 < 0 ? 0 : x4 > 255 ? 255 : x4) & 255;
@@ -36610,16 +38073,19 @@ hxd_res_NanoJpeg.prototype = {
 		var out = hxd_impl_Tmp.getBytes(c.width * c.height << 1);
 		var pi = 0;
 		var po = 0;
-		var cout = out;
-		var cin = c.pixels;
+		var this1 = out;
+		var cout = this1;
+		var this2 = c.pixels;
+		var cin = this2;
 		var _g1 = 0;
-		while(_g1 < w) {
+		var _g = w;
+		while(_g1 < _g) {
 			var x = _g1++;
 			po = x;
-			pi = x;
+			pi = po;
 			var x1 = 139 * cin.b[pi] + -11 * cin.b[pi + s1] + 64 >> 7;
-			cout.b[x] = (x1 < 0 ? 0 : x1 > 255 ? 255 : x1) & 255;
-			po = x + w;
+			cout.b[po] = (x1 < 0 ? 0 : x1 > 255 ? 255 : x1) & 255;
+			po += w;
 			var x2 = 104 * cin.b[pi] + 27 * cin.b[pi + s1] + -3 * cin.b[pi + s2] + 64 >> 7;
 			cout.b[po] = (x2 < 0 ? 0 : x2 > 255 ? 255 : x2) & 255;
 			po += w;
@@ -36630,7 +38096,7 @@ hxd_res_NanoJpeg.prototype = {
 			var _g3 = 0;
 			var _g2 = c.height - 2;
 			while(_g3 < _g2) {
-				++_g3;
+				var y = _g3++;
 				var x4 = -9 * cin.b[pi - s1] + 111 * cin.b[pi] + 29 * cin.b[pi + s1] + -3 * cin.b[pi + s2] + 64 >> 7;
 				cout.b[po] = (x4 < 0 ? 0 : x4 > 255 ? 255 : x4) & 255;
 				po += w;
@@ -36666,16 +38132,22 @@ hxd_res_NanoJpeg.prototype = {
 			++yshift;
 		}
 		var out = hxd_impl_Tmp.getBytes(c.width * c.height);
-		var lin = c.pixels;
+		var this1 = c.pixels;
+		var lin = this1;
 		var pout = 0;
-		var lout = out;
+		var this2 = out;
+		var lout = this2;
 		var _g1 = 0;
 		var _g = c.height;
 		while(_g1 < _g) {
-			var pin = (_g1++ >> yshift) * c.stride;
+			var y = _g1++;
+			var pin = (y >> yshift) * c.stride;
 			var _g3 = 0;
 			var _g2 = c.width;
-			while(_g3 < _g2) lout.b[pout++] = lin.b[(_g3++ >> xshift) + pin] & 255;
+			while(_g3 < _g2) {
+				var x = _g3++;
+				lout.b[pout++] = lin.b[(x >> xshift) + pin] & 255;
+			}
 		}
 		c.stride = c.width;
 		hxd_impl_Tmp.saveBytes(c.pixels);
@@ -36685,8 +38157,10 @@ hxd_res_NanoJpeg.prototype = {
 		var _g1 = 0;
 		var _g = this.ncomp;
 		while(_g1 < _g) {
-			var c = this.comps[_g1++];
-			switch(this.filter[1]) {
+			var i = _g1++;
+			var c = this.comps[i];
+			var _g2 = this.filter;
+			switch(_g2[1]) {
 			case 0:
 				if(c.width < this.width || c.height < this.height) {
 					this.njUpsample(c);
@@ -36709,31 +38183,38 @@ hxd_res_NanoJpeg.prototype = {
 		}
 		var pixels = hxd_impl_Tmp.getBytes(this.width * this.height * 4);
 		if(this.ncomp == 3) {
-			var py = this.comps[0].pixels;
-			var pcb = this.comps[1].pixels;
-			var pcr = this.comps[2].pixels;
-			var pix = pixels;
+			var this1 = this.comps[0].pixels;
+			var py = this1;
+			var this2 = this.comps[1].pixels;
+			var pcb = this2;
+			var this3 = this.comps[2].pixels;
+			var pcr = this3;
+			var this4 = pixels;
+			var pix = this4;
 			var k1 = 0;
 			var k2 = 0;
 			var k3 = 0;
 			var out = 0;
 			var _g11 = 0;
-			var _g2 = this.height;
-			while(_g11 < _g2) {
-				++_g11;
-				var _g3 = 0;
+			var _g3 = this.height;
+			while(_g11 < _g3) {
+				var yy = _g11++;
+				var _g31 = 0;
 				var _g21 = this.width;
-				while(_g3 < _g21) {
-					++_g3;
+				while(_g31 < _g21) {
+					var x = _g31++;
 					var y = py.b[k1++] << 8;
 					var cb = pcb.b[k2++] - 128;
 					var cr = pcr.b[k3++] - 128;
-					var x = y + 359 * cr + 128 >> 8;
-					var x1 = y - 88 * cb - 183 * cr + 128 >> 8;
-					var x2 = y + 454 * cb + 128 >> 8;
-					pix.b[out++] = (x2 < 0 ? 0 : x2 > 255 ? 255 : x2) & 255;
-					pix.b[out++] = (x1 < 0 ? 0 : x1 > 255 ? 255 : x1) & 255;
-					pix.b[out++] = (x < 0 ? 0 : x > 255 ? 255 : x) & 255;
+					var x1 = y + 359 * cr + 128 >> 8;
+					var r = x1 < 0 ? 0 : x1 > 255 ? 255 : x1;
+					var x2 = y - 88 * cb - 183 * cr + 128 >> 8;
+					var g = x2 < 0 ? 0 : x2 > 255 ? 255 : x2;
+					var x3 = y + 454 * cb + 128 >> 8;
+					var b = x3 < 0 ? 0 : x3 > 255 ? 255 : x3;
+					pix.b[out++] = b & 255;
+					pix.b[out++] = g & 255;
+					pix.b[out++] = r & 255;
 					pix.b[out++] = 255;
 				}
 				k1 += this.comps[0].stride - this.width;
@@ -36752,20 +38233,24 @@ hxd_res_NanoJpeg.prototype = {
 		this.pos += 2;
 		this.size -= 2;
 		this.length -= 2;
+		var flag = this.size < 0;
 		try {
 			while(true) {
+				var flag1 = this.size < 2 || this.bytes.b[this.pos] != 255;
 				this.pos += 2;
 				this.size -= 2;
 				this.length -= 2;
-				switch(this.bytes.b[this.pos + -1]) {
+				var flag2 = this.size < 0;
+				var _g = this.bytes.b[this.pos + -1];
+				switch(_g) {
 				case 192:
 					this.njDecodeSOF();
 					break;
 				case 194:
 					this.progressive = true;
-					var _g = 4;
-					while(_g < 8) {
-						var i = _g++;
+					var _g1 = 4;
+					while(_g1 < 8) {
+						var i = _g1++;
 						if(this.vlctab[i] == null) {
 							this.vlctab[i] = hxd_impl_Tmp.getBytes(131072);
 						}
@@ -36789,29 +38274,38 @@ hxd_res_NanoJpeg.prototype = {
 					this.njDecodeDRI();
 					break;
 				case 254:
+					var flag3 = this.size < 2;
 					this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+					var flag4 = this.length > this.size;
 					this.pos += 2;
 					this.size -= 2;
 					this.length -= 2;
+					var flag5 = this.size < 0;
 					var count = this.length;
 					this.pos += count;
 					this.size -= count;
 					this.length -= count;
+					var flag6 = this.size < 0;
 					break;
 				default:
-					switch(this.bytes.b[this.pos + -1] & 240) {
+					var _g2 = this.bytes.b[this.pos + -1] & 240;
+					switch(_g2) {
 					case 192:
 						throw new js__$Boot_HaxeError("Unsupported jpeg type " + (this.bytes.b[this.pos + -1] & 15));
 						break;
 					case 224:
+						var flag7 = this.size < 2;
 						this.length = this.bytes.b[this.pos] << 8 | this.bytes.b[this.pos + 1];
+						var flag8 = this.length > this.size;
 						this.pos += 2;
 						this.size -= 2;
 						this.length -= 2;
+						var flag9 = this.size < 0;
 						var count1 = this.length;
 						this.pos += count1;
 						this.size -= count1;
 						this.length -= count1;
+						var flag10 = this.size < 0;
 						break;
 					default:
 						throw new js__$Boot_HaxeError("Unsupported jpeg tag 0x" + StringTools.hex(this.bytes.b[this.pos + -1],2));
@@ -36862,7 +38356,8 @@ hxd_res_Sound.prototype = $extend(hxd_res_Resource.prototype,{
 			return this.data;
 		}
 		var bytes = this.entry.getBytes();
-		switch(bytes.b[0]) {
+		var _g = bytes.b[0];
+		switch(_g) {
 		case 73:case 255:
 			this.data = new hxd_snd_Mp3Data(bytes);
 			break;
@@ -36899,7 +38394,7 @@ hxd_res_Sound.prototype = $extend(hxd_res_Resource.prototype,{
 		this.lastPlay = new Date().getTime() / 1000;
 		this.channel = hxd_snd_Driver.get().play(this,channelGroup,soundGroup);
 		this.channel.loop = loop;
-		this.channel.volume = volume;
+		this.channel.set_volume(volume);
 		return this.channel;
 	}
 	,__class__: hxd_res_Sound
@@ -36920,34 +38415,38 @@ hxd_res_TiledMap.prototype = $extend(hxd_res_Resource.prototype,{
 		while(_g_head != null) {
 			var val = _g_head.item;
 			_g_head = _g_head.next;
-			var data1 = StringTools.trim(val.node.resolve("data").get_innerData());
+			var l = val;
+			var data1 = StringTools.trim(l.node.resolve("data").get_innerData());
 			while(HxOverrides.cca(data1,data1.length - 1) == 61) data1 = HxOverrides.substr(data1,0,data1.length - 1);
-			var bytes = base.decodeBytes(haxe_io_Bytes.ofString(data1));
-			bytes = format_tools_Inflate.run(bytes);
-			var input = new haxe_io_BytesInput(bytes);
+			var bytes = haxe_io_Bytes.ofString(data1);
+			var bytes1 = base.decodeBytes(bytes);
+			bytes1 = format_tools_Inflate.run(bytes1);
+			var input = new haxe_io_BytesInput(bytes1);
 			var data2 = [];
 			var _g1 = 0;
-			var _g = bytes.length >> 2;
+			var _g = bytes1.length >> 2;
 			while(_g1 < _g) {
-				++_g1;
+				var i = _g1++;
 				data2.push(input.readInt32());
 			}
-			layers.push({ name : val.att.resolve("name"), opacity : val.has.resolve("opacity") ? parseFloat(val.att.resolve("opacity")) : 1., objects : [], data : data2});
+			layers.push({ name : l.att.resolve("name"), opacity : l.has.resolve("opacity") ? parseFloat(l.att.resolve("opacity")) : 1., objects : [], data : data2});
 		}
 		var _g_head1 = x.nodes.resolve("objectgroup").h;
 		while(_g_head1 != null) {
 			var val1 = _g_head1.item;
 			_g_head1 = _g_head1.next;
+			var l1 = val1;
 			var objs = [];
-			var _g_head2 = val1.nodes.resolve("object").h;
+			var _g_head2 = l1.nodes.resolve("object").h;
 			while(_g_head2 != null) {
 				var val2 = _g_head2.item;
 				_g_head2 = _g_head2.next;
-				if(val2.has.resolve("name")) {
-					objs.push({ name : val2.att.resolve("name"), type : val2.has.resolve("type") ? val2.att.resolve("type") : null, x : Std.parseInt(val2.att.resolve("x")), y : Std.parseInt(val2.att.resolve("y"))});
+				var o = val2;
+				if(o.has.resolve("name")) {
+					objs.push({ name : o.att.resolve("name"), type : o.has.resolve("type") ? o.att.resolve("type") : null, x : Std.parseInt(o.att.resolve("x")), y : Std.parseInt(o.att.resolve("y"))});
 				}
 			}
-			layers.push({ name : val1.att.resolve("name"), opacity : 1., objects : objs, data : null});
+			layers.push({ name : l1.att.resolve("name"), opacity : 1., objects : objs, data : null});
 		}
 		return { width : Std.parseInt(x.att.resolve("width")), height : Std.parseInt(x.att.resolve("height")), layers : layers};
 	}
@@ -36957,7 +38456,8 @@ var hxd_snd_NativeChannel = function(bufferSamples) {
 	this.bufferSamples = bufferSamples;
 	var ctx = hxd_snd_NativeChannel.getContext();
 	this.sproc = ctx.createScriptProcessor(bufferSamples,2,2);
-	this.tmpBuffer = new Float32Array(bufferSamples * 2);
+	var this1 = new Float32Array(bufferSamples * 2);
+	this.tmpBuffer = this1;
 	this.sproc.connect(ctx.destination);
 	this.sproc.onaudioprocess = $bind(this,this.onJsSample);
 };
@@ -37014,8 +38514,7 @@ hxd_snd__$ALEmulator_ALChannel.prototype = $extend(hxd_snd_NativeChannel.prototy
 			var bufferIndex = 0;
 			var baseSample = 0;
 			var curSample = this.source.currentSample;
-			bufferIndex = 1;
-			var buffer = this.source.buffers[0];
+			var buffer = this.source.buffers[bufferIndex++];
 			while(count > 0) {
 				while(buffer != null && curSample >= buffer.samples) {
 					baseSample += buffer.samples;
@@ -37027,8 +38526,7 @@ hxd_snd__$ALEmulator_ALChannel.prototype = $extend(hxd_snd_NativeChannel.prototy
 						curSample = 0;
 						baseSample = 0;
 						bufferIndex = 0;
-						bufferIndex = 1;
-						buffer = this.source.buffers[0];
+						buffer = this.source.buffers[bufferIndex++];
 						continue;
 					}
 					break;
@@ -37043,7 +38541,7 @@ hxd_snd__$ALEmulator_ALChannel.prototype = $extend(hxd_snd_NativeChannel.prototy
 					var _g1 = 0;
 					var _g = scount;
 					while(_g1 < _g) {
-						++_g1;
+						var i = _g1++;
 						out[pos++] = data[read++] * volume * this.startup;
 						out[pos++] = data[read++] * volume * this.startup;
 						if(this.startup < 1.) {
@@ -37057,7 +38555,7 @@ hxd_snd__$ALEmulator_ALChannel.prototype = $extend(hxd_snd_NativeChannel.prototy
 					var _g11 = 0;
 					var _g2 = scount;
 					while(_g11 < _g2) {
-						++_g11;
+						var i1 = _g11++;
 						out[pos++] = data[read++] * volume;
 						out[pos++] = data[read++] * volume;
 					}
@@ -37073,7 +38571,7 @@ hxd_snd__$ALEmulator_ALChannel.prototype = $extend(hxd_snd_NativeChannel.prototy
 		var _g12 = 0;
 		var _g3 = count << 1;
 		while(_g12 < _g3) {
-			++_g12;
+			var i2 = _g12++;
 			out[pos++] = 0.;
 		}
 	}
@@ -37156,7 +38654,8 @@ hxd_snd_ALBuffer.prototype = {
 	}
 	,alloc: function(size) {
 		if(this.data == null || this.data.length != size) {
-			this.data = new Array(size);
+			var this1 = new Array(size);
+			this.data = this1;
 		}
 		return this.data;
 	}
@@ -37251,13 +38750,19 @@ hxd_snd_ALEmulator.getListeneriv = function(param,values) {
 };
 hxd_snd_ALEmulator.genSources = function(n,sources) {
 	var _g1 = 0;
-	while(_g1 < n) sources.setInt32(_g1++ << 2,new hxd_snd_ALSource().id);
+	var _g = n;
+	while(_g1 < _g) {
+		var i = _g1++;
+		sources.setInt32(i << 2,new hxd_snd_ALSource().id);
+	}
 };
 hxd_snd_ALEmulator.deleteSources = function(n,sources) {
 	var _g1 = 0;
-	while(_g1 < n) {
-		var i = sources.getInt32(_g1++ << 2);
-		hxd_snd_ALSource.all.get(i).dispose();
+	var _g = n;
+	while(_g1 < _g) {
+		var i = _g1++;
+		var i1 = sources.getInt32(i << 2);
+		hxd_snd_ALSource.all.get(i1).dispose();
 	}
 };
 hxd_snd_ALEmulator.isSource = function(source) {
@@ -37311,7 +38816,8 @@ hxd_snd_ALEmulator.getSourcef = function(source,param) {
 		if(source.buffers.length == 0) {
 			return 0;
 		}
-		var t = new Date().getTime() / 1000 - source.playedTime;
+		var now = new Date().getTime() / 1000;
+		var t = now - source.playedTime;
 		var maxT = source.duration;
 		if(source.loop) {
 			while(t > maxT) {
@@ -37397,9 +38903,11 @@ hxd_snd_ALEmulator.sourcePause = function(source) {
 };
 hxd_snd_ALEmulator.sourceQueueBuffers = function(source,nb,buffers) {
 	var _g1 = 0;
-	while(_g1 < nb) {
-		var i = buffers.getInt32(_g1++ * 4);
-		var b = hxd_snd_ALBuffer.all.get(i);
+	var _g = nb;
+	while(_g1 < _g) {
+		var i = _g1++;
+		var i1 = buffers.getInt32(i * 4);
+		var b = hxd_snd_ALBuffer.all.get(i1);
 		if(b == null) {
 			throw new js__$Boot_HaxeError("assert");
 		}
@@ -37409,9 +38917,11 @@ hxd_snd_ALEmulator.sourceQueueBuffers = function(source,nb,buffers) {
 };
 hxd_snd_ALEmulator.sourceUnqueueBuffers = function(source,nb,buffers) {
 	var _g1 = 0;
-	while(_g1 < nb) {
-		var i = buffers.getInt32(_g1++ * 4);
-		var b = hxd_snd_ALBuffer.all.get(i);
+	var _g = nb;
+	while(_g1 < _g) {
+		var i = _g1++;
+		var i1 = buffers.getInt32(i * 4);
+		var b = hxd_snd_ALBuffer.all.get(i1);
 		if(b != source.buffers[0]) {
 			throw new js__$Boot_HaxeError("assert");
 		}
@@ -37430,13 +38940,19 @@ hxd_snd_ALEmulator.sourceUnqueueBuffers = function(source,nb,buffers) {
 };
 hxd_snd_ALEmulator.genBuffers = function(n,buffers) {
 	var _g1 = 0;
-	while(_g1 < n) buffers.setInt32(_g1++ << 2,new hxd_snd_ALBuffer().id);
+	var _g = n;
+	while(_g1 < _g) {
+		var i = _g1++;
+		buffers.setInt32(i << 2,new hxd_snd_ALBuffer().id);
+	}
 };
 hxd_snd_ALEmulator.deleteBuffers = function(n,buffers) {
 	var _g1 = 0;
-	while(_g1 < n) {
-		var i = buffers.getInt32(_g1++ << 2);
-		hxd_snd_ALBuffer.all.get(i).dispose();
+	var _g = n;
+	while(_g1 < _g) {
+		var i = _g1++;
+		var i1 = buffers.getInt32(i << 2);
+		hxd_snd_ALBuffer.all.get(i1).dispose();
 	}
 };
 hxd_snd_ALEmulator.isBuffer = function(buffer) {
@@ -37450,7 +38966,8 @@ hxd_snd_ALEmulator.bufferData = function(buffer,format,data,size,freq) {
 	case 4352:
 		var bdata = buffer.alloc(size * 2);
 		var _g1 = 0;
-		while(_g1 < size) {
+		var _g = size;
+		while(_g1 < _g) {
 			var i = _g1++;
 			var v = data.b[i] / 255;
 			bdata[i << 1] = v;
@@ -37460,8 +38977,8 @@ hxd_snd_ALEmulator.bufferData = function(buffer,format,data,size,freq) {
 	case 4353:
 		var bdata1 = buffer.alloc(size);
 		var _g11 = 0;
-		var _g = size >> 1;
-		while(_g11 < _g) {
+		var _g2 = size >> 1;
+		while(_g11 < _g2) {
 			var i1 = _g11++;
 			var v1 = data.getUInt16(i1 << 1);
 			var v2 = ((v1 & 32768) == 0 ? v1 : v1 | -65536) / 32768;
@@ -37472,26 +38989,29 @@ hxd_snd_ALEmulator.bufferData = function(buffer,format,data,size,freq) {
 	case 4354:
 		var bdata2 = buffer.alloc(size);
 		var _g12 = 0;
-		while(_g12 < size) {
+		var _g3 = size;
+		while(_g12 < _g3) {
 			var i2 = _g12++;
-			bdata2[i2] = data.b[i2] / 255;
+			var v3 = data.b[i2] / 255;
+			bdata2[i2] = v3;
 		}
 		break;
 	case 4355:
 		var bdata3 = buffer.alloc(size >> 1);
 		var _g13 = 0;
-		var _g2 = size >> 1;
-		while(_g13 < _g2) {
+		var _g4 = size >> 1;
+		while(_g13 < _g4) {
 			var i3 = _g13++;
-			var v3 = data.getUInt16(i3 << 1);
-			bdata3[i3] = ((v3 & 32768) == 0 ? v3 : v3 | -65536) / 32768;
+			var v4 = data.getUInt16(i3 << 1);
+			var v5 = ((v4 & 32768) == 0 ? v4 : v4 | -65536) / 32768;
+			bdata3[i3] = v5;
 		}
 		break;
 	case 4368:
 		var bdata4 = buffer.alloc(size >> 1);
 		var _g14 = 0;
-		var _g3 = size >> 1;
-		while(_g14 < _g3) {
+		var _g5 = size >> 1;
+		while(_g14 < _g5) {
 			var i4 = _g14++;
 			var f = data.getFloat(i4 << 2);
 			bdata4[i4 << 1] = f;
@@ -37499,10 +39019,10 @@ hxd_snd_ALEmulator.bufferData = function(buffer,format,data,size,freq) {
 		}
 		break;
 	case 4369:
-		buffer.alloc(size >> 2);
+		var bdata5 = buffer.alloc(size >> 2);
 		var _g15 = 0;
-		var _g4 = size >> 2;
-		while(_g15 < _g4) {
+		var _g6 = size >> 2;
+		while(_g15 < _g6) {
 			var i5 = _g15++;
 			buffer.data[i5] = data.getFloat(i5 << 2);
 		}
@@ -37608,10 +39128,10 @@ hxd_snd_ALCEmulator.getIntegerv = function(device,param,size,values) {
 	throw new js__$Boot_HaxeError("TODO");
 };
 var hxd_snd_ChannelBase = function() {
+	this.volume = 1.;
 	this.effects = [];
 	this.mute = false;
 	this.pan = 0.;
-	this.volume = 1.;
 	this.priority = 0.;
 };
 $hxClasses["hxd.snd.ChannelBase"] = hxd_snd_ChannelBase;
@@ -37629,6 +39149,32 @@ hxd_snd_ChannelBase.prototype = {
 			}
 		}
 		return null;
+	}
+	,set_volume: function(v) {
+		this.currentFade = null;
+		return this.volume = v;
+	}
+	,fadeTo: function(volume,time,onEnd) {
+		if(time == null) {
+			time = 1.;
+		}
+		this.currentFade = { start : new Date().getTime() / 1000, duration : time, startVolume : this.volume, targetVolume : volume, onEnd : onEnd};
+	}
+	,updateCurrentVolume: function(now) {
+		if(this.currentFade != null) {
+			var f = this.currentFade;
+			var dt = now - f.start;
+			if(dt >= f.duration) {
+				this.set_volume(f.targetVolume);
+				if(f.onEnd != null) {
+					f.onEnd();
+				}
+			} else {
+				this.set_volume(f.startVolume + dt / f.duration * (f.targetVolume - f.startVolume));
+				this.currentFade = f;
+			}
+		}
+		this.currentVolume = this.volume;
 	}
 	,addEffect: function(e) {
 		if(e == null) {
@@ -37675,8 +39221,20 @@ hxd_snd_Channel.prototype = $extend(hxd_snd_ChannelBase.prototype,{
 		}
 		return this.streaming = v;
 	}
-	,calcAudibleGain: function() {
-		this.audibleGain = this.volume * this.channelGroup.volume * this.soundGroup.volume;
+	,updateCurrentVolume: function(now) {
+		if(this.pause && this.currentFade != null) {
+			var f = this.currentFade;
+			this.currentFade = null;
+			this.updateCurrentVolume(now);
+			this.currentFade = f;
+		}
+		hxd_snd_ChannelBase.prototype.updateCurrentVolume.call(this,now);
+		this.channelGroup.updateCurrentVolume(now);
+		this.currentVolume *= this.channelGroup.currentVolume * this.soundGroup.volume;
+	}
+	,calcAudibleGain: function(now) {
+		this.updateCurrentVolume(now);
+		this.audibleGain = this.currentVolume;
 		var _g = 0;
 		var _g1 = this.effects;
 		while(_g < _g1.length) {
@@ -37684,7 +39242,6 @@ hxd_snd_Channel.prototype = $extend(hxd_snd_ChannelBase.prototype,{
 			++_g;
 			this.audibleGain *= e.get_gain();
 		}
-		return this.audibleGain;
 	}
 	,queueSound: function(sound) {
 		this.queue.push(sound);
@@ -37756,7 +39313,8 @@ hxd_snd_Data.prototype = {
 			return this;
 		}
 		var newSamples = Math.ceil(this.samples * (rate / this.samplingRate));
-		var data = new haxe_io_Bytes(new ArrayBuffer(this.getBytesPerSample() * this.samples));
+		var bpp = this.getBytesPerSample();
+		var data = new haxe_io_Bytes(new ArrayBuffer(bpp * this.samples));
 		this.decodeBuffer(data,0,0,this.samples);
 		var out = channels * newSamples;
 		var out1;
@@ -37791,8 +39349,10 @@ hxd_snd_Data.prototype = {
 		var sval = 0.;
 		var ival = 0;
 		var _g1 = 0;
-		while(_g1 < newSamples) {
-			var targetSample = _g1++ / (newSamples - 1) * (samples - 1);
+		var _g = newSamples;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var targetSample = i / (newSamples - 1) * (samples - 1);
 			var isample = targetSample | 0;
 			var offset = targetSample - isample;
 			var srcPos = inPos + isample * bpp;
@@ -37802,10 +39362,11 @@ hxd_snd_Data.prototype = {
 			var _g3 = 0;
 			var _g2 = commonChannels;
 			while(_g3 < _g2) {
-				++_g3;
+				var k = _g3++;
 				var sval1;
 				var sval2 = 0.;
-				switch(this.sampleFormat[1]) {
+				var _g4 = this.sampleFormat;
+				switch(_g4[1]) {
 				case 0:
 					sval1 = input.b[srcPos] / 255;
 					if(resample) {
@@ -37858,8 +39419,9 @@ hxd_snd_Data.prototype = {
 				}
 			}
 			var _g31 = 0;
-			while(_g31 < extraChannels) {
-				++_g31;
+			var _g21 = extraChannels;
+			while(_g31 < _g21) {
+				var i1 = _g31++;
 				switch(format[1]) {
 				case 0:
 					out.b[outPos++] = ival & 255;
@@ -37950,8 +39512,9 @@ var hxd_snd_Driver = function() {
 	var _g = [];
 	var _g1 = 0;
 	while(_g1 < 16) {
-		var i = bytes.getInt32(_g1++ * 4);
-		_g.push(new hxd_snd_Source(hxd_snd_ALSource.all.get(i)));
+		var i = _g1++;
+		var i1 = bytes.getInt32(i * 4);
+		_g.push(new hxd_snd_Source(hxd_snd_ALSource.all.get(i1)));
 	}
 	this.sources = _g;
 	this.cachedBytes = new haxe_io_Bytes(new ArrayBuffer(24));
@@ -37980,6 +39543,17 @@ hxd_snd_Driver.prototype = {
 	,stopAll: function() {
 		while(this.channels != null) this.channels.stop();
 	}
+	,cleanCache: function() {
+		var _g = 0;
+		var _g1 = this.buffers.slice();
+		while(_g < _g1.length) {
+			var b = _g1[_g];
+			++_g;
+			if(b.playCount == 0) {
+				this.releaseBuffer(b);
+			}
+		}
+	}
 	,dispose: function() {
 		this.stopAll();
 		var tmp = this.sources.length;
@@ -37991,12 +39565,13 @@ hxd_snd_Driver.prototype = {
 			++_g1;
 			_g.push(s.inst.id);
 		}
-		var b = new haxe_io_Bytes(new ArrayBuffer(_g.length * 4));
+		var a = _g;
+		var b = new haxe_io_Bytes(new ArrayBuffer(a.length * 4));
 		var _g11 = 0;
-		var _g3 = _g.length;
+		var _g3 = a.length;
 		while(_g11 < _g3) {
 			var i = _g11++;
-			b.setInt32(i << 2,_g[i]);
+			b.setInt32(i << 2,a[i]);
 		}
 		hxd_snd_ALEmulator.deleteSources(tmp,b);
 		var tmp1 = this.buffers.length;
@@ -38008,17 +39583,20 @@ hxd_snd_Driver.prototype = {
 			++_g21;
 			_g12.push(b1.inst.id);
 		}
-		var b2 = new haxe_io_Bytes(new ArrayBuffer(_g12.length * 4));
+		var a1 = _g12;
+		var b2 = new haxe_io_Bytes(new ArrayBuffer(a1.length * 4));
 		var _g13 = 0;
-		var _g4 = _g12.length;
+		var _g4 = a1.length;
 		while(_g13 < _g4) {
 			var i1 = _g13++;
-			b2.setInt32(i1 << 2,_g12[i1]);
+			b2.setInt32(i1 << 2,a1[i1]);
 		}
 		hxd_snd_ALEmulator.deleteBuffers(tmp1,b2);
 		this.sources = [];
 		this.buffers = [];
 		hxd_snd_ALCEmulator.makeContextCurrent(null);
+		hxd_snd_ALCEmulator.destroyContext(this.alContext);
+		hxd_snd_ALCEmulator.closeDevice(this.alDevice);
 	}
 	,play: function(sound,soundGroup,channelGroup) {
 		if(soundGroup == null) {
@@ -38049,14 +39627,16 @@ hxd_snd_Driver.prototype = {
 			if(c == null) {
 				continue;
 			}
-			switch(hxd_snd_ALEmulator.getSourcei(s.inst,4112)) {
+			var state = hxd_snd_ALEmulator.getSourcei(s.inst,4112);
+			switch(state) {
 			case 4114:
 				if(c.streaming) {
 					if(c.positionChanged) {
 						this.releaseSource(s);
 						continue;
 					}
-					if(hxd_snd_ALEmulator.getSourcei(s.inst,4118) > 0) {
+					var count = hxd_snd_ALEmulator.getSourcei(s.inst,4118);
+					if(count > 0) {
 						var b0 = s.buffers[0];
 						var b1 = s.buffers[1];
 						var tmp = this.getTmp(8);
@@ -38069,7 +39649,9 @@ hxd_snd_Driver.prototype = {
 						s.buffers[0] = b1;
 						s.buffers[1] = b0;
 					}
-					c.set_position(hxd_snd_ALEmulator.getSourcef(s.inst,4132) + s.streamPosition);
+					var position = hxd_snd_ALEmulator.getSourcef(s.inst,4132);
+					var prev = c.position;
+					c.set_position(position + s.streamPosition);
 					c.lastStamp = now;
 					if(c.position > c.duration) {
 						if(c.queue.length > 0) {
@@ -38085,22 +39667,22 @@ hxd_snd_Driver.prototype = {
 					}
 					c.positionChanged = false;
 				} else if(!c.positionChanged) {
-					var position = hxd_snd_ALEmulator.getSourcef(s.inst,4132);
-					var prev = c.position;
-					c.set_position(position);
+					var position1 = hxd_snd_ALEmulator.getSourcef(s.inst,4132);
+					var prev1 = c.position;
+					c.set_position(position1);
 					c.lastStamp = now;
 					c.positionChanged = false;
 					if(c.queue.length > 0) {
-						var count = hxd_snd_ALEmulator.getSourcei(s.inst,4118);
-						while(count > 0) {
+						var count1 = hxd_snd_ALEmulator.getSourcei(s.inst,4118);
+						while(count1 > 0) {
 							var tmp1 = this.getTmp(4);
 							tmp1.setInt32(0,s.buffers[0].inst.id);
 							hxd_snd_ALEmulator.sourceUnqueueBuffers(s.inst,1,tmp1);
 							this.queueNext(c);
-							--count;
+							--count1;
 							c.onEnd();
 						}
-					} else if(position < prev) {
+					} else if(position1 < prev1) {
 						c.onEnd();
 					}
 				}
@@ -38114,11 +39696,8 @@ hxd_snd_Driver.prototype = {
 		}
 		var c1 = this.channels;
 		while(c1 != null) {
-			c1.isVirtual = false;
-			c1.calcAudibleGain();
-			if(c1.pause || c1.mute || c1.channelGroup.mute || c1.audibleGain < 1e-5) {
-				c1.isVirtual = true;
-			}
+			c1.calcAudibleGain(now);
+			c1.isVirtual = c1.pause || c1.mute || c1.channelGroup.mute || c1.audibleGain < 1e-5;
 			c1 = c1.next;
 		}
 		var list = this.channels;
@@ -38147,7 +39726,7 @@ hxd_snd_Driver.prototype = {
 					var _g11 = 0;
 					var _g3 = insize;
 					while(_g11 < _g3) {
-						_g11++;
+						var i = _g11++;
 						++psize;
 						q = q.next;
 						if(q == null) {
@@ -38216,6 +39795,8 @@ hxd_snd_Driver.prototype = {
 			}
 			this.releaseSource(s1);
 		}
+		hxd_snd_ALEmulator.listenerf(4106,this.masterVolume);
+		hxd_snd_ALEmulator.listener3f(4100,this.listener.position.x,this.listener.position.y,this.listener.position.z);
 		this.listener.direction.normalize();
 		var tmpBytes = this.getTmp(24);
 		tmpBytes.setFloat(0,this.listener.direction.x);
@@ -38225,6 +39806,7 @@ hxd_snd_Driver.prototype = {
 		tmpBytes.setFloat(12,this.listener.up.x);
 		tmpBytes.setFloat(16,this.listener.up.y);
 		tmpBytes.setFloat(20,this.listener.up.z);
+		hxd_snd_ALEmulator.listenerfv(4111,tmpBytes);
 		var c3 = this.channels;
 		while(c3 != null) {
 			if(c3.source != null || c3.isVirtual) {
@@ -38256,24 +39838,25 @@ hxd_snd_Driver.prototype = {
 		while(_g6 < _g14.length) {
 			var s3 = _g14[_g6];
 			++_g6;
-			if(s3.channel == null) {
+			var c4 = s3.channel;
+			if(c4 == null) {
 				continue;
 			}
 			this.syncSource(s3);
 		}
-		var c4 = this.channels;
-		while(c4 != null) {
-			var next = c4.next;
-			if(!c4.pause && c4.isVirtual) {
-				var _g7 = c4;
-				_g7.set_position(_g7.position + (now - c4.lastStamp));
-				c4.lastStamp = now;
-				if(c4.position >= c4.duration && !this.queueNext(c4) && !c4.loop) {
-					this.releaseChannel(c4);
-					c4.onEnd();
+		var c5 = this.channels;
+		while(c5 != null) {
+			var next = c5.next;
+			if(!c5.pause && c5.isVirtual) {
+				var _g7 = c5;
+				_g7.set_position(_g7.position + (now - c5.lastStamp));
+				c5.lastStamp = now;
+				if(c5.position >= c5.duration && !this.queueNext(c5) && !c5.loop) {
+					this.releaseChannel(c5);
+					c5.onEnd();
 				}
 			}
-			c4 = next;
+			c5 = next;
 		}
 	}
 	,syncSource: function(s) {
@@ -38293,14 +39876,18 @@ hxd_snd_Driver.prototype = {
 			s.loop = loopFlag;
 			hxd_snd_ALEmulator.sourcei(s.inst,4103,loopFlag ? 1 : 0);
 		}
-		var v = c.volume * c.channelGroup.volume * c.soundGroup.volume;
+		var v = c.currentVolume;
 		if(s.volume != v) {
 			s.volume = v;
 			hxd_snd_ALEmulator.sourcef(s.inst,4106,v);
 		}
 		var _g = 0;
 		var _g1 = c.effects;
-		while(_g < _g1.length) ++_g;
+		while(_g < _g1.length) {
+			var e = _g1[_g];
+			++_g;
+			e.apply(c,s);
+		}
 		if(!s.playing) {
 			s.playing = true;
 			hxd_snd_ALEmulator.sourcePlay(s.inst);
@@ -38312,7 +39899,8 @@ hxd_snd_Driver.prototype = {
 			return false;
 		}
 		c.sound = snd;
-		c.set_position(c.position - c.duration);
+		var _g = c;
+		_g.set_position(_g.position - c.duration);
 		c.duration = snd.getData().get_duration();
 		c.positionChanged = false;
 		return true;
@@ -38394,17 +39982,20 @@ hxd_snd_Driver.prototype = {
 			}
 			var _g13 = 0;
 			var _g4 = s.buffers.length;
-			while(_g13 < _g4) if(buffers.shift() != s.buffers[_g13++]) {
-				throw new js__$Boot_HaxeError("assert");
+			while(_g13 < _g4) {
+				var i3 = _g13++;
+				if(buffers.shift() != s.buffers[i3]) {
+					throw new js__$Boot_HaxeError("assert");
+				}
 			}
 			var tmpBytes2 = this.getTmp(buffers.length * 4);
 			var _g14 = 0;
 			var _g5 = buffers.length;
 			while(_g14 < _g5) {
-				var i3 = _g14++;
-				var b1 = buffers[i3];
+				var i4 = _g14++;
+				var b1 = buffers[i4];
 				b1.playCount++;
-				tmpBytes2.setInt32(i3 << 2,b1.inst.id);
+				tmpBytes2.setInt32(i4 << 2,b1.inst.id);
 			}
 			hxd_snd_ALEmulator.sourceQueueBuffers(s.inst,buffers.length,tmpBytes2);
 			var _g6 = 0;
@@ -38433,8 +40024,9 @@ hxd_snd_Driver.prototype = {
 		this.targetRate = dat.samplingRate;
 		this.targetRate = hxd_snd_ALEmulator.NATIVE_FREQ;
 		this.targetChannels = forceMono || dat.channels == 1 ? 1 : 2;
+		var _g = dat.sampleFormat;
 		var tmp;
-		switch(dat.sampleFormat[1]) {
+		switch(_g[1]) {
 		case 0:
 			this.alFormat = this.targetChannels == 1 ? 4352 : 4354;
 			tmp = hxd_snd_SampleFormat.UI8;
@@ -38557,7 +40149,7 @@ hxd_snd_Driver.prototype = {
 	}
 	,sortChannel: function(a,b) {
 		if(a.isVirtual != b.isVirtual) {
-			if(a.isVirtual && !b.isVirtual) {
+			if(a.isVirtual) {
 				return 1;
 			} else {
 				return -1;
@@ -38682,7 +40274,9 @@ var hxd_snd_Mp3Data = function(bytes) {
 	}
 	if(lame >= 0) {
 		var startEnd = frame.b[lame + 21] << 16 | frame.b[lame + 22] << 8 | frame.b[lame + 23];
-		this.samples -= (startEnd >> 12) + (startEnd & 4095) + 1152;
+		var start = startEnd >> 12;
+		var end = startEnd & 4095;
+		this.samples -= start + end + 1152;
 	}
 	var header = mp.frames[0].header;
 	this.sampleFormat = hxd_snd_SampleFormat.F32;
@@ -38763,8 +40357,9 @@ hxd_snd_WavData.prototype = $extend(hxd_snd_Data.prototype,{
 		var h = d.header;
 		this.samplingRate = h.samplingRate;
 		this.channels = h.channels;
+		var _g = h.bitsPerSample;
 		var tmp;
-		switch(h.bitsPerSample) {
+		switch(_g) {
 		case 8:
 			tmp = hxd_snd_SampleFormat.UI8;
 			break;
@@ -39205,19 +40800,21 @@ hxsl_Tools.getName = function(v) {
 		var q = _g1[_g];
 		++_g;
 		if(q[1] == 4) {
-			return q[2];
+			var n = q[2];
+			return n;
 		}
 	}
 	return v.name;
 };
 hxsl_Tools.getConstBits = function(v) {
-	switch(v.type[1]) {
+	var _g = v.type;
+	switch(_g[1]) {
 	case 1:
-		var _g = 0;
-		var _g1 = v.qualifiers;
-		while(_g < _g1.length) {
-			var q = _g1[_g];
-			++_g;
+		var _g1 = 0;
+		var _g11 = v.qualifiers;
+		while(_g1 < _g11.length) {
+			var q = _g11[_g1];
+			++_g1;
 			if(q[1] == 0) {
 				var n = q[2];
 				if(n != null) {
@@ -39250,14 +40847,16 @@ hxsl_Tools.isConst = function(v) {
 	return false;
 };
 hxsl_Tools.isStruct = function(v) {
-	if(v.type[1] == 12) {
+	var _g = v.type;
+	if(_g[1] == 12) {
 		return true;
 	} else {
 		return false;
 	}
 };
 hxsl_Tools.isArray = function(v) {
-	if(v.type[1] == 14) {
+	var _g = v.type;
+	if(_g[1] == 14) {
 		return true;
 	} else {
 		return false;
@@ -39280,9 +40879,10 @@ hxsl_Tools.hasQualifier = function(v,q) {
 hxsl_Tools.toString = function(t) {
 	switch(t[1]) {
 	case 5:
+		var t1 = t[3];
 		var size = t[2];
 		var prefix;
-		switch(t[3][1]) {
+		switch(t1[1]) {
 		case 0:
 			prefix = "I";
 			break;
@@ -39306,14 +40906,17 @@ hxsl_Tools.toString = function(t) {
 		return "{" + _g.join(",") + "}";
 	case 14:
 		var s = t[3];
-		var tmp = hxsl_Tools.toString(t[2]) + "[";
+		var t2 = t[2];
+		var tmp = hxsl_Tools.toString(t2) + "[";
 		var tmp1;
 		switch(s[1]) {
 		case 0:
-			tmp1 = "" + s[2];
+			var i = s[2];
+			tmp1 = "" + i;
 			break;
 		case 1:
-			tmp1 = s[2].name;
+			var v1 = s[2];
+			tmp1 = v1.name;
 			break;
 		}
 		return tmp + tmp1 + "]";
@@ -39337,14 +40940,15 @@ hxsl_Tools.hasSideEffect = function(e) {
 	case 0:case 1:case 2:
 		return false;
 	case 3:
-		return hxsl_Tools.hasSideEffect(_g[2]);
+		var e1 = _g[2];
+		return hxsl_Tools.hasSideEffect(e1);
 	case 4:
 		var el = _g[2];
 		var _g1 = 0;
 		while(_g1 < el.length) {
-			var e1 = el[_g1];
+			var e2 = el[_g1];
 			++_g1;
-			if(hxsl_Tools.hasSideEffect(e1)) {
+			if(hxsl_Tools.hasSideEffect(e2)) {
 				return true;
 			}
 		}
@@ -39354,20 +40958,26 @@ hxsl_Tools.hasSideEffect = function(e) {
 		case 4:case 20:
 			return true;
 		default:
-			if(!hxsl_Tools.hasSideEffect(_g[3])) {
-				return hxsl_Tools.hasSideEffect(_g[4]);
+			var e21 = _g[4];
+			var e11 = _g[3];
+			if(!hxsl_Tools.hasSideEffect(e11)) {
+				return hxsl_Tools.hasSideEffect(e21);
 			} else {
 				return true;
 			}
 		}
 		break;
 	case 6:
-		return hxsl_Tools.hasSideEffect(_g[3]);
+		var e12 = _g[3];
+		return hxsl_Tools.hasSideEffect(e12);
 	case 9:
-		return hxsl_Tools.hasSideEffect(_g[2]);
+		var e3 = _g[2];
+		return hxsl_Tools.hasSideEffect(e3);
 	case 10:
 		var eelse = _g[4];
-		if(!(hxsl_Tools.hasSideEffect(_g[2]) || hxsl_Tools.hasSideEffect(_g[3]))) {
+		var eif = _g[3];
+		var econd = _g[2];
+		if(!(hxsl_Tools.hasSideEffect(econd) || hxsl_Tools.hasSideEffect(eif))) {
 			if(eelse != null) {
 				return hxsl_Tools.hasSideEffect(eelse);
 			} else {
@@ -39378,8 +40988,10 @@ hxsl_Tools.hasSideEffect = function(e) {
 		}
 		break;
 	case 13:
-		if(!hxsl_Tools.hasSideEffect(_g[3])) {
-			return hxsl_Tools.hasSideEffect(_g[4]);
+		var loop = _g[4];
+		var it = _g[3];
+		if(!hxsl_Tools.hasSideEffect(it)) {
+			return hxsl_Tools.hasSideEffect(loop);
 		} else {
 			return true;
 		}
@@ -39387,8 +40999,10 @@ hxsl_Tools.hasSideEffect = function(e) {
 	case 7:case 8:case 11:case 12:case 14:case 15:
 		return true;
 	case 16:
-		if(!hxsl_Tools.hasSideEffect(_g[2])) {
-			return hxsl_Tools.hasSideEffect(_g[3]);
+		var index = _g[3];
+		var e4 = _g[2];
+		if(!hxsl_Tools.hasSideEffect(e4)) {
+			return hxsl_Tools.hasSideEffect(index);
 		} else {
 			return true;
 		}
@@ -39397,9 +41011,9 @@ hxsl_Tools.hasSideEffect = function(e) {
 		var el1 = _g[2];
 		var _g2 = 0;
 		while(_g2 < el1.length) {
-			var e2 = el1[_g2];
+			var e5 = el1[_g2];
 			++_g2;
-			if(hxsl_Tools.hasSideEffect(e2)) {
+			if(hxsl_Tools.hasSideEffect(e5)) {
 				return true;
 			}
 		}
@@ -39407,7 +41021,7 @@ hxsl_Tools.hasSideEffect = function(e) {
 	case 18:
 		var def = _g[4];
 		var cases = _g[3];
-		var e3 = _g[2];
+		var e6 = _g[2];
 		var _g3 = 0;
 		while(_g3 < cases.length) {
 			var c = cases[_g3];
@@ -39425,7 +41039,7 @@ hxsl_Tools.hasSideEffect = function(e) {
 				return true;
 			}
 		}
-		if(!hxsl_Tools.hasSideEffect(e3)) {
+		if(!hxsl_Tools.hasSideEffect(e6)) {
 			if(def != null) {
 				return hxsl_Tools.hasSideEffect(def);
 			} else {
@@ -39436,37 +41050,44 @@ hxsl_Tools.hasSideEffect = function(e) {
 		}
 		break;
 	case 19:
-		if(!hxsl_Tools.hasSideEffect(_g[2])) {
-			return hxsl_Tools.hasSideEffect(_g[3]);
+		var loop1 = _g[3];
+		var e7 = _g[2];
+		if(!hxsl_Tools.hasSideEffect(e7)) {
+			return hxsl_Tools.hasSideEffect(loop1);
 		} else {
 			return true;
 		}
 		break;
 	case 20:
-		return hxsl_Tools.hasSideEffect(_g[4]);
+		var e8 = _g[4];
+		return hxsl_Tools.hasSideEffect(e8);
 	}
 };
 hxsl_Tools.iter = function(e,f) {
 	var _g = e.e;
 	switch(_g[1]) {
 	case 3:
-		f(_g[2]);
+		var e1 = _g[2];
+		f(e1);
 		break;
 	case 4:
 		var el = _g[2];
 		var _g1 = 0;
 		while(_g1 < el.length) {
-			var e1 = el[_g1];
+			var e2 = el[_g1];
 			++_g1;
-			f(e1);
+			f(e2);
 		}
 		break;
 	case 5:
-		f(_g[3]);
-		f(_g[4]);
+		var e21 = _g[4];
+		var e11 = _g[3];
+		f(e11);
+		f(e21);
 		break;
 	case 6:
-		f(_g[3]);
+		var e12 = _g[3];
+		f(e12);
 		break;
 	case 7:
 		var init = _g[3];
@@ -39476,7 +41097,8 @@ hxsl_Tools.iter = function(e,f) {
 		break;
 	case 8:
 		var args = _g[3];
-		f(_g[2]);
+		var e3 = _g[2];
+		f(e3);
 		var _g2 = 0;
 		while(_g2 < args.length) {
 			var a = args[_g2];
@@ -39485,45 +41107,53 @@ hxsl_Tools.iter = function(e,f) {
 		}
 		break;
 	case 9:
-		f(_g[2]);
+		var e4 = _g[2];
+		f(e4);
 		break;
 	case 10:
 		var eelse = _g[4];
-		f(_g[2]);
-		f(_g[3]);
+		var eif = _g[3];
+		var econd = _g[2];
+		f(econd);
+		f(eif);
 		if(eelse != null) {
 			f(eelse);
 		}
 		break;
 	case 12:
-		var e2 = _g[2];
-		if(e2 != null) {
-			f(e2);
+		var e5 = _g[2];
+		if(e5 != null) {
+			f(e5);
 		}
 		break;
 	case 13:
-		f(_g[3]);
-		f(_g[4]);
+		var loop = _g[4];
+		var it = _g[3];
+		f(it);
+		f(loop);
 		break;
 	case 0:case 1:case 2:case 11:case 14:case 15:
 		break;
 	case 16:
-		f(_g[2]);
-		f(_g[3]);
+		var index = _g[3];
+		var e6 = _g[2];
+		f(e6);
+		f(index);
 		break;
 	case 17:
 		var el1 = _g[2];
 		var _g3 = 0;
 		while(_g3 < el1.length) {
-			var e3 = el1[_g3];
+			var e7 = el1[_g3];
 			++_g3;
-			f(e3);
+			f(e7);
 		}
 		break;
 	case 18:
 		var def = _g[4];
 		var cases = _g[3];
-		f(_g[2]);
+		var e8 = _g[2];
+		f(e8);
 		var _g4 = 0;
 		while(_g4 < cases.length) {
 			var c = cases[_g4];
@@ -39542,11 +41172,14 @@ hxsl_Tools.iter = function(e,f) {
 		}
 		break;
 	case 19:
-		f(_g[2]);
-		f(_g[3]);
+		var loop1 = _g[3];
+		var e9 = _g[2];
+		f(e9);
+		f(loop1);
 		break;
 	case 20:
-		f(_g[4]);
+		var e10 = _g[4];
+		f(e10);
 		break;
 	}
 };
@@ -39555,32 +41188,40 @@ hxsl_Tools.map = function(e,f) {
 	var _g = e.e;
 	switch(_g[1]) {
 	case 3:
-		ed = hxsl_TExprDef.TParenthesis(f(_g[2]));
+		var e1 = _g[2];
+		ed = hxsl_TExprDef.TParenthesis(f(e1));
 		break;
 	case 4:
 		var el = _g[2];
 		var _g1 = [];
 		var _g11 = 0;
 		while(_g11 < el.length) {
-			var e1 = el[_g11];
+			var e2 = el[_g11];
 			++_g11;
-			_g1.push(f(e1));
+			_g1.push(f(e2));
 		}
 		ed = hxsl_TExprDef.TBlock(_g1);
 		break;
 	case 5:
-		ed = hxsl_TExprDef.TBinop(_g[2],f(_g[3]),f(_g[4]));
+		var e21 = _g[4];
+		var e11 = _g[3];
+		var op = _g[2];
+		ed = hxsl_TExprDef.TBinop(op,f(e11),f(e21));
 		break;
 	case 6:
-		ed = hxsl_TExprDef.TUnop(_g[2],f(_g[3]));
+		var e12 = _g[3];
+		var op1 = _g[2];
+		ed = hxsl_TExprDef.TUnop(op1,f(e12));
 		break;
 	case 7:
 		var init = _g[3];
-		ed = hxsl_TExprDef.TVarDecl(_g[2],init != null ? f(init) : null);
+		var v = _g[2];
+		ed = hxsl_TExprDef.TVarDecl(v,init != null ? f(init) : null);
 		break;
 	case 8:
 		var args = _g[3];
-		var ed1 = f(_g[2]);
+		var e3 = _g[2];
+		var ed1 = f(e3);
 		var _g2 = [];
 		var _g12 = 0;
 		while(_g12 < args.length) {
@@ -39591,62 +41232,78 @@ hxsl_Tools.map = function(e,f) {
 		ed = hxsl_TExprDef.TCall(ed1,_g2);
 		break;
 	case 9:
-		ed = hxsl_TExprDef.TSwiz(f(_g[2]),_g[3]);
+		var c = _g[3];
+		var e4 = _g[2];
+		ed = hxsl_TExprDef.TSwiz(f(e4),c);
 		break;
 	case 10:
 		var eelse = _g[4];
-		ed = hxsl_TExprDef.TIf(f(_g[2]),f(_g[3]),eelse != null ? f(eelse) : null);
+		var eif = _g[3];
+		var econd = _g[2];
+		ed = hxsl_TExprDef.TIf(f(econd),f(eif),eelse != null ? f(eelse) : null);
 		break;
 	case 12:
-		var e2 = _g[2];
-		ed = hxsl_TExprDef.TReturn(e2 != null ? f(e2) : null);
+		var e5 = _g[2];
+		ed = hxsl_TExprDef.TReturn(e5 != null ? f(e5) : null);
 		break;
 	case 13:
-		ed = hxsl_TExprDef.TFor(_g[2],f(_g[3]),f(_g[4]));
+		var loop = _g[4];
+		var it = _g[3];
+		var v1 = _g[2];
+		ed = hxsl_TExprDef.TFor(v1,f(it),f(loop));
 		break;
 	case 0:case 1:case 2:case 11:case 14:case 15:
 		ed = e.e;
 		break;
 	case 16:
-		ed = hxsl_TExprDef.TArray(f(_g[2]),f(_g[3]));
+		var index = _g[3];
+		var e6 = _g[2];
+		ed = hxsl_TExprDef.TArray(f(e6),f(index));
 		break;
 	case 17:
 		var el1 = _g[2];
 		var _g3 = [];
 		var _g13 = 0;
 		while(_g13 < el1.length) {
-			var e3 = el1[_g13];
+			var e7 = el1[_g13];
 			++_g13;
-			_g3.push(f(e3));
+			_g3.push(f(e7));
 		}
 		ed = hxsl_TExprDef.TArrayDecl(_g3);
 		break;
 	case 18:
 		var def = _g[4];
 		var cases = _g[3];
-		var ed2 = f(_g[2]);
+		var e8 = _g[2];
+		var ed2 = f(e8);
 		var _g4 = [];
 		var _g14 = 0;
 		while(_g14 < cases.length) {
-			var c = cases[_g14];
+			var c1 = cases[_g14];
 			++_g14;
 			var _g21 = [];
 			var _g31 = 0;
-			var _g41 = c.values;
+			var _g41 = c1.values;
 			while(_g31 < _g41.length) {
-				var v = _g41[_g31];
+				var v2 = _g41[_g31];
 				++_g31;
-				_g21.push(f(v));
+				_g21.push(f(v2));
 			}
-			_g4.push({ values : _g21, expr : f(c.expr)});
+			_g4.push({ values : _g21, expr : f(c1.expr)});
 		}
 		ed = hxsl_TExprDef.TSwitch(ed2,_g4,def == null ? null : f(def));
 		break;
 	case 19:
-		ed = hxsl_TExprDef.TWhile(f(_g[2]),f(_g[3]),_g[4]);
+		var normalWhile = _g[4];
+		var loop1 = _g[3];
+		var e9 = _g[2];
+		ed = hxsl_TExprDef.TWhile(f(e9),f(loop1),normalWhile);
 		break;
 	case 20:
-		ed = hxsl_TExprDef.TMeta(_g[2],_g[3],f(_g[4]));
+		var e10 = _g[4];
+		var args1 = _g[3];
+		var m = _g[2];
+		ed = hxsl_TExprDef.TMeta(m,args1,f(e10));
 		break;
 	}
 	return { e : ed, t : e.t, p : e.p};
@@ -39658,7 +41315,8 @@ hxsl_Tools.size = function(t) {
 	case 1:case 3:
 		return 1;
 	case 5:
-		return t[2];
+		var n = t[2];
+		return n;
 	case 6:
 		return 9;
 	case 7:
@@ -39666,23 +41324,26 @@ hxsl_Tools.size = function(t) {
 	case 8:
 		return 12;
 	case 9:
-		return t[2];
+		var s = t[2];
+		return s;
 	case 12:
 		var vl = t[2];
-		var s = 0;
+		var s1 = 0;
 		var _g = 0;
 		while(_g < vl.length) {
 			var v = vl[_g];
 			++_g;
-			s += hxsl_Tools.size(v.type);
+			s1 += hxsl_Tools.size(v.type);
 		}
-		return s;
+		return s1;
 	case 2:case 4:case 10:case 11:case 13:
 		return 0;
 	case 14:
 		switch(t[3][1]) {
 		case 0:
-			return hxsl_Tools.size(t[2]) * t[3][2];
+			var t1 = t[2];
+			var v1 = t[3][2];
+			return hxsl_Tools.size(t1) * v1;
 		case 1:
 			return 0;
 		}
@@ -39783,7 +41444,8 @@ hxsl_Cache.prototype = {
 		while(_g_l != _g_last) {
 			var s = _g_l.s;
 			_g_l = _g_l.next;
-			var i = s.instance;
+			var s1 = s;
+			var i = s1.instance;
 			if(c.next == null) {
 				c.next = new haxe_ds_IntMap();
 			}
@@ -39808,11 +41470,13 @@ hxsl_Cache.prototype = {
 		while(_g_l != _g_last) {
 			var s = _g_l.s;
 			_g_l = _g_l.next;
-			shaderDatas.push({ inst : s.instance, p : s.priority, index : index++});
+			var s1 = s;
+			var i = s1.instance;
+			shaderDatas.push({ inst : i, p : s1.priority, index : index++});
 		}
 		shaderDatas.reverse();
-		haxe_ds_ArraySort.sort(shaderDatas,function(s1,s2) {
-			return s2.p - s1.p;
+		haxe_ds_ArraySort.sort(shaderDatas,function(s11,s2) {
+			return s2.p - s11.p;
 		});
 		var linker = new hxsl_Linker();
 		var _g = [];
@@ -39830,14 +41494,17 @@ hxsl_Cache.prototype = {
 			var v = _g2[_g11];
 			++_g11;
 			if(v.v.kind == hxsl_VarKind.Param) {
-				if(v.v.type[1] == 12) {
+				var _g3 = v.v.type;
+				if(_g3[1] == 12) {
 					continue;
 				}
 				var inf = shaderDatas[v.instanceIndex];
 				paramVars.h[v.id] = { instance : inf.index, index : inf.inst.params.h[v.merged[0].id]};
 			}
 		}
+		var prev = s4;
 		var s5 = new hxsl_Splitter().split(s4);
+		var prev1 = s5;
 		var s6 = new hxsl_Dce().dce(s5.vertex,s5.fragment);
 		var r = new hxsl_RuntimeShader();
 		r.vertex = this.flattenShader(s6.vertex,hxsl_FunctionKind.Vertex,paramVars);
@@ -39892,31 +41559,34 @@ hxsl_Cache.prototype = {
 		while(g.hasNext()) {
 			var g1 = g.next();
 			var alloc = flat.allocData.h[g1.__id__];
-			switch(g1.kind[1]) {
+			var _g = g1.kind;
+			switch(_g[1]) {
 			case 0:
-				var _g = [];
-				var _g1 = 0;
-				while(_g1 < alloc.length) {
-					var a = alloc[_g1];
-					++_g1;
+				var _g1 = [];
+				var _g11 = 0;
+				while(_g11 < alloc.length) {
+					var a = alloc[_g11];
+					++_g11;
 					if(a.v != null) {
-						_g.push(new hxsl_AllocGlobal(a.pos,this.getPath(a.v),a.v.type));
+						_g1.push(new hxsl_AllocGlobal(a.pos,this.getPath(a.v),a.v.type));
 					}
 				}
+				var out = _g1;
 				var _g2 = 0;
-				var _g11 = _g.length - 1;
-				while(_g2 < _g11) {
+				var _g12 = out.length - 1;
+				while(_g2 < _g12) {
 					var i = _g2++;
-					_g[i].next = _g[i + 1];
+					out[i].next = out[i + 1];
 				}
-				var _g12 = g1.type;
-				if(_g12[1] == 14) {
-					if(_g12[2][1] == 5) {
-						if(_g12[2][2] == 4) {
-							if(_g12[2][3][1] == 1) {
-								if(_g12[3][1] == 0) {
-									c.globals = _g[0];
-									c.globalsSize = _g12[3][2];
+				var _g13 = g1.type;
+				if(_g13[1] == 14) {
+					if(_g13[2][1] == 5) {
+						if(_g13[2][2] == 4) {
+							if(_g13[2][3][1] == 1) {
+								if(_g13[3][1] == 0) {
+									var size = _g13[3][2];
+									c.globals = out[0];
+									c.globalsSize = size;
 								} else {
 									throw new js__$Boot_HaxeError("assert");
 								}
@@ -39934,7 +41604,7 @@ hxsl_Cache.prototype = {
 				}
 				break;
 			case 2:
-				var out = [];
+				var out1 = [];
 				var _g3 = 0;
 				while(_g3 < alloc.length) {
 					var a1 = alloc[_g3];
@@ -39946,16 +41616,16 @@ hxsl_Cache.prototype = {
 					if(p == null) {
 						var ap = new hxsl_AllocParam(a1.v.name,a1.pos,-1,-1,a1.v.type);
 						ap.perObjectGlobal = new hxsl_AllocGlobal(-1,this.getPath(a1.v),a1.v.type);
-						out.push(ap);
+						out1.push(ap);
 						continue;
 					}
-					out.push(new hxsl_AllocParam(a1.v.name,a1.pos,p.instance,p.index,a1.v.type));
+					out1.push(new hxsl_AllocParam(a1.v.name,a1.pos,p.instance,p.index,a1.v.type));
 				}
-				var _g13 = 0;
-				var _g4 = out.length - 1;
-				while(_g13 < _g4) {
-					var i1 = _g13++;
-					out[i1].next = out[i1 + 1];
+				var _g14 = 0;
+				var _g4 = out1.length - 1;
+				while(_g14 < _g4) {
+					var i1 = _g14++;
+					out1[i1].next = out1[i1 + 1];
 				}
 				var _g5 = g1.type;
 				if(_g5[1] == 14) {
@@ -39964,8 +41634,9 @@ hxsl_Cache.prototype = {
 						if(_g5[2][2] == 4) {
 							if(_g5[2][3][1] == 1) {
 								if(_g5[3][1] == 0) {
-									c.params = out[0];
-									c.paramsSize = _g5[3][2];
+									var size1 = _g5[3][2];
+									c.params = out1[0];
+									c.paramsSize = size1;
 								} else {
 									throw new js__$Boot_HaxeError("assert");
 								}
@@ -39977,12 +41648,12 @@ hxsl_Cache.prototype = {
 						}
 						break;
 					case 10:
-						c.textures2D = out[0];
-						c.textures2DCount = out.length;
+						c.textures2D = out1[0];
+						c.textures2DCount = out1.length;
 						break;
 					case 11:
-						c.texturesCube = out[0];
-						c.texturesCubeCount = out.length;
+						c.texturesCube = out1[0];
+						c.texturesCubeCount = out1.length;
 						break;
 					default:
 						throw new js__$Boot_HaxeError("assert");
@@ -40083,14 +41754,16 @@ hxsl_Clone.prototype = {
 			return hxsl_Type.TFun(_g2);
 		case 14:
 			var size = t[3];
-			var tmp = this.ttype(t[2]);
+			var t1 = t[2];
+			var tmp = this.ttype(t1);
 			var tmp1;
 			switch(size[1]) {
 			case 0:
 				tmp1 = size;
 				break;
 			case 1:
-				tmp1 = hxsl_SizeDecl.SVar(this.tvar(size[2]));
+				var v2 = size[2];
+				tmp1 = hxsl_SizeDecl.SVar(this.tvar(v2));
 				break;
 			}
 			return hxsl_Type.TArray(tmp,tmp1);
@@ -40105,13 +41778,19 @@ hxsl_Clone.prototype = {
 		var tmp;
 		switch(_g[1]) {
 		case 1:
-			tmp = hxsl_TExprDef.TVar(this.tvar(_g[2]));
+			var v = _g[2];
+			tmp = hxsl_TExprDef.TVar(this.tvar(v));
 			break;
 		case 7:
-			tmp = hxsl_TExprDef.TVarDecl(this.tvar(_g[2]),_g[3]);
+			var init = _g[3];
+			var v1 = _g[2];
+			tmp = hxsl_TExprDef.TVarDecl(this.tvar(v1),init);
 			break;
 		case 13:
-			tmp = hxsl_TExprDef.TFor(this.tvar(_g[2]),_g[3],_g[4]);
+			var loop = _g[4];
+			var it = _g[3];
+			var v2 = _g[2];
+			tmp = hxsl_TExprDef.TFor(this.tvar(v2),it,loop);
 			break;
 		default:
 			tmp = e2.e;
@@ -40129,6 +41808,7 @@ hxsl_Clone.prototype = {
 			++_g1;
 			_g.push(this.tvar(v));
 		}
+		var tmp = _g;
 		var _g11 = [];
 		var _g21 = 0;
 		var _g3 = s.funs;
@@ -40137,7 +41817,7 @@ hxsl_Clone.prototype = {
 			++_g21;
 			_g11.push(this.tfun(f));
 		}
-		return { name : s1, vars : _g, funs : _g11};
+		return { name : s1, vars : tmp, funs : _g11};
 	}
 	,__class__: hxsl_Clone
 };
@@ -40256,7 +41936,10 @@ hxsl_Dce.prototype = {
 		}
 		v.used = true;
 		var d = v.deps.iterator();
-		while(d.hasNext()) this.markRec(d.next());
+		while(d.hasNext()) {
+			var d1 = d.next();
+			this.markRec(d1);
+		}
 	}
 	,link: function(v,writeTo) {
 		var vd = this.get(v);
@@ -40272,7 +41955,8 @@ hxsl_Dce.prototype = {
 		}
 	}
 	,hasDiscardRec: function(e) {
-		if(e.e[1] == 11) {
+		var _g = e.e;
+		if(_g[1] == 11) {
 			throw new js__$Boot_HaxeError(new hxsl__$Dce_Exit());
 		} else {
 			hxsl_Tools.iter(e,$bind(this,this.hasDiscardRec));
@@ -40293,94 +41977,105 @@ hxsl_Dce.prototype = {
 		var _g = e.e;
 		switch(_g[1]) {
 		case 1:
-			this.link(_g[2],writeTo);
+			var v = _g[2];
+			this.link(v,writeTo);
 			break;
 		case 5:
 			switch(_g[2][1]) {
 			case 4:
 				switch(_g[3].e[1]) {
 				case 1:
-					writeTo.push(this.get(_g[3].e[2]));
-					this.check(_g[4],writeTo);
+					var e1 = _g[4];
+					var v1 = _g[3].e[2];
+					writeTo.push(this.get(v1));
+					this.check(e1,writeTo);
 					writeTo.pop();
 					break;
 				case 9:
 					if(_g[3].e[2].e[1] == 1) {
-						writeTo.push(this.get(_g[3].e[2].e[2]));
-						this.check(_g[4],writeTo);
+						var e2 = _g[4];
+						var v2 = _g[3].e[2].e[2];
+						writeTo.push(this.get(v2));
+						this.check(e2,writeTo);
 						writeTo.pop();
 					} else {
 						var f = $bind(this,this.check);
 						var a1 = writeTo;
-						hxsl_Tools.iter(e,function(e1) {
-							f(e1,a1);
+						hxsl_Tools.iter(e,function(e3) {
+							f(e3,a1);
 						});
 					}
 					break;
 				default:
 					var f1 = $bind(this,this.check);
 					var a11 = writeTo;
-					hxsl_Tools.iter(e,function(e2) {
-						f1(e2,a11);
+					hxsl_Tools.iter(e,function(e4) {
+						f1(e4,a11);
 					});
 				}
 				break;
 			case 20:
 				switch(_g[3].e[1]) {
 				case 1:
-					writeTo.push(this.get(_g[3].e[2]));
-					this.check(_g[4],writeTo);
+					var e5 = _g[4];
+					var v3 = _g[3].e[2];
+					writeTo.push(this.get(v3));
+					this.check(e5,writeTo);
 					writeTo.pop();
 					break;
 				case 9:
 					if(_g[3].e[2].e[1] == 1) {
-						writeTo.push(this.get(_g[3].e[2].e[2]));
-						this.check(_g[4],writeTo);
+						var e6 = _g[4];
+						var v4 = _g[3].e[2].e[2];
+						writeTo.push(this.get(v4));
+						this.check(e6,writeTo);
 						writeTo.pop();
 					} else {
 						var f2 = $bind(this,this.check);
 						var a12 = writeTo;
-						hxsl_Tools.iter(e,function(e3) {
-							f2(e3,a12);
+						hxsl_Tools.iter(e,function(e7) {
+							f2(e7,a12);
 						});
 					}
 					break;
 				default:
 					var f3 = $bind(this,this.check);
 					var a13 = writeTo;
-					hxsl_Tools.iter(e,function(e4) {
-						f3(e4,a13);
+					hxsl_Tools.iter(e,function(e8) {
+						f3(e8,a13);
 					});
 				}
 				break;
 			default:
 				var f4 = $bind(this,this.check);
 				var a14 = writeTo;
-				hxsl_Tools.iter(e,function(e5) {
-					f4(e5,a14);
+				hxsl_Tools.iter(e,function(e9) {
+					f4(e9,a14);
 				});
 			}
 			break;
 		case 7:
 			var init = _g[3];
+			var v5 = _g[2];
 			if(init != null) {
-				writeTo.push(this.get(_g[2]));
+				writeTo.push(this.get(v5));
 				this.check(init,writeTo);
 				writeTo.pop();
 			} else {
 				var f5 = $bind(this,this.check);
 				var a15 = writeTo;
-				hxsl_Tools.iter(e,function(e6) {
-					f5(e6,a15);
+				hxsl_Tools.iter(e,function(e10) {
+					f5(e10,a15);
 				});
 			}
 			break;
 		case 10:
 			var eelse = _g[4];
 			var eif = _g[3];
+			var e11 = _g[2];
 			if(this.hasDiscard(eif) || eelse != null && this.hasDiscard(eelse)) {
 				writeTo.push(null);
-				this.check(_g[2],writeTo);
+				this.check(e11,writeTo);
 				writeTo.pop();
 				this.check(eif,writeTo);
 				if(eelse != null) {
@@ -40389,22 +42084,25 @@ hxsl_Dce.prototype = {
 			} else {
 				var f6 = $bind(this,this.check);
 				var a16 = writeTo;
-				hxsl_Tools.iter(e,function(e7) {
-					f6(e7,a16);
+				hxsl_Tools.iter(e,function(e12) {
+					f6(e12,a16);
 				});
 			}
 			break;
 		case 13:
+			var loop = _g[4];
+			var it = _g[3];
+			var v6 = _g[2];
 			writeTo.push(null);
-			this.check(_g[3],writeTo);
-			this.check(_g[4],writeTo);
+			this.check(it,writeTo);
+			this.check(loop,writeTo);
 			writeTo.pop();
 			break;
 		default:
 			var f7 = $bind(this,this.check);
 			var a17 = writeTo;
-			hxsl_Tools.iter(e,function(e8) {
-				f7(e8,a17);
+			hxsl_Tools.iter(e,function(e13) {
+				f7(e13,a17);
 			});
 		}
 	}
@@ -40433,7 +42131,8 @@ hxsl_Dce.prototype = {
 			case 4:
 				switch(_g[3].e[1]) {
 				case 1:
-					if(!this.get(_g[3].e[2]).used) {
+					var v = _g[3].e[2];
+					if(!this.get(v).used) {
 						return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e.t, p : e.p};
 					} else {
 						return hxsl_Tools.map(e,function(e3) {
@@ -40443,7 +42142,8 @@ hxsl_Dce.prototype = {
 					break;
 				case 9:
 					if(_g[3].e[2].e[1] == 1) {
-						if(!this.get(_g[3].e[2].e[2]).used) {
+						var v1 = _g[3].e[2].e[2];
+						if(!this.get(v1).used) {
 							return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e.t, p : e.p};
 						} else {
 							return hxsl_Tools.map(e,function(e4) {
@@ -40465,7 +42165,8 @@ hxsl_Dce.prototype = {
 			case 20:
 				switch(_g[3].e[1]) {
 				case 1:
-					if(!this.get(_g[3].e[2]).used) {
+					var v2 = _g[3].e[2];
+					if(!this.get(v2).used) {
 						return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e.t, p : e.p};
 					} else {
 						return hxsl_Tools.map(e,function(e7) {
@@ -40475,7 +42176,8 @@ hxsl_Dce.prototype = {
 					break;
 				case 9:
 					if(_g[3].e[2].e[1] == 1) {
-						if(!this.get(_g[3].e[2].e[2]).used) {
+						var v3 = _g[3].e[2].e[2];
+						if(!this.get(v3).used) {
 							return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e.t, p : e.p};
 						} else {
 							return hxsl_Tools.map(e,function(e8) {
@@ -40501,7 +42203,8 @@ hxsl_Dce.prototype = {
 			}
 			break;
 		case 7:
-			if(!this.get(_g[2]).used) {
+			var v4 = _g[2];
+			if(!this.get(v4).used) {
 				return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e.t, p : e.p};
 			} else {
 				return hxsl_Tools.map(e,function(e12) {
@@ -40511,23 +42214,28 @@ hxsl_Dce.prototype = {
 			break;
 		case 10:
 			var eelse = _g[4];
-			var e13 = this.mapExpr(_g[2],true);
-			var econd = this.mapExpr(_g[3],isVar);
+			var econd = _g[3];
+			var e13 = _g[2];
+			var e14 = this.mapExpr(e13,true);
+			var econd1 = this.mapExpr(econd,isVar);
 			var eelse1 = eelse == null ? null : this.mapExpr(eelse,isVar);
-			if(!isVar && !hxsl_Tools.hasSideEffect(econd) && (eelse1 == null || !hxsl_Tools.hasSideEffect(eelse1))) {
-				return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e13.t, p : e13.p};
+			if(!isVar && !hxsl_Tools.hasSideEffect(econd1) && (eelse1 == null || !hxsl_Tools.hasSideEffect(eelse1))) {
+				return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e14.t, p : e14.p};
 			}
-			return { e : hxsl_TExprDef.TIf(e13,econd,eelse1), p : e13.p, t : e13.t};
+			return { e : hxsl_TExprDef.TIf(e14,econd1,eelse1), p : e14.p, t : e14.t};
 		case 13:
-			var it = this.mapExpr(_g[3],true);
-			var loop = this.mapExpr(_g[4],false);
-			if(!hxsl_Tools.hasSideEffect(loop)) {
+			var loop = _g[4];
+			var it = _g[3];
+			var v5 = _g[2];
+			var it1 = this.mapExpr(it,true);
+			var loop1 = this.mapExpr(loop,false);
+			if(!hxsl_Tools.hasSideEffect(loop1)) {
 				return { e : hxsl_TExprDef.TConst(hxsl_Const.CNull), t : e.t, p : e.p};
 			}
-			return { e : hxsl_TExprDef.TFor(_g[2],it,loop), p : e.p, t : e.t};
+			return { e : hxsl_TExprDef.TFor(v5,it1,loop1), p : e.p, t : e.t};
 		default:
-			return hxsl_Tools.map(e,function(e14) {
-				return _gthis.mapExpr(e14,true);
+			return hxsl_Tools.map(e,function(e15) {
+				return _gthis.mapExpr(e15,true);
 			});
 		}
 	}
@@ -40594,7 +42302,8 @@ hxsl_Eval.prototype = {
 				if(c != null) {
 					if(c[1] == 0) {
 						if(c[2][1] == 2) {
-							v2.type = hxsl_Type.TArray(t,hxsl_SizeDecl.SConst(c[2][2]));
+							var v3 = c[2][2];
+							v2.type = hxsl_Type.TArray(t,hxsl_SizeDecl.SConst(v3));
 						} else {
 							hxsl_Error.t("Integer value expected for array size constant " + vs.name,null);
 						}
@@ -40602,7 +42311,8 @@ hxsl_Eval.prototype = {
 						hxsl_Error.t("Integer value expected for array size constant " + vs.name,null);
 					}
 				} else {
-					v2.type = hxsl_Type.TArray(t,hxsl_SizeDecl.SVar(this.mapVar(vs)));
+					var vs2 = this.mapVar(vs);
+					v2.type = hxsl_Type.TArray(t,hxsl_SizeDecl.SVar(vs2));
 				}
 			}
 			break;
@@ -40636,7 +42346,8 @@ hxsl_Eval.prototype = {
 		var _g11 = 0;
 		var _g5 = funs.length;
 		while(_g11 < _g5) {
-			this.curFun = funs[_g11++];
+			var i = _g11++;
+			this.curFun = funs[i];
 			this.curFun.expr = this.evalExpr(this.curFun.expr,false);
 		}
 		var s1 = s.name;
@@ -40656,7 +42367,8 @@ hxsl_Eval.prototype = {
 		return this.markReturn;
 	}
 	,hasReturnLoop: function(e) {
-		if(e.e[1] == 12) {
+		var _g = e.e;
+		if(_g[1] == 12) {
 			this.markReturn = true;
 		} else if(!this.markReturn) {
 			hxsl_Tools.iter(e,$bind(this,this.hasReturnLoop));
@@ -40669,8 +42381,9 @@ hxsl_Eval.prototype = {
 		var _g = e.e;
 		switch(_g[1]) {
 		case 3:
-			var v = this.handleReturn(_g[2],$final);
-			return { e : hxsl_TExprDef.TParenthesis(v), t : v.t, p : e.p};
+			var v = _g[2];
+			var v1 = this.handleReturn(v,$final);
+			return { e : hxsl_TExprDef.TParenthesis(v1), t : v1.t, p : e.p};
 		case 4:
 			var el = _g[2];
 			var i = 0;
@@ -40686,9 +42399,10 @@ hxsl_Eval.prototype = {
 						switch(_g1[1]) {
 						case 10:
 							if(_g1[4] == null) {
+								var econd = _g1[2];
 								var eif = _g1[3];
 								if($final && this.hasReturn(eif)) {
-									out.push(this.handleReturn({ e : hxsl_TExprDef.TIf(_g1[2],eif,{ e : hxsl_TExprDef.TBlock(el.slice(i)), t : e1.t, p : e1.p}), t : e1.t, p : e1.p}));
+									out.push(this.handleReturn({ e : hxsl_TExprDef.TIf(econd,eif,{ e : hxsl_TExprDef.TBlock(el.slice(i)), t : e1.t, p : e1.p}), t : e1.t, p : e1.p}));
 									throw "__break__";
 								} else {
 									out.push(this.handleReturn(e1));
@@ -40698,7 +42412,8 @@ hxsl_Eval.prototype = {
 							}
 							break;
 						case 12:
-							out.push(this.handleReturn(_g1[2],$final));
+							var e2 = _g1[2];
+							out.push(this.handleReturn(e2,$final));
 							throw "__break__";
 							break;
 						default:
@@ -40707,26 +42422,29 @@ hxsl_Eval.prototype = {
 					}
 				}
 			} catch( e ) { if( e != "__break__" ) throw e; }
-			return { e : hxsl_TExprDef.TBlock(out), t : $final ? out[out.length - 1].t : e.t, p : e.p};
+			var t = $final ? out[out.length - 1].t : e.t;
+			return { e : hxsl_TExprDef.TBlock(out), t : t, p : e.p};
 		case 10:
 			var eelse = _g[4];
+			var eif1 = _g[3];
+			var cond = _g[2];
 			if(eelse != null && $final) {
-				var cond = this.handleReturn(_g[2]);
-				var eif1 = this.handleReturn(_g[3],$final);
-				return { e : hxsl_TExprDef.TIf(cond,eif1,this.handleReturn(eelse,$final)), t : eif1.t, p : e.p};
+				var cond1 = this.handleReturn(cond);
+				var eif2 = this.handleReturn(eif1,$final);
+				return { e : hxsl_TExprDef.TIf(cond1,eif2,this.handleReturn(eelse,$final)), t : eif2.t, p : e.p};
 			} else {
 				return hxsl_Tools.map(e,$bind(this,this.handleReturnDef));
 			}
 			break;
 		case 12:
-			var v1 = _g[2];
+			var v2 = _g[2];
 			if(!$final) {
 				hxsl_Error.t("Cannot inline not final return",e.p);
 			}
-			if(v1 == null) {
+			if(v2 == null) {
 				return { e : hxsl_TExprDef.TBlock([]), t : hxsl_Type.TVoid, p : e.p};
 			}
-			return this.handleReturn(v1,true);
+			return this.handleReturn(v2,true);
 		default:
 			return hxsl_Tools.map(e,$bind(this,this.handleReturnDef));
 		}
@@ -40740,7 +42458,8 @@ hxsl_Eval.prototype = {
 			if(args.length == 1) {
 				if(args[0].e[1] == 0) {
 					if(args[0].e[2][1] == 2) {
-						return hxsl_TExprDef.TConst(hxsl_Const.CFloat(args[0].e[2][2]));
+						var i = args[0].e[2][2];
+						return hxsl_TExprDef.TConst(hxsl_Const.CFloat(i));
 					} else {
 						return null;
 					}
@@ -40752,9 +42471,10 @@ hxsl_Eval.prototype = {
 			}
 			break;
 		case 61:
+			var args1 = args;
 			var _g = 0;
-			while(_g < args.length) {
-				var a = args[_g];
+			while(_g < args1.length) {
+				var a = args1[_g];
 				++_g;
 				haxe_Log.trace(hxsl_Printer.toString(a),{ fileName : a.p.file, lineNumber : 0, className : null, methodName : null});
 			}
@@ -40777,38 +42497,42 @@ hxsl_Eval.prototype = {
 			if(c != null) {
 				d = c;
 			} else {
-				d = hxsl_TExprDef.TVar(this.mapVar(v));
+				var v2 = this.mapVar(v);
+				d = hxsl_TExprDef.TVar(v2);
 			}
 			break;
 		case 0:case 2:
 			d = e.e;
 			break;
 		case 3:
-			var e1 = this.evalExpr(_g[2],isVal);
-			if(e1.e[1] == 0) {
-				d = e1.e;
+			var e1 = _g[2];
+			var e2 = this.evalExpr(e1,isVal);
+			var _g1 = e2.e;
+			if(_g1[1] == 0) {
+				d = e2.e;
 			} else {
-				d = hxsl_TExprDef.TParenthesis(e1);
+				d = hxsl_TExprDef.TParenthesis(e2);
 			}
 			break;
 		case 4:
 			var el = _g[2];
 			var out = [];
 			var last = el.length - 1;
-			var _g1 = 0;
+			var _g11 = 0;
 			var _g2 = el.length;
-			while(_g1 < _g2) {
-				var i = _g1++;
+			while(_g11 < _g2) {
+				var i = _g11++;
 				var isVal1 = isVal && i == last;
-				var e2 = this.evalExpr(el[i],isVal1);
-				switch(e2.e[1]) {
+				var e3 = this.evalExpr(el[i],isVal1);
+				var _g21 = e3.e;
+				switch(_g21[1]) {
 				case 0:case 1:
 					if(!(!isVal1)) {
-						out.push(e2);
+						out.push(e3);
 					}
 					break;
 				default:
-					out.push(e2);
+					out.push(e3);
 				}
 			}
 			if(out.length == 1 && this.curFun.kind != hxsl_FunctionKind.Init) {
@@ -40818,151 +42542,169 @@ hxsl_Eval.prototype = {
 			}
 			break;
 		case 5:
+			var e21 = _g[4];
+			var e11 = _g[3];
 			var op = _g[2];
-			var e11 = this.evalExpr(_g[3]);
-			var e21 = this.evalExpr(_g[4]);
+			var e12 = this.evalExpr(e11);
+			var e22 = this.evalExpr(e21);
 			switch(op[1]) {
 			case 0:
-				var _g3 = e21.e;
-				var _g11 = e11.e;
-				if(_g11[1] == 0) {
-					switch(_g11[2][1]) {
+				var _g3 = e22.e;
+				var _g12 = e12.e;
+				if(_g12[1] == 0) {
+					switch(_g12[2][1]) {
 					case 2:
 						if(_g3[1] == 0) {
 							if(_g3[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g11[2][2] + _g3[2][2] | 0));
+								var a = _g12[2][2];
+								var b = _g3[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a + b | 0));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
 						if(_g3[1] == 0) {
 							if(_g3[2][1] == 3) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(_g11[2][2] + _g3[2][2]));
+								var a1 = _g12[2][2];
+								var b1 = _g3[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(a1 + b1));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					default:
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 1:
-				var _g4 = e21.e;
-				var _g12 = e11.e;
-				if(_g12[1] == 0) {
-					switch(_g12[2][1]) {
+				var _g4 = e22.e;
+				var _g13 = e12.e;
+				if(_g13[1] == 0) {
+					switch(_g13[2][1]) {
 					case 2:
 						if(_g4[1] == 0) {
 							if(_g4[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g12[2][2] * _g4[2][2] | 0));
+								var a2 = _g13[2][2];
+								var b2 = _g4[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a2 * b2 | 0));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
 						if(_g4[1] == 0) {
 							if(_g4[2][1] == 3) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(_g12[2][2] * _g4[2][2]));
+								var a3 = _g13[2][2];
+								var b3 = _g4[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(a3 * b3));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					default:
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 2:
-				var _g5 = e21.e;
-				var _g13 = e11.e;
-				if(_g13[1] == 0) {
-					switch(_g13[2][1]) {
+				var _g5 = e22.e;
+				var _g14 = e12.e;
+				if(_g14[1] == 0) {
+					switch(_g14[2][1]) {
 					case 2:
 						if(_g5[1] == 0) {
 							if(_g5[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g13[2][2] / _g5[2][2] | 0));
+								var a4 = _g14[2][2];
+								var b4 = _g5[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a4 / b4 | 0));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
 						if(_g5[1] == 0) {
 							if(_g5[2][1] == 3) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(_g13[2][2] / _g5[2][2]));
+								var a5 = _g14[2][2];
+								var b5 = _g5[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(a5 / b5));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					default:
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 3:
-				var _g6 = e21.e;
-				var _g14 = e11.e;
-				if(_g14[1] == 0) {
-					switch(_g14[2][1]) {
+				var _g6 = e22.e;
+				var _g15 = e12.e;
+				if(_g15[1] == 0) {
+					switch(_g15[2][1]) {
 					case 2:
 						if(_g6[1] == 0) {
 							if(_g6[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g14[2][2] - _g6[2][2] | 0));
+								var a6 = _g15[2][2];
+								var b6 = _g6[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a6 - b6 | 0));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
 						if(_g6[1] == 0) {
 							if(_g6[2][1] == 3) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(_g14[2][2] - _g6[2][2]));
+								var a7 = _g15[2][2];
+								var b7 = _g6[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(a7 - b7));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					default:
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 5:
-				var _g7 = e21.e;
-				var _g15 = e11.e;
-				if(_g15[1] == 0) {
-					switch(_g15[2][1]) {
+				var _g7 = e22.e;
+				var _g16 = e12.e;
+				if(_g16[1] == 0) {
+					switch(_g16[2][1]) {
 					case 0:
 						if(_g7[1] == 0) {
 							if(_g7[2][1] == 0) {
@@ -40971,7 +42713,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 1:
@@ -40981,13 +42723,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g15[2][2] == _g7[2][2] ? 0 : 1) == 0));
+								var a8 = _g16[2][2];
+								var b8 = _g7[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a8 == b8 ? 0 : 1) == 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 2:
@@ -40997,13 +42741,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 2:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(_g15[2][2] - _g7[2][2] == 0));
+								var a9 = _g16[2][2];
+								var b9 = _g7[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a9 - b9 == 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
@@ -41013,15 +42759,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 3:
-								var a = _g15[2][2];
-								var b = _g7[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a > b ? 1 : a == b ? 0 : -1) == 0));
+								var a10 = _g16[2][2];
+								var b10 = _g7[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a10 > b10 ? 1 : a10 == b10 ? 0 : -1) == 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 4:
@@ -41031,27 +42777,27 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 4:
-								var a1 = _g15[2][2];
-								var b1 = _g7[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a1 > b1 ? 1 : a1 == b1 ? 0 : -1) == 0));
+								var a11 = _g16[2][2];
+								var b11 = _g7[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a11 > b11 ? 1 : a11 == b11 ? 0 : -1) == 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 6:
-				var _g8 = e21.e;
-				var _g16 = e11.e;
-				if(_g16[1] == 0) {
-					switch(_g16[2][1]) {
+				var _g8 = e22.e;
+				var _g17 = e12.e;
+				if(_g17[1] == 0) {
+					switch(_g17[2][1]) {
 					case 0:
 						if(_g8[1] == 0) {
 							if(_g8[2][1] == 0) {
@@ -41060,7 +42806,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 1:
@@ -41070,13 +42816,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g16[2][2] == _g8[2][2] ? 0 : 1) != 0));
+								var a12 = _g17[2][2];
+								var b12 = _g8[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a12 == b12 ? 0 : 1) != 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 2:
@@ -41086,13 +42834,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 2:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(_g16[2][2] - _g8[2][2] != 0));
+								var a13 = _g17[2][2];
+								var b13 = _g8[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a13 - b13 != 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
@@ -41102,15 +42852,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 3:
-								var a2 = _g16[2][2];
-								var b2 = _g8[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a2 > b2 ? 1 : a2 == b2 ? 0 : -1) != 0));
+								var a14 = _g17[2][2];
+								var b14 = _g8[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a14 > b14 ? 1 : a14 == b14 ? 0 : -1) != 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 4:
@@ -41120,27 +42870,27 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 4:
-								var a3 = _g16[2][2];
-								var b3 = _g8[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a3 > b3 ? 1 : a3 == b3 ? 0 : -1) != 0));
+								var a15 = _g17[2][2];
+								var b15 = _g8[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a15 > b15 ? 1 : a15 == b15 ? 0 : -1) != 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 7:
-				var _g9 = e21.e;
-				var _g17 = e11.e;
-				if(_g17[1] == 0) {
-					switch(_g17[2][1]) {
+				var _g9 = e22.e;
+				var _g18 = e12.e;
+				if(_g18[1] == 0) {
+					switch(_g18[2][1]) {
 					case 0:
 						if(_g9[1] == 0) {
 							if(_g9[2][1] == 0) {
@@ -41149,7 +42899,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 1:
@@ -41159,13 +42909,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g17[2][2] == _g9[2][2] ? 0 : 1) > 0));
+								var a16 = _g18[2][2];
+								var b16 = _g9[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a16 == b16 ? 0 : 1) > 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 2:
@@ -41175,13 +42927,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 2:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(_g17[2][2] - _g9[2][2] > 0));
+								var a17 = _g18[2][2];
+								var b17 = _g9[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a17 - b17 > 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
@@ -41191,15 +42945,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 3:
-								var a4 = _g17[2][2];
-								var b4 = _g9[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a4 > b4 ? 1 : a4 == b4 ? 0 : -1) > 0));
+								var a18 = _g18[2][2];
+								var b18 = _g9[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a18 > b18 ? 1 : a18 == b18 ? 0 : -1) > 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 4:
@@ -41209,27 +42963,27 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 4:
-								var a5 = _g17[2][2];
-								var b5 = _g9[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a5 > b5 ? 1 : a5 == b5 ? 0 : -1) > 0));
+								var a19 = _g18[2][2];
+								var b19 = _g9[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a19 > b19 ? 1 : a19 == b19 ? 0 : -1) > 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 8:
-				var _g10 = e21.e;
-				var _g18 = e11.e;
-				if(_g18[1] == 0) {
-					switch(_g18[2][1]) {
+				var _g10 = e22.e;
+				var _g19 = e12.e;
+				if(_g19[1] == 0) {
+					switch(_g19[2][1]) {
 					case 0:
 						if(_g10[1] == 0) {
 							if(_g10[2][1] == 0) {
@@ -41238,7 +42992,7 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 1:
@@ -41248,13 +43002,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g18[2][2] == _g10[2][2] ? 0 : 1) >= 0));
+								var a20 = _g19[2][2];
+								var b20 = _g10[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a20 == b20 ? 0 : 1) >= 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 2:
@@ -41264,13 +43020,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 2:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(_g18[2][2] - _g10[2][2] >= 0));
+								var a21 = _g19[2][2];
+								var b21 = _g10[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a21 - b21 >= 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
@@ -41280,15 +43038,15 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 3:
-								var a6 = _g18[2][2];
-								var b6 = _g10[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a6 > b6 ? 1 : a6 == b6 ? 0 : -1) >= 0));
+								var a22 = _g19[2][2];
+								var b22 = _g10[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a22 > b22 ? 1 : a22 == b22 ? 0 : -1) >= 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 4:
@@ -41298,468 +43056,496 @@ hxsl_Eval.prototype = {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 								break;
 							case 4:
-								var a7 = _g18[2][2];
-								var b7 = _g10[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a7 > b7 ? 1 : a7 == b7 ? 0 : -1) >= 0));
+								var a23 = _g19[2][2];
+								var b23 = _g10[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a23 > b23 ? 1 : a23 == b23 ? 0 : -1) >= 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 9:
-				var _g19 = e21.e;
-				var _g110 = e11.e;
+				var _g20 = e22.e;
+				var _g110 = e12.e;
 				if(_g110[1] == 0) {
 					switch(_g110[2][1]) {
 					case 0:
-						if(_g19[1] == 0) {
-							if(_g19[2][1] == 0) {
+						if(_g20[1] == 0) {
+							if(_g20[2][1] == 0) {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 							} else {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 1:
-						if(_g19[1] == 0) {
-							switch(_g19[2][1]) {
+						if(_g20[1] == 0) {
+							switch(_g20[2][1]) {
 							case 0:
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g110[2][2] == _g19[2][2] ? 0 : 1) < 0));
+								var a24 = _g110[2][2];
+								var b24 = _g20[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a24 == b24 ? 0 : 1) < 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 2:
-						if(_g19[1] == 0) {
-							switch(_g19[2][1]) {
+						if(_g20[1] == 0) {
+							switch(_g20[2][1]) {
 							case 0:
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 2:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(_g110[2][2] - _g19[2][2] < 0));
+								var a25 = _g110[2][2];
+								var b25 = _g20[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a25 - b25 < 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
-						if(_g19[1] == 0) {
-							switch(_g19[2][1]) {
+						if(_g20[1] == 0) {
+							switch(_g20[2][1]) {
 							case 0:
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 3:
-								var a8 = _g110[2][2];
-								var b8 = _g19[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a8 > b8 ? 1 : a8 == b8 ? 0 : -1) < 0));
+								var a26 = _g110[2][2];
+								var b26 = _g20[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a26 > b26 ? 1 : a26 == b26 ? 0 : -1) < 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 4:
-						if(_g19[1] == 0) {
-							switch(_g19[2][1]) {
+						if(_g20[1] == 0) {
+							switch(_g20[2][1]) {
 							case 0:
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 4:
-								var a9 = _g110[2][2];
-								var b9 = _g19[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a9 > b9 ? 1 : a9 == b9 ? 0 : -1) < 0));
+								var a27 = _g110[2][2];
+								var b27 = _g20[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a27 > b27 ? 1 : a27 == b27 ? 0 : -1) < 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 10:
-				var _g20 = e21.e;
-				var _g111 = e11.e;
+				var _g22 = e22.e;
+				var _g111 = e12.e;
 				if(_g111[1] == 0) {
 					switch(_g111[2][1]) {
 					case 0:
-						if(_g20[1] == 0) {
-							if(_g20[2][1] == 0) {
+						if(_g22[1] == 0) {
+							if(_g22[2][1] == 0) {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 							} else {
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(true));
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 1:
-						if(_g20[1] == 0) {
-							switch(_g20[2][1]) {
+						if(_g22[1] == 0) {
+							switch(_g22[2][1]) {
 							case 0:
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 1:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((_g111[2][2] == _g20[2][2] ? 0 : 1) <= 0));
+								var a28 = _g111[2][2];
+								var b28 = _g22[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a28 == b28 ? 0 : 1) <= 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 2:
-						if(_g20[1] == 0) {
-							switch(_g20[2][1]) {
+						if(_g22[1] == 0) {
+							switch(_g22[2][1]) {
 							case 0:
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 2:
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(_g111[2][2] - _g20[2][2] <= 0));
+								var a29 = _g111[2][2];
+								var b29 = _g22[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a29 - b29 <= 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
-						if(_g20[1] == 0) {
-							switch(_g20[2][1]) {
+						if(_g22[1] == 0) {
+							switch(_g22[2][1]) {
 							case 0:
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 3:
-								var a10 = _g111[2][2];
-								var b10 = _g20[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a10 > b10 ? 1 : a10 == b10 ? 0 : -1) <= 0));
+								var a30 = _g111[2][2];
+								var b30 = _g22[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a30 > b30 ? 1 : a30 == b30 ? 0 : -1) <= 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 4:
-						if(_g20[1] == 0) {
-							switch(_g20[2][1]) {
+						if(_g22[1] == 0) {
+							switch(_g22[2][1]) {
 							case 0:
 								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(false));
 								break;
 							case 4:
-								var a11 = _g111[2][2];
-								var b11 = _g20[2][2];
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a11 > b11 ? 1 : a11 == b11 ? 0 : -1) <= 0));
+								var a31 = _g111[2][2];
+								var b31 = _g22[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool((a31 > b31 ? 1 : a31 == b31 ? 0 : -1) <= 0));
 								break;
 							default:
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 11:
-				var _g21 = e21.e;
-				var _g112 = e11.e;
+				var _g23 = e22.e;
+				var _g112 = e12.e;
 				if(_g112[1] == 0) {
 					if(_g112[2][1] == 2) {
-						if(_g21[1] == 0) {
-							if(_g21[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g112[2][2] & _g21[2][2]));
+						if(_g23[1] == 0) {
+							if(_g23[2][1] == 2) {
+								var a32 = _g112[2][2];
+								var b32 = _g23[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a32 & b32));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 12:
-				var _g22 = e21.e;
-				var _g113 = e11.e;
+				var _g24 = e22.e;
+				var _g113 = e12.e;
 				if(_g113[1] == 0) {
 					if(_g113[2][1] == 2) {
-						if(_g22[1] == 0) {
-							if(_g22[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g113[2][2] | _g22[2][2]));
+						if(_g24[1] == 0) {
+							if(_g24[2][1] == 2) {
+								var a33 = _g113[2][2];
+								var b33 = _g24[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a33 | b33));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 13:
-				var _g23 = e21.e;
-				var _g114 = e11.e;
+				var _g25 = e22.e;
+				var _g114 = e12.e;
 				if(_g114[1] == 0) {
 					if(_g114[2][1] == 2) {
-						if(_g23[1] == 0) {
-							if(_g23[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g114[2][2] ^ _g23[2][2]));
+						if(_g25[1] == 0) {
+							if(_g25[2][1] == 2) {
+								var a34 = _g114[2][2];
+								var b34 = _g25[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a34 ^ b34));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 14:
-				var _g24 = e21.e;
-				var _g115 = e11.e;
+				var _g26 = e22.e;
+				var _g115 = e12.e;
 				if(_g115[1] == 0) {
 					if(_g115[2][1] == 1) {
-						if(_g24[1] == 0) {
-							if(_g24[2][1] == 1) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(_g115[2][2] && _g24[2][2]));
+						if(_g26[1] == 0) {
+							if(_g26[2][1] == 1) {
+								var a35 = _g115[2][2];
+								var b35 = _g26[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a35 && b35));
 							} else {
-								var a12 = _g115[2][2];
-								if(a12 == false) {
-									d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a12));
+								var a36 = _g115[2][2];
+								if(a36 == false) {
+									d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a36));
 								} else {
-									d = e21.e;
+									d = e22.e;
 								}
 							}
 						} else {
-							var a13 = _g115[2][2];
-							if(a13 == false) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a13));
+							var a37 = _g115[2][2];
+							if(a37 == false) {
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a37));
 							} else {
-								d = e21.e;
+								d = e22.e;
 							}
 						}
-					} else if(_g24[1] == 0) {
-						if(_g24[2][1] == 1) {
-							var a14 = _g24[2][2];
-							if(a14 == false) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a14));
+					} else if(_g26[1] == 0) {
+						if(_g26[2][1] == 1) {
+							var a38 = _g26[2][2];
+							if(a38 == false) {
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a38));
 							} else {
-								d = e11.e;
+								d = e12.e;
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
-				} else if(_g24[1] == 0) {
-					if(_g24[2][1] == 1) {
-						var a15 = _g24[2][2];
-						if(a15 == false) {
-							d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a15));
+				} else if(_g26[1] == 0) {
+					if(_g26[2][1] == 1) {
+						var a39 = _g26[2][2];
+						if(a39 == false) {
+							d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a39));
 						} else {
-							d = e11.e;
+							d = e12.e;
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 15:
-				var _g25 = e21.e;
-				var _g116 = e11.e;
+				var _g27 = e22.e;
+				var _g116 = e12.e;
 				if(_g116[1] == 0) {
 					if(_g116[2][1] == 1) {
-						if(_g25[1] == 0) {
-							if(_g25[2][1] == 1) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(_g116[2][2] || _g25[2][2]));
+						if(_g27[1] == 0) {
+							if(_g27[2][1] == 1) {
+								var a40 = _g116[2][2];
+								var b36 = _g27[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a40 || b36));
 							} else {
-								var a16 = _g116[2][2];
-								if(a16 == true) {
-									d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a16));
+								var a41 = _g116[2][2];
+								if(a41 == true) {
+									d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a41));
 								} else {
-									d = e21.e;
+									d = e22.e;
 								}
 							}
 						} else {
-							var a17 = _g116[2][2];
-							if(a17 == true) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a17));
+							var a42 = _g116[2][2];
+							if(a42 == true) {
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a42));
 							} else {
-								d = e21.e;
+								d = e22.e;
 							}
 						}
-					} else if(_g25[1] == 0) {
-						if(_g25[2][1] == 1) {
-							var a18 = _g25[2][2];
-							if(a18 == true) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a18));
+					} else if(_g27[1] == 0) {
+						if(_g27[2][1] == 1) {
+							var a43 = _g27[2][2];
+							if(a43 == true) {
+								d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a43));
 							} else {
-								d = e11.e;
+								d = e12.e;
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
-				} else if(_g25[1] == 0) {
-					if(_g25[2][1] == 1) {
-						var a19 = _g25[2][2];
-						if(a19 == true) {
-							d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a19));
+				} else if(_g27[1] == 0) {
+					if(_g27[2][1] == 1) {
+						var a44 = _g27[2][2];
+						if(a44 == true) {
+							d = hxsl_TExprDef.TConst(hxsl_Const.CBool(a44));
 						} else {
-							d = e11.e;
+							d = e12.e;
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 16:
-				var _g26 = e21.e;
-				var _g117 = e11.e;
+				var _g28 = e22.e;
+				var _g117 = e12.e;
 				if(_g117[1] == 0) {
 					if(_g117[2][1] == 2) {
-						if(_g26[1] == 0) {
-							if(_g26[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g117[2][2] << _g26[2][2]));
+						if(_g28[1] == 0) {
+							if(_g28[2][1] == 2) {
+								var a45 = _g117[2][2];
+								var b37 = _g28[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a45 << b37));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 17:
-				var _g27 = e21.e;
-				var _g118 = e11.e;
+				var _g29 = e22.e;
+				var _g118 = e12.e;
 				if(_g118[1] == 0) {
 					if(_g118[2][1] == 2) {
-						if(_g27[1] == 0) {
-							if(_g27[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g118[2][2] >> _g27[2][2]));
+						if(_g29[1] == 0) {
+							if(_g29[2][1] == 2) {
+								var a46 = _g118[2][2];
+								var b38 = _g29[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a46 >> b38));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 18:
-				var _g28 = e21.e;
-				var _g119 = e11.e;
+				var _g30 = e22.e;
+				var _g119 = e12.e;
 				if(_g119[1] == 0) {
 					if(_g119[2][1] == 2) {
-						if(_g28[1] == 0) {
-							if(_g28[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g119[2][2] >>> _g28[2][2]));
+						if(_g30[1] == 0) {
+							if(_g30[2][1] == 2) {
+								var a47 = _g119[2][2];
+								var b39 = _g30[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a47 >>> b39));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 					} else {
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 19:
-				var _g29 = e21.e;
-				var _g120 = e11.e;
+				var _g31 = e22.e;
+				var _g120 = e12.e;
 				if(_g120[1] == 0) {
 					switch(_g120[2][1]) {
 					case 2:
-						if(_g29[1] == 0) {
-							if(_g29[2][1] == 2) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(_g120[2][2] % _g29[2][2] | 0));
+						if(_g31[1] == 0) {
+							if(_g31[2][1] == 2) {
+								var a48 = _g120[2][2];
+								var b40 = _g31[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CInt(a48 % b40 | 0));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					case 3:
-						if(_g29[1] == 0) {
-							if(_g29[2][1] == 3) {
-								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(_g120[2][2] % _g29[2][2]));
+						if(_g31[1] == 0) {
+							if(_g31[2][1] == 3) {
+								var a49 = _g120[2][2];
+								var b41 = _g31[2][2];
+								d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(a49 % b41));
 							} else {
-								d = hxsl_TExprDef.TBinop(op,e11,e21);
+								d = hxsl_TExprDef.TBinop(op,e12,e22);
 							}
 						} else {
-							d = hxsl_TExprDef.TBinop(op,e11,e21);
+							d = hxsl_TExprDef.TBinop(op,e12,e22);
 						}
 						break;
 					default:
-						d = hxsl_TExprDef.TBinop(op,e11,e21);
+						d = hxsl_TExprDef.TBinop(op,e12,e22);
 					}
 				} else {
-					d = hxsl_TExprDef.TBinop(op,e11,e21);
+					d = hxsl_TExprDef.TBinop(op,e12,e22);
 				}
 				break;
 			case 4:case 20:case 21:
-				d = hxsl_TExprDef.TBinop(op,e11,e21);
+				d = hxsl_TExprDef.TBinop(op,e12,e22);
 				break;
 			case 22:
 				throw new js__$Boot_HaxeError("assert");
@@ -41767,183 +43553,199 @@ hxsl_Eval.prototype = {
 			}
 			break;
 		case 6:
+			var e4 = _g[3];
 			var op1 = _g[2];
-			var e3 = this.evalExpr(_g[3]);
-			var _g30 = e3.e;
-			if(_g30[1] == 0) {
-				var c1 = _g30[2];
+			var e5 = this.evalExpr(e4);
+			var _g32 = e5.e;
+			if(_g32[1] == 0) {
+				var c1 = _g32[2];
 				switch(op1[1]) {
 				case 2:
 					if(c1[1] == 1) {
-						d = hxsl_TExprDef.TConst(hxsl_Const.CBool(!c1[2]));
+						var b42 = c1[2];
+						d = hxsl_TExprDef.TConst(hxsl_Const.CBool(!b42));
 					} else {
-						d = hxsl_TExprDef.TUnop(op1,e3);
+						d = hxsl_TExprDef.TUnop(op1,e5);
 					}
 					break;
 				case 3:
 					switch(c1[1]) {
 					case 2:
-						d = hxsl_TExprDef.TConst(hxsl_Const.CInt(-c1[2]));
+						var i1 = c1[2];
+						d = hxsl_TExprDef.TConst(hxsl_Const.CInt(-i1));
 						break;
 					case 3:
-						d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(-c1[2]));
+						var f = c1[2];
+						d = hxsl_TExprDef.TConst(hxsl_Const.CFloat(-f));
 						break;
 					default:
-						d = hxsl_TExprDef.TUnop(op1,e3);
+						d = hxsl_TExprDef.TUnop(op1,e5);
 					}
 					break;
 				default:
-					d = hxsl_TExprDef.TUnop(op1,e3);
+					d = hxsl_TExprDef.TUnop(op1,e5);
 				}
 			} else {
-				d = hxsl_TExprDef.TUnop(op1,e3);
+				d = hxsl_TExprDef.TUnop(op1,e5);
 			}
 			break;
 		case 7:
 			var init = _g[3];
-			d = hxsl_TExprDef.TVarDecl(this.mapVar(_g[2]),init == null ? null : this.evalExpr(init));
+			var v1 = _g[2];
+			d = hxsl_TExprDef.TVarDecl(this.mapVar(v1),init == null ? null : this.evalExpr(init));
 			break;
 		case 8:
 			var args = _g[3];
-			var c2 = this.evalExpr(_g[2]);
-			var _g31 = [];
+			var c2 = _g[2];
+			var c3 = this.evalExpr(c2);
+			var _g33 = [];
 			var _g121 = 0;
 			while(_g121 < args.length) {
-				var a20 = args[_g121];
+				var a50 = args[_g121];
 				++_g121;
-				_g31.push(this.evalExpr(a20));
+				_g33.push(this.evalExpr(a50));
 			}
-			var _g122 = c2.e;
+			var args1 = _g33;
+			var _g122 = c3.e;
 			switch(_g122[1]) {
 			case 1:
 				if(!this.inlineCalls) {
-					d = hxsl_TExprDef.TCall(c2,_g31);
+					d = hxsl_TExprDef.TCall(c3,args1);
 				} else {
-					var v1 = _g122[2];
-					if(this.funMap.exists(v1)) {
-						var f = this.funMap.get(v1);
+					var v3 = _g122[2];
+					if(this.funMap.exists(v3)) {
+						var f1 = this.funMap.get(v3);
 						var outExprs = [];
 						var undo = [];
 						var _g210 = 0;
-						var _g123 = f.args.length;
+						var _g123 = f1.args.length;
 						while(_g210 < _g123) {
-							var i1 = _g210++;
-							var v2 = [f.args[i1]];
-							var e4 = _g31[i1];
-							var _g32 = e4.e;
-							switch(_g32[1]) {
+							var i2 = _g210++;
+							var v4 = [f1.args[i2]];
+							var e6 = args1[i2];
+							var _g34 = e6.e;
+							switch(_g34[1]) {
 							case 0:
-								undo.push((function(old,v3) {
+								var old = [this.constants.get(v4[0])];
+								undo.push((function(old1,v5) {
 									return function() {
-										if(old[0] == null) {
-											_gthis.constants.remove(v3[0]);
+										if(old1[0] == null) {
+											_gthis.constants.remove(v5[0]);
 										} else {
-											_gthis.constants.set(v3[0],old[0]);
+											_gthis.constants.set(v5[0],old1[0]);
 										}
 									};
-								})([this.constants.get(v2[0])],v2));
-								this.constants.set(v2[0],e4.e);
+								})(old,v4));
+								this.constants.set(v4[0],e6.e);
 								break;
 							case 1:
-								switch(_g32[2].kind[1]) {
+								switch(_g34[2].kind[1]) {
 								case 0:case 1:case 2:
-									undo.push((function(old1,v4) {
+									var old2 = [this.constants.get(v4[0])];
+									undo.push((function(old3,v6) {
 										return function() {
-											if(old1[0] == null) {
-												_gthis.constants.remove(v4[0]);
+											if(old3[0] == null) {
+												_gthis.constants.remove(v6[0]);
 											} else {
-												_gthis.constants.set(v4[0],old1[0]);
+												_gthis.constants.set(v6[0],old3[0]);
 											}
 										};
-									})([this.constants.get(v2[0])],v2));
-									this.constants.set(v2[0],e4.e);
+									})(old2,v4));
+									this.constants.set(v4[0],e6.e);
 									break;
 								default:
-									var old2 = [this.varMap.get(v2[0])];
-									if(old2[0] == null) {
-										undo.push((function(v5) {
+									var old4 = [this.varMap.get(v4[0])];
+									if(old4[0] == null) {
+										undo.push((function(v7) {
 											return function() {
-												_gthis.varMap.remove(v5[0]);
+												_gthis.varMap.remove(v7[0]);
 											};
-										})(v2));
+										})(v4));
 									} else {
-										this.varMap.remove(v2[0]);
-										undo.push((function(old3,v6) {
+										this.varMap.remove(v4[0]);
+										undo.push((function(old5,v8) {
 											return function() {
-												_gthis.varMap.set(v6[0],old3[0]);
+												_gthis.varMap.set(v8[0],old5[0]);
 											};
-										})(old2,v2));
+										})(old4,v4));
 									}
-									outExprs.push({ e : hxsl_TExprDef.TVarDecl(this.mapVar(v2[0]),e4), t : hxsl_Type.TVoid, p : e4.p});
+									var v21 = this.mapVar(v4[0]);
+									outExprs.push({ e : hxsl_TExprDef.TVarDecl(v21,e6), t : hxsl_Type.TVoid, p : e6.p});
 								}
 								break;
 							default:
-								var old4 = [this.varMap.get(v2[0])];
-								if(old4[0] == null) {
-									undo.push((function(v7) {
+								var old6 = [this.varMap.get(v4[0])];
+								if(old6[0] == null) {
+									undo.push((function(v9) {
 										return function() {
-											_gthis.varMap.remove(v7[0]);
+											_gthis.varMap.remove(v9[0]);
 										};
-									})(v2));
+									})(v4));
 								} else {
-									this.varMap.remove(v2[0]);
-									undo.push((function(old5,v8) {
+									this.varMap.remove(v4[0]);
+									undo.push((function(old7,v10) {
 										return function() {
-											_gthis.varMap.set(v8[0],old5[0]);
+											_gthis.varMap.set(v10[0],old7[0]);
 										};
-									})(old4,v2));
+									})(old6,v4));
 								}
-								outExprs.push({ e : hxsl_TExprDef.TVarDecl(this.mapVar(v2[0]),e4), t : hxsl_Type.TVoid, p : e4.p});
+								var v22 = this.mapVar(v4[0]);
+								outExprs.push({ e : hxsl_TExprDef.TVarDecl(v22,e6), t : hxsl_Type.TVoid, p : e6.p});
 							}
 						}
-						var e5 = this.handleReturn(this.evalExpr(f.expr,false),true);
+						var e7 = this.handleReturn(this.evalExpr(f1.expr,false),true);
 						var _g124 = 0;
 						while(_g124 < undo.length) {
 							var u = undo[_g124];
 							++_g124;
 							u();
 						}
-						var _g125 = e5.e;
+						var _g125 = e7.e;
 						if(_g125[1] == 4) {
 							var el1 = _g125[2];
 							var _g126 = 0;
 							while(_g126 < el1.length) {
-								var e6 = el1[_g126];
+								var e8 = el1[_g126];
 								++_g126;
-								outExprs.push(e6);
+								outExprs.push(e8);
 							}
 						} else {
-							outExprs.push(e5);
+							outExprs.push(e7);
 						}
 						d = hxsl_TExprDef.TBlock(outExprs);
 					} else {
-						d = hxsl_Error.t("Cannot eval non-static call expresssion '" + new hxsl_Printer().exprString(c2) + "'",c2.p);
+						d = hxsl_Error.t("Cannot eval non-static call expresssion '" + new hxsl_Printer().exprString(c3) + "'",c3.p);
 					}
 				}
 				break;
 			case 2:
-				var v9 = this.evalCall(_g122[2],_g31);
-				if(v9 != null) {
-					d = v9;
+				var g = _g122[2];
+				var v11 = this.evalCall(g,args1);
+				if(v11 != null) {
+					d = v11;
 				} else {
-					d = hxsl_TExprDef.TCall(c2,_g31);
+					d = hxsl_TExprDef.TCall(c3,args1);
 				}
 				break;
 			default:
-				d = hxsl_Error.t("Cannot eval non-static call expresssion '" + new hxsl_Printer().exprString(c2) + "'",c2.p);
+				d = hxsl_Error.t("Cannot eval non-static call expresssion '" + new hxsl_Printer().exprString(c3) + "'",c3.p);
 			}
 			break;
 		case 9:
-			d = hxsl_TExprDef.TSwiz(this.evalExpr(_g[2]),_g[3].slice());
+			var r = _g[3];
+			var e9 = _g[2];
+			d = hxsl_TExprDef.TSwiz(this.evalExpr(e9),r.slice());
 			break;
 		case 10:
 			var eelse = _g[4];
 			var eif = _g[3];
-			var econd = this.evalExpr(_g[2]);
-			var _g33 = econd.e;
-			if(_g33[1] == 0) {
-				if(_g33[2][1] == 1) {
-					if(_g33[2][2]) {
+			var econd = _g[2];
+			var econd1 = this.evalExpr(econd);
+			var _g35 = econd1.e;
+			if(_g35[1] == 0) {
+				if(_g35[2][1] == 1) {
+					var b43 = _g35[2][2];
+					if(b43) {
 						d = this.evalExpr(eif,isVal).e;
 					} else if(eelse == null) {
 						d = hxsl_TExprDef.TConst(hxsl_Const.CNull);
@@ -41951,69 +43753,73 @@ hxsl_Eval.prototype = {
 						d = this.evalExpr(eelse,isVal).e;
 					}
 				} else if(isVal && eelse != null && this.eliminateConditionals) {
-					d = hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.Mix), t : e.t, p : e.p},[this.evalExpr(eelse,true),this.evalExpr(eif,true),{ e : hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.ToFloat), t : hxsl_Type.TFun([]), p : econd.p},[econd]), t : hxsl_Type.TFloat, p : e.p}]);
+					d = hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.Mix), t : e.t, p : e.p},[this.evalExpr(eelse,true),this.evalExpr(eif,true),{ e : hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.ToFloat), t : hxsl_Type.TFun([]), p : econd1.p},[econd1]), t : hxsl_Type.TFloat, p : e.p}]);
 				} else {
-					d = hxsl_TExprDef.TIf(econd,this.evalExpr(eif,isVal),eelse == null ? null : this.evalExpr(eelse,isVal));
+					d = hxsl_TExprDef.TIf(econd1,this.evalExpr(eif,isVal),eelse == null ? null : this.evalExpr(eelse,isVal));
 				}
 			} else if(isVal && eelse != null && this.eliminateConditionals) {
-				d = hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.Mix), t : e.t, p : e.p},[this.evalExpr(eelse,true),this.evalExpr(eif,true),{ e : hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.ToFloat), t : hxsl_Type.TFun([]), p : econd.p},[econd]), t : hxsl_Type.TFloat, p : e.p}]);
+				d = hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.Mix), t : e.t, p : e.p},[this.evalExpr(eelse,true),this.evalExpr(eif,true),{ e : hxsl_TExprDef.TCall({ e : hxsl_TExprDef.TGlobal(hxsl_TGlobal.ToFloat), t : hxsl_Type.TFun([]), p : econd1.p},[econd1]), t : hxsl_Type.TFloat, p : e.p}]);
 			} else {
-				d = hxsl_TExprDef.TIf(econd,this.evalExpr(eif,isVal),eelse == null ? null : this.evalExpr(eelse,isVal));
+				d = hxsl_TExprDef.TIf(econd1,this.evalExpr(eif,isVal),eelse == null ? null : this.evalExpr(eelse,isVal));
 			}
 			break;
 		case 11:
 			d = hxsl_TExprDef.TDiscard;
 			break;
 		case 12:
-			var e7 = _g[2];
-			d = hxsl_TExprDef.TReturn(e7 == null ? null : this.evalExpr(e7));
+			var e10 = _g[2];
+			d = hxsl_TExprDef.TReturn(e10 == null ? null : this.evalExpr(e10));
 			break;
 		case 13:
 			var loop = _g[4];
-			var v10 = _g[2];
-			var v21 = this.mapVar(v10);
-			var it = this.evalExpr(_g[3]);
-			var e8;
-			var _g34 = it.e;
-			if(_g34[1] == 5) {
-				if(_g34[2][1] == 21) {
-					if(_g34[3].e[1] == 0) {
-						if(_g34[3].e[2][1] == 2) {
-							if(_g34[4].e[1] == 0) {
-								if(_g34[4].e[2][1] == 2) {
-									var len = _g34[4].e[2][2];
+			var it = _g[3];
+			var v12 = _g[2];
+			var v23 = this.mapVar(v12);
+			var it1 = this.evalExpr(it);
+			var e13;
+			var _g36 = it1.e;
+			if(_g36[1] == 5) {
+				if(_g36[2][1] == 21) {
+					if(_g36[3].e[1] == 0) {
+						if(_g36[3].e[2][1] == 2) {
+							if(_g36[4].e[1] == 0) {
+								if(_g36[4].e[2][1] == 2) {
+									var start = _g36[3].e[2][2];
+									var len = _g36[4].e[2][2];
 									if(this.unrollLoops) {
 										var out1 = [];
-										var _g127 = _g34[3].e[2][2];
-										while(_g127 < len) {
-											this.constants.set(v10,hxsl_TExprDef.TConst(hxsl_Const.CInt(_g127++)));
+										var _g127 = start;
+										var _g37 = len;
+										while(_g127 < _g37) {
+											var i3 = _g127++;
+											this.constants.set(v12,hxsl_TExprDef.TConst(hxsl_Const.CInt(i3)));
 											out1.push(this.evalExpr(loop,false));
 										}
-										this.constants.remove(v10);
-										e8 = hxsl_TExprDef.TBlock(out1);
+										this.constants.remove(v12);
+										e13 = hxsl_TExprDef.TBlock(out1);
 									} else {
-										e8 = hxsl_TExprDef.TFor(v21,it,this.evalExpr(loop,false));
+										e13 = hxsl_TExprDef.TFor(v23,it1,this.evalExpr(loop,false));
 									}
 								} else {
-									e8 = hxsl_TExprDef.TFor(v21,it,this.evalExpr(loop,false));
+									e13 = hxsl_TExprDef.TFor(v23,it1,this.evalExpr(loop,false));
 								}
 							} else {
-								e8 = hxsl_TExprDef.TFor(v21,it,this.evalExpr(loop,false));
+								e13 = hxsl_TExprDef.TFor(v23,it1,this.evalExpr(loop,false));
 							}
 						} else {
-							e8 = hxsl_TExprDef.TFor(v21,it,this.evalExpr(loop,false));
+							e13 = hxsl_TExprDef.TFor(v23,it1,this.evalExpr(loop,false));
 						}
 					} else {
-						e8 = hxsl_TExprDef.TFor(v21,it,this.evalExpr(loop,false));
+						e13 = hxsl_TExprDef.TFor(v23,it1,this.evalExpr(loop,false));
 					}
 				} else {
-					e8 = hxsl_TExprDef.TFor(v21,it,this.evalExpr(loop,false));
+					e13 = hxsl_TExprDef.TFor(v23,it1,this.evalExpr(loop,false));
 				}
 			} else {
-				e8 = hxsl_TExprDef.TFor(v21,it,this.evalExpr(loop,false));
+				e13 = hxsl_TExprDef.TFor(v23,it1,this.evalExpr(loop,false));
 			}
-			this.varMap.remove(v10);
-			d = e8;
+			this.varMap.remove(v12);
+			d = e13;
 			break;
 		case 14:
 			d = hxsl_TExprDef.TContinue;
@@ -42022,88 +43828,94 @@ hxsl_Eval.prototype = {
 			d = hxsl_TExprDef.TBreak;
 			break;
 		case 16:
-			var e12 = this.evalExpr(_g[2]);
-			var e22 = this.evalExpr(_g[3]);
-			var _g35 = e22.e;
-			var _g128 = e12.e;
+			var e23 = _g[3];
+			var e14 = _g[2];
+			var e15 = this.evalExpr(e14);
+			var e24 = this.evalExpr(e23);
+			var _g38 = e24.e;
+			var _g128 = e15.e;
 			if(_g128[1] == 17) {
-				if(_g35[1] == 0) {
-					if(_g35[2][1] == 2) {
+				if(_g38[1] == 0) {
+					if(_g38[2][1] == 2) {
 						var el2 = _g128[2];
-						var i2 = _g35[2][2];
-						if(i2 >= 0 && i2 < el2.length) {
-							d = el2[i2].e;
+						var i4 = _g38[2][2];
+						if(i4 >= 0 && i4 < el2.length) {
+							d = el2[i4].e;
 						} else {
-							d = hxsl_TExprDef.TArray(e12,e22);
+							d = hxsl_TExprDef.TArray(e15,e24);
 						}
 					} else {
-						d = hxsl_TExprDef.TArray(e12,e22);
+						d = hxsl_TExprDef.TArray(e15,e24);
 					}
 				} else {
-					d = hxsl_TExprDef.TArray(e12,e22);
+					d = hxsl_TExprDef.TArray(e15,e24);
 				}
 			} else {
-				d = hxsl_TExprDef.TArray(e12,e22);
+				d = hxsl_TExprDef.TArray(e15,e24);
 			}
 			break;
 		case 17:
 			var el3 = _g[2];
-			var _g36 = [];
+			var _g39 = [];
 			var _g129 = 0;
 			while(_g129 < el3.length) {
-				var e9 = el3[_g129];
+				var e16 = el3[_g129];
 				++_g129;
-				_g36.push(this.evalExpr(e9));
+				_g39.push(this.evalExpr(e16));
 			}
-			d = hxsl_TExprDef.TArrayDecl(_g36);
+			d = hxsl_TExprDef.TArrayDecl(_g39);
 			break;
 		case 18:
 			var def = _g[4];
 			var cases = _g[3];
-			var e10 = this.evalExpr(_g[2]);
-			var _g37 = [];
+			var e17 = _g[2];
+			var e18 = this.evalExpr(e17);
+			var _g40 = [];
 			var _g130 = 0;
 			while(_g130 < cases.length) {
-				var c3 = cases[_g130];
+				var c4 = cases[_g130];
 				++_g130;
 				var _g211 = [];
-				var _g38 = 0;
-				var _g41 = c3.values;
-				while(_g38 < _g41.length) {
-					var v11 = _g41[_g38];
-					++_g38;
-					_g211.push(this.evalExpr(v11));
+				var _g310 = 0;
+				var _g41 = c4.values;
+				while(_g310 < _g41.length) {
+					var v13 = _g41[_g310];
+					++_g310;
+					_g211.push(this.evalExpr(v13));
 				}
-				_g37.push({ values : _g211, expr : this.evalExpr(c3.expr,isVal)});
+				_g40.push({ values : _g211, expr : this.evalExpr(c4.expr,isVal)});
 			}
+			var cases1 = _g40;
 			var def1 = def == null ? null : this.evalExpr(def,isVal);
 			var hasCase = false;
-			var _g131 = e10.e;
+			var _g131 = e18.e;
 			if(_g131[1] == 0) {
-				var c4 = _g131[2];
-				if(c4[1] == 2) {
-					var val = c4[2];
+				var c5 = _g131[2];
+				if(c5[1] == 2) {
+					var val = c5[2];
 					var _g132 = 0;
-					while(_g132 < _g37.length) {
-						var c5 = _g37[_g132];
+					while(_g132 < cases1.length) {
+						var c6 = cases1[_g132];
 						++_g132;
 						var _g212 = 0;
-						var _g39 = c5.values;
-						while(_g212 < _g39.length) {
-							var v12 = _g39[_g212];
+						var _g311 = c6.values;
+						while(_g212 < _g311.length) {
+							var v14 = _g311[_g212];
 							++_g212;
-							var _g42 = v12.e;
+							var _g42 = v14.e;
 							if(_g42[1] == 0) {
 								var cst = _g42[2];
 								switch(cst[1]) {
 								case 2:
-									if(cst[2] == val) {
-										return c5.expr;
+									var k = cst[2];
+									if(k == val) {
+										return c6.expr;
 									}
 									break;
 								case 3:
-									if(cst[2] == val) {
-										return c5.expr;
+									var k1 = cst[2];
+									if(k1 == val) {
+										return c6.expr;
 									}
 									break;
 								default:
@@ -42114,13 +43926,13 @@ hxsl_Eval.prototype = {
 						}
 					}
 				} else {
-					throw new js__$Boot_HaxeError("Unsupported switch constant " + Std.string(c4));
+					throw new js__$Boot_HaxeError("Unsupported switch constant " + Std.string(c5));
 				}
 			} else {
 				hasCase = true;
 			}
 			if(hasCase) {
-				d = hxsl_TExprDef.TSwitch(e10,_g37,def1);
+				d = hxsl_TExprDef.TSwitch(e18,cases1,def1);
 			} else if(def1 == null) {
 				d = hxsl_TExprDef.TBlock([]);
 			} else {
@@ -42128,20 +43940,27 @@ hxsl_Eval.prototype = {
 			}
 			break;
 		case 19:
-			d = hxsl_TExprDef.TWhile(this.evalExpr(_g[2]),this.evalExpr(_g[3],false),_g[4]);
+			var normalWhile = _g[4];
+			var loop1 = _g[3];
+			var cond = _g[2];
+			var cond1 = this.evalExpr(cond);
+			var loop2 = this.evalExpr(loop1,false);
+			d = hxsl_TExprDef.TWhile(cond1,loop2,normalWhile);
 			break;
 		case 20:
-			var e13 = _g[4];
+			var e19 = _g[4];
+			var args2 = _g[3];
 			var name = _g[2];
-			var e23;
+			var e25;
 			if(name == "unroll") {
+				var old8 = this.unrollLoops;
 				this.unrollLoops = true;
-				e23 = this.evalExpr(e13,isVal);
+				e25 = this.evalExpr(e19,isVal);
 				this.unrollLoops = false;
 			} else {
-				e23 = this.evalExpr(e13,isVal);
+				e25 = this.evalExpr(e19,isVal);
 			}
-			d = hxsl_TExprDef.TMeta(name,_g[3],e23);
+			d = hxsl_TExprDef.TMeta(name,args2,e25);
 			break;
 		}
 		return { e : d, t : e.t, p : e.p};
@@ -42193,7 +44012,8 @@ hxsl_Flatten.prototype = {
 			while(_g11 < _g21.length) {
 				var v = _g21[_g11];
 				++_g11;
-				if(v.type[1] == 9) {
+				var _g3 = v.type;
+				if(_g3[1] == 9) {
 					this.allocConst(255,p);
 				}
 			}
@@ -42204,11 +44024,11 @@ hxsl_Flatten.prototype = {
 		}
 		this.varMap = new haxe_ds_ObjectMap();
 		this.allocData = new haxe_ds_ObjectMap();
-		var _g3 = 0;
+		var _g4 = 0;
 		var _g12 = s.vars;
-		while(_g3 < _g12.length) {
-			var v1 = _g12[_g3];
-			++_g3;
+		while(_g4 < _g12.length) {
+			var v1 = _g12[_g4];
+			++_g4;
 			this.gatherVar(v1);
 		}
 		var prefix;
@@ -42226,21 +44046,22 @@ hxsl_Flatten.prototype = {
 		this.pack(prefix + "Params",hxsl_VarKind.Param,this.params,hxsl_VecType.VFloat);
 		var allVars = this.globals.concat(this.params);
 		var textures = this.packTextures(prefix + "Textures",allVars,hxsl_Type.TSampler2D).concat(this.packTextures(prefix + "TexturesCube",allVars,hxsl_Type.TSamplerCube));
-		var _g4 = [];
+		var _g5 = [];
 		var _g13 = 0;
 		var _g22 = s.funs;
 		while(_g13 < _g22.length) {
 			var f1 = _g22[_g13];
 			++_g13;
-			_g4.push(this.mapFun(f1,$bind(this,this.mapExpr)));
+			_g5.push(this.mapFun(f1,$bind(this,this.mapExpr)));
 		}
+		var funs = _g5;
 		var _g14 = 0;
 		while(_g14 < textures.length) {
 			var t = textures[_g14];
 			++_g14;
 			t.pos >>= 2;
 		}
-		return { name : s.name, vars : this.outVars, funs : _g4};
+		return { name : s.name, vars : this.outVars, funs : funs};
 	}
 	,mapFun: function(f,mapExpr) {
 		return { kind : f.kind, ret : f.ret, args : f.args, ref : f.ref, expr : mapExpr(f.expr)};
@@ -42302,15 +44123,18 @@ hxsl_Flatten.prototype = {
 			var c = _g[2];
 			switch(c[1]) {
 			case 2:
-				return this.allocConst(c[2],e.p);
+				var v = c[2];
+				return this.allocConst(v,e.p);
 			case 3:
-				return this.allocConst(c[2],e.p);
+				var v1 = c[2];
+				return this.allocConst(v1,e.p);
 			default:
 				return e;
 			}
 			break;
 		case 2:
-			switch(_g[2][1]) {
+			var g = _g[2];
+			switch(g[1]) {
 			case 0:
 				this.allocConst(Math.PI / 180,e.p);
 				break;
@@ -42426,17 +44250,27 @@ hxsl_Flatten.prototype = {
 		case 16:
 			if(_g[3].e[1] == 0) {
 				if(_g[3].e[2][1] == 2) {
-					return { e : hxsl_TExprDef.TArray(this.mapConsts(_g[2]),_g[3]), t : e.t, p : e.p};
+					var ea = _g[2];
+					var eindex = _g[3];
+					return { e : hxsl_TExprDef.TArray(this.mapConsts(ea),eindex), t : e.t, p : e.p};
 				} else {
-					var _g1 = _g[2].t;
+					var ea1 = _g[2];
+					var eindex1 = _g[3];
+					var _g1 = ea1.t;
 					if(_g1[1] == 14) {
-						this.allocConst(this.varSize(_g1[2],hxsl_VecType.VFloat) >> 2,e.p);
+						var t = _g1[2];
+						var stride = this.varSize(t,hxsl_VecType.VFloat) >> 2;
+						this.allocConst(stride,e.p);
 					}
 				}
 			} else {
-				var _g2 = _g[2].t;
+				var ea2 = _g[2];
+				var eindex2 = _g[3];
+				var _g2 = ea2.t;
 				if(_g2[1] == 14) {
-					this.allocConst(this.varSize(_g2[2],hxsl_VecType.VFloat) >> 2,e.p);
+					var t1 = _g2[2];
+					var stride1 = this.varSize(t1,hxsl_VecType.VFloat) >> 2;
+					this.allocConst(stride1,e.p);
 				}
 			}
 			break;
@@ -42488,7 +44322,8 @@ hxsl_Flatten.prototype = {
 				this.consts.push(v);
 			}
 		}
-		switch(va.length) {
+		var _g5 = va.length;
+		switch(_g5) {
 		case 1:
 			return { e : hxsl_TExprDef.TArray(_gthis.econsts,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index)), t : hxsl_Type.TInt, p : p}), t : hxsl_Type.TFloat, p : p};
 		case 2:
@@ -42509,9 +44344,11 @@ hxsl_Flatten.prototype = {
 	}
 	,readOffset: function(a,stride,delta,index,pos) {
 		var index1 = (a.pos >> 2) + index;
-		return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a.g), t : a.g.type, p : pos},index1 == 0 ? delta : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index1)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a.t), p : pos};
+		var offset = index1 == 0 ? delta : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index1)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+		return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a.g), t : a.g.type, p : pos},offset), t : hxsl_Type.TVec(4,a.t), p : pos};
 	}
 	,access: function(a,t,pos,acc) {
+		var _gthis = this;
 		switch(t[1]) {
 		case 6:
 			var tmp = this.access(a,hxsl_Type.TMat3x4,pos,acc);
@@ -42527,9 +44364,11 @@ hxsl_Flatten.prototype = {
 				break;
 			case 1:
 				var delta = acc[4];
+				var stride = acc[3];
 				var a2 = acc[2];
 				var index = a2.pos >> 2;
-				tmp3 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a2.g), t : a2.g.type, p : pos},index == 0 ? delta : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a2.t), p : pos};
+				var offset = index == 0 ? delta : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+				tmp3 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a2.g), t : a2.g.type, p : pos},offset), t : hxsl_Type.TVec(4,a2.t), p : pos};
 				break;
 			}
 			var tmp4;
@@ -42540,9 +44379,11 @@ hxsl_Flatten.prototype = {
 				break;
 			case 1:
 				var delta1 = acc[4];
+				var stride1 = acc[3];
 				var a4 = acc[2];
 				var index1 = (a4.pos >> 2) + 1;
-				tmp4 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a4.g), t : a4.g.type, p : pos},index1 == 0 ? delta1 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta1,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index1)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a4.t), p : pos};
+				var offset1 = index1 == 0 ? delta1 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta1,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index1)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+				tmp4 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a4.g), t : a4.g.type, p : pos},offset1), t : hxsl_Type.TVec(4,a4.t), p : pos};
 				break;
 			}
 			var tmp5;
@@ -42553,9 +44394,11 @@ hxsl_Flatten.prototype = {
 				break;
 			case 1:
 				var delta2 = acc[4];
+				var stride2 = acc[3];
 				var a6 = acc[2];
 				var index2 = (a6.pos >> 2) + 2;
-				tmp5 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a6.g), t : a6.g.type, p : pos},index2 == 0 ? delta2 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta2,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index2)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a6.t), p : pos};
+				var offset2 = index2 == 0 ? delta2 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta2,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index2)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+				tmp5 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a6.g), t : a6.g.type, p : pos},offset2), t : hxsl_Type.TVec(4,a6.t), p : pos};
 				break;
 			}
 			var tmp6;
@@ -42566,9 +44409,11 @@ hxsl_Flatten.prototype = {
 				break;
 			case 1:
 				var delta3 = acc[4];
+				var stride3 = acc[3];
 				var a8 = acc[2];
 				var index3 = (a8.pos >> 2) + 3;
-				tmp6 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a8.g), t : a8.g.type, p : pos},index3 == 0 ? delta3 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta3,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index3)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a8.t), p : pos};
+				var offset3 = index3 == 0 ? delta3 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta3,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index3)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+				tmp6 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a8.g), t : a8.g.type, p : pos},offset3), t : hxsl_Type.TVec(4,a8.t), p : pos};
 				break;
 			}
 			return { e : hxsl_TExprDef.TCall({ e : tmp1, t : tmp2, p : pos},[tmp3,tmp4,tmp5,tmp6]), t : hxsl_Type.TMat4, p : pos};
@@ -42583,9 +44428,11 @@ hxsl_Flatten.prototype = {
 				break;
 			case 1:
 				var delta4 = acc[4];
+				var stride4 = acc[3];
 				var a10 = acc[2];
 				var index4 = a10.pos >> 2;
-				tmp9 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a10.g), t : a10.g.type, p : pos},index4 == 0 ? delta4 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta4,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index4)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a10.t), p : pos};
+				var offset4 = index4 == 0 ? delta4 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta4,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index4)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+				tmp9 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a10.g), t : a10.g.type, p : pos},offset4), t : hxsl_Type.TVec(4,a10.t), p : pos};
 				break;
 			}
 			var tmp10;
@@ -42596,9 +44443,11 @@ hxsl_Flatten.prototype = {
 				break;
 			case 1:
 				var delta5 = acc[4];
+				var stride5 = acc[3];
 				var a12 = acc[2];
 				var index5 = (a12.pos >> 2) + 1;
-				tmp10 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a12.g), t : a12.g.type, p : pos},index5 == 0 ? delta5 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta5,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index5)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a12.t), p : pos};
+				var offset5 = index5 == 0 ? delta5 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta5,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index5)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+				tmp10 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a12.g), t : a12.g.type, p : pos},offset5), t : hxsl_Type.TVec(4,a12.t), p : pos};
 				break;
 			}
 			var tmp11;
@@ -42609,9 +44458,11 @@ hxsl_Flatten.prototype = {
 				break;
 			case 1:
 				var delta6 = acc[4];
+				var stride6 = acc[3];
 				var a14 = acc[2];
 				var index6 = (a14.pos >> 2) + 2;
-				tmp11 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a14.g), t : a14.g.type, p : pos},index6 == 0 ? delta6 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta6,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index6)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a14.t), p : pos};
+				var offset6 = index6 == 0 ? delta6 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta6,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index6)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+				tmp11 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a14.g), t : a14.g.type, p : pos},offset6), t : hxsl_Type.TVec(4,a14.t), p : pos};
 				break;
 			}
 			return { e : hxsl_TExprDef.TCall({ e : tmp7, t : tmp8, p : pos},[tmp9,tmp10,tmp11]), t : hxsl_Type.TMat3x4, p : pos};
@@ -42622,23 +44473,28 @@ hxsl_Flatten.prototype = {
 				return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a15.g), t : a15.g.type, p : pos},{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(a15.pos >> 2)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a15.t), p : pos};
 			case 1:
 				var delta7 = acc[4];
+				var stride7 = acc[3];
 				var a16 = acc[2];
 				var index7 = a16.pos >> 2;
-				return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a16.g), t : a16.g.type, p : pos},index7 == 0 ? delta7 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta7,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index7)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a16.t), p : pos};
+				var offset7 = index7 == 0 ? delta7 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta7,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index7)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+				return { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a16.g), t : a16.g.type, p : pos},offset7), t : hxsl_Type.TVec(4,a16.t), p : pos};
 			}
 			break;
 		case 14:
 			if(t[3][1] == 0) {
 				var t1 = t[2];
 				var len = t[3][2];
-				var stride = a.size / len | 0;
+				var stride8 = a.size / len | 0;
 				var _g = [];
 				var _g2 = 0;
-				while(_g2 < len) {
-					var a17 = new hxsl__$Flatten_Alloc(a.g,a.t,a.pos + stride * _g2++,stride);
+				var _g1 = len;
+				while(_g2 < _g1) {
+					var i = _g2++;
+					var a17 = new hxsl__$Flatten_Alloc(a.g,a.t,a.pos + stride8 * i,stride8);
 					_g.push(this.access(a17,t1,pos,hxsl_ARead.AIndex(a17)));
 				}
-				return { e : hxsl_TExprDef.TArrayDecl(_g), t : t1, p : pos};
+				var earr = _g;
+				return { e : hxsl_TExprDef.TArrayDecl(earr), t : t1, p : pos};
 			} else {
 				var size = this.varSize(t,a.t);
 				if(size <= 4) {
@@ -42650,9 +44506,11 @@ hxsl_Flatten.prototype = {
 						break;
 					case 1:
 						var delta8 = acc[4];
+						var stride9 = acc[3];
 						var a19 = acc[2];
 						var index8 = a19.pos >> 2;
-						k = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a19.g), t : a19.g.type, p : pos},index8 == 0 ? delta8 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta8,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index8)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a19.t), p : pos};
+						var offset8 = index8 == 0 ? delta8 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta8,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index8)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+						k = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a19.g), t : a19.g.type, p : pos},offset8), t : hxsl_Type.TVec(4,a19.t), p : pos};
 						break;
 					}
 					if(size == 4) {
@@ -42662,8 +44520,12 @@ hxsl_Flatten.prototype = {
 						return k;
 					} else {
 						var sw = [];
-						var _g1 = 0;
-						while(_g1 < size) sw.push(hxsl_Tools.SWIZ[_g1++ + (a.pos & 3)]);
+						var _g11 = 0;
+						var _g3 = size;
+						while(_g11 < _g3) {
+							var i1 = _g11++;
+							sw.push(hxsl_Tools.SWIZ[i1 + (a.pos & 3)]);
+						}
 						return { e : hxsl_TExprDef.TSwiz(k,sw), t : t, p : pos};
 					}
 				}
@@ -42681,9 +44543,11 @@ hxsl_Flatten.prototype = {
 					break;
 				case 1:
 					var delta9 = acc[4];
+					var stride10 = acc[3];
 					var a21 = acc[2];
 					var index9 = a21.pos >> 2;
-					k1 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a21.g), t : a21.g.type, p : pos},index9 == 0 ? delta9 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta9,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index9)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TVec(4,a21.t), p : pos};
+					var offset9 = index9 == 0 ? delta9 : { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAdd,delta9,{ e : hxsl_TExprDef.TConst(hxsl_Const.CInt(index9)), t : hxsl_Type.TInt, p : pos}), t : hxsl_Type.TInt, p : pos};
+					k1 = { e : hxsl_TExprDef.TArray({ e : hxsl_TExprDef.TVar(a21.g), t : a21.g.type, p : pos},offset9), t : hxsl_Type.TVec(4,a21.t), p : pos};
 					break;
 				}
 				if(size1 == 4) {
@@ -42693,8 +44557,12 @@ hxsl_Flatten.prototype = {
 					return k1;
 				} else {
 					var sw1 = [];
-					var _g11 = 0;
-					while(_g11 < size1) sw1.push(hxsl_Tools.SWIZ[_g11++ + (a.pos & 3)]);
+					var _g12 = 0;
+					var _g4 = size1;
+					while(_g12 < _g4) {
+						var i2 = _g12++;
+						sw1.push(hxsl_Tools.SWIZ[i2 + (a.pos & 3)]);
+					}
 					return { e : hxsl_TExprDef.TSwiz(k1,sw1), t : t, p : pos};
 				}
 			}
@@ -42715,20 +44583,22 @@ hxsl_Flatten.prototype = {
 									var rem = 0;
 									var size = 0;
 									while(size < 4) {
-										size += this.varSize(args[args.length - 1 - rem].t,hxsl_VecType.VFloat);
+										var t = args[args.length - 1 - rem].t;
+										size += this.varSize(t,hxsl_VecType.VFloat);
 										++rem;
 									}
 									if(size == 4) {
 										var _g1 = 0;
 										var _g2 = rem;
 										while(_g1 < _g2) {
-											++_g1;
+											var i = _g1++;
 											args.pop();
 										}
 										var emat;
 										var _g3 = e.e;
 										if(_g3[1] == 8) {
-											emat = _g3[2];
+											var e1 = _g3[2];
+											emat = e1;
 										} else {
 											throw new js__$Boot_HaxeError("assert");
 										}
@@ -42746,9 +44616,9 @@ hxsl_Flatten.prototype = {
 				if(_g[3].e[1] == 0) {
 					if(_g[3].e[2][1] == 2) {
 						var el = _g[2].e[2];
-						var i = _g[3].e[2][2];
-						if(i >= 0 && i < el.length) {
-							return el[i];
+						var i1 = _g[3].e[2][2];
+						if(i1 >= 0 && i1 < el.length) {
+							return el[i1];
 						}
 						hxsl_Error.t("Reading outside array bounds",e.p);
 					}
@@ -42789,7 +44659,8 @@ hxsl_Flatten.prototype = {
 		while(_g < vars.length) {
 			var v = vars[_g];
 			++_g;
-			switch(v.type[1]) {
+			var _g1 = v.type;
+			switch(_g1[1]) {
 			case 10:case 11:
 				continue;
 				break;
@@ -42809,22 +44680,23 @@ hxsl_Flatten.prototype = {
 				var free = best.size - size;
 				if(free > 0) {
 					var i = Lambda.indexOf(alloc,best);
-					alloc.splice(i + 1,0,new hxsl__$Flatten_Alloc(g,t,best.pos + size,free));
+					var a1 = new hxsl__$Flatten_Alloc(g,t,best.pos + size,free);
+					alloc.splice(i + 1,0,a1);
 					best.size = size;
 				}
 				best.v = v;
 				this.varMap.set(v,best);
 			} else {
-				var a1 = new hxsl__$Flatten_Alloc(g,t,apos,size);
+				var a2 = new hxsl__$Flatten_Alloc(g,t,apos,size);
 				apos += size;
-				a1.v = v;
-				this.varMap.set(v,a1);
-				alloc.push(a1);
+				a2.v = v;
+				this.varMap.set(v,a2);
+				alloc.push(a2);
 				var pad = (4 - size % 4) % 4;
 				if(pad > 0) {
-					var a2 = new hxsl__$Flatten_Alloc(g,t,apos,pad);
+					var a3 = new hxsl__$Flatten_Alloc(g,t,apos,pad);
 					apos += pad;
-					alloc.push(a2);
+					alloc.push(a3);
 				}
 			}
 		}
@@ -42845,8 +44717,10 @@ hxsl_Flatten.prototype = {
 			}
 			break;
 		case 5:
-			if(t == v[3]) {
-				return v[2];
+			var t2 = v[3];
+			var n = v[2];
+			if(t == t2) {
+				return n;
 			} else {
 				throw new js__$Boot_HaxeError(hxsl_Tools.toString(v) + " size unknown for type " + Std.string(t));
 			}
@@ -42867,7 +44741,9 @@ hxsl_Flatten.prototype = {
 			break;
 		case 14:
 			if(v[3][1] == 0) {
-				return this.varSize(v[2],t) * v[3][2];
+				var at = v[2];
+				var n1 = v[3][2];
+				return this.varSize(at,t) * n1;
 			} else {
 				throw new js__$Boot_HaxeError(hxsl_Tools.toString(v) + " size unknown for type " + Std.string(t));
 			}
@@ -42887,7 +44763,8 @@ hxsl_Flatten.prototype = {
 				this.gatherVar(v1);
 			}
 		} else {
-			switch(v.kind[1]) {
+			var _g2 = v.kind;
+			switch(_g2[1]) {
 			case 0:
 				if(hxsl_Tools.hasQualifier(v,hxsl_VarQualifier.PerObject)) {
 					this.params.push(v);
@@ -42909,7 +44786,8 @@ var hxsl__$Globals_GlobalSlot_$Impl_$ = {};
 $hxClasses["hxsl._Globals.GlobalSlot_Impl_"] = hxsl__$Globals_GlobalSlot_$Impl_$;
 hxsl__$Globals_GlobalSlot_$Impl_$.__name__ = ["hxsl","_Globals","GlobalSlot_Impl_"];
 hxsl__$Globals_GlobalSlot_$Impl_$._new = function(name) {
-	return hxsl_Globals.allocID(name);
+	var this1 = hxsl_Globals.allocID(name);
+	return this1;
 };
 hxsl__$Globals_GlobalSlot_$Impl_$.toInt = function(this1) {
 	return this1;
@@ -43106,8 +44984,9 @@ js_Boot.__interfLoop = function(cc,cl) {
 		var _g1 = 0;
 		var _g = intf.length;
 		while(_g1 < _g) {
-			var i = intf[_g1++];
-			if(i == cl || js_Boot.__interfLoop(i,cl)) {
+			var i = _g1++;
+			var i1 = intf[i];
+			if(i1 == cl || js_Boot.__interfLoop(i1,cl)) {
 				return true;
 			}
 		}
@@ -43242,8 +45121,9 @@ hxsl_GlslOut.prototype = {
 			this.buf.b += "string";
 			break;
 		case 5:
+			var k = t[3];
 			var size = t[2];
-			switch(t[3][1]) {
+			switch(k[1]) {
 			case 0:
 				this.buf.b += "i";
 				break;
@@ -43267,8 +45147,9 @@ hxsl_GlslOut.prototype = {
 			this.buf.b += "_mat3x4";
 			break;
 		case 9:
+			var n = t[2];
 			this.buf.b += "vec";
-			this.buf.b += Std.string(t[2]);
+			this.buf.b += Std.string(n);
 			break;
 		case 10:
 			this.buf.b += "sampler2D";
@@ -43293,15 +45174,18 @@ hxsl_GlslOut.prototype = {
 			break;
 		case 14:
 			var size1 = t[3];
-			this.addType(t[2]);
+			var t1 = t[2];
+			this.addType(t1);
 			this.buf.b += "[";
 			switch(size1[1]) {
 			case 0:
-				this.buf.b += Std.string(size1[2]);
+				var v1 = size1[2];
+				this.buf.b += Std.string(v1);
 				break;
 			case 1:
-				var v1 = this.varName(size1[2]);
-				this.buf.b += Std.string(v1);
+				var v2 = size1[2];
+				var v3 = this.varName(v2);
+				this.buf.b += Std.string(v3);
 				break;
 			}
 			this.buf.b += "]";
@@ -43312,32 +45196,36 @@ hxsl_GlslOut.prototype = {
 		var _g = v.type;
 		if(_g[1] == 14) {
 			var size = _g[3];
+			var t = _g[2];
 			var old = v.type;
-			v.type = _g[2];
+			v.type = t;
 			this.addVar(v);
 			v.type = old;
 			this.buf.b += "[";
 			switch(size[1]) {
 			case 0:
-				this.buf.b += Std.string(size[2]);
+				var n = size[2];
+				this.buf.b += Std.string(n);
 				break;
 			case 1:
-				var v1 = this.varName(size[2]);
-				this.buf.b += Std.string(v1);
+				var v1 = size[2];
+				var v2 = this.varName(v1);
+				this.buf.b += Std.string(v2);
 				break;
 			}
 			this.buf.b += "]";
 		} else {
 			this.addType(v.type);
 			this.buf.b += " ";
-			var v2 = this.varName(v);
-			this.buf.b += Std.string(v2);
+			var v3 = this.varName(v);
+			this.buf.b += Std.string(v3);
 		}
 	}
 	,addValue: function(e,tabs) {
 		var _g = e.e;
 		switch(_g[1]) {
 		case 4:
+			var el = _g[2];
 			var name = "val" + this.exprIds++;
 			var tmp = this.buf;
 			this.buf = new StringBuf();
@@ -43345,25 +45233,30 @@ hxsl_GlslOut.prototype = {
 			this.buf.b += " ";
 			this.buf.b += Std.string(name);
 			this.buf.b += "(void)";
-			var el2 = _g[2].slice();
+			var el2 = el.slice();
 			var last = el2[el2.length - 1];
 			el2[el2.length - 1] = { e : hxsl_TExprDef.TReturn(last), t : e.t, p : last.p};
-			this.addExpr({ t : hxsl_Type.TVoid, e : hxsl_TExprDef.TBlock(el2), p : e.p},"");
+			var e2 = { t : hxsl_Type.TVoid, e : hxsl_TExprDef.TBlock(el2), p : e.p};
+			this.addExpr(e2,"");
 			this.exprValues.push(this.buf.b);
 			this.buf = tmp;
 			this.buf.b += Std.string(name);
 			this.buf.b += "()";
 			break;
 		case 10:
+			var eelse = _g[4];
+			var eif = _g[3];
+			var econd = _g[2];
 			this.buf.b += "( ";
-			this.addValue(_g[2],tabs);
+			this.addValue(econd,tabs);
 			this.buf.b += " ) ? ";
-			this.addValue(_g[3],tabs);
+			this.addValue(eif,tabs);
 			this.buf.b += " : ";
-			this.addValue(_g[4],tabs);
+			this.addValue(eelse,tabs);
 			break;
 		case 20:
-			this.addValue(_g[4],tabs);
+			var e1 = _g[4];
+			this.addValue(e1,tabs);
 			break;
 		default:
 			this.addExpr(e,tabs);
@@ -43382,26 +45275,31 @@ hxsl_GlslOut.prototype = {
 				this.buf.b += "null";
 				break;
 			case 1:
-				this.buf.b += Std.string(c[2]);
+				var b = c[2];
+				this.buf.b += Std.string(b);
 				break;
 			case 2:
-				this.buf.b += Std.string(c[2]);
+				var v = c[2];
+				this.buf.b += Std.string(v);
 				break;
 			case 3:
-				var str = "" + c[2];
+				var f = c[2];
+				var str = "" + f;
 				this.buf.b += Std.string(str);
 				if(str.indexOf(".") == -1 && str.indexOf("e") == -1) {
 					this.buf.b += ".";
 				}
 				break;
 			case 4:
-				this.buf.b += Std.string("\"" + c[2] + "\"");
+				var v1 = c[2];
+				this.buf.b += Std.string("\"" + v1 + "\"");
 				break;
 			}
 			break;
 		case 1:
-			var v = this.varName(_g[2]);
-			this.buf.b += Std.string(v);
+			var v2 = _g[2];
+			var v3 = this.varName(v2);
+			this.buf.b += Std.string(v3);
 			break;
 		case 2:
 			var g = _g[2];
@@ -43435,12 +45333,13 @@ hxsl_GlslOut.prototype = {
 				break;
 			default:
 			}
-			var v1 = hxsl_GlslOut.GLOBALS.get(g);
-			this.buf.b += Std.string(v1);
+			var v4 = hxsl_GlslOut.GLOBALS.get(g);
+			this.buf.b += Std.string(v4);
 			break;
 		case 3:
+			var e1 = _g[2];
 			this.buf.b += "(";
-			this.addValue(_g[2],tabs);
+			this.addValue(e1,tabs);
 			this.buf.b += ")";
 			break;
 		case 4:
@@ -43449,20 +45348,20 @@ hxsl_GlslOut.prototype = {
 			var t2 = tabs + "\t";
 			var _g1 = 0;
 			while(_g1 < el.length) {
-				var e1 = el[_g1];
+				var e2 = el[_g1];
 				++_g1;
 				this.buf.b += Std.string(t2);
-				this.addExpr(e1,t2);
-				this.newLine(e1);
+				this.addExpr(e2,t2);
+				this.newLine(e2);
 			}
 			this.buf.b += Std.string(tabs);
 			this.buf.b += "}";
 			break;
 		case 5:
-			var e2 = _g[4];
+			var e21 = _g[4];
 			var e11 = _g[3];
 			var op = _g[2];
-			var _g2 = e2.t;
+			var _g2 = e21.t;
 			var _g11 = e11.t;
 			switch(op[1]) {
 			case 1:
@@ -43479,323 +45378,345 @@ hxsl_GlslOut.prototype = {
 								this.buf.b += "m3x4mult(";
 								this.addValue(e11,tabs);
 								this.buf.b += ",";
-								this.addValue(e2,tabs);
+								this.addValue(e21,tabs);
 								this.buf.b += ")";
 							} else {
 								this.addValue(e11,tabs);
 								this.buf.b += " ";
-								this.buf.b += Std.string(hxsl_Printer.opStr(op));
+								var v5 = hxsl_Printer.opStr(op);
+								this.buf.b += Std.string(v5);
 								this.buf.b += " ";
-								this.addValue(e2,tabs);
+								this.addValue(e21,tabs);
 							}
 						} else {
 							this.addValue(e11,tabs);
 							this.buf.b += " ";
-							this.buf.b += Std.string(hxsl_Printer.opStr(op));
+							var v6 = hxsl_Printer.opStr(op);
+							this.buf.b += Std.string(v6);
 							this.buf.b += " ";
-							this.addValue(e2,tabs);
+							this.addValue(e21,tabs);
 						}
 					} else {
 						this.addValue(e11,tabs);
 						this.buf.b += " ";
-						this.buf.b += Std.string(hxsl_Printer.opStr(op));
+						var v7 = hxsl_Printer.opStr(op);
+						this.buf.b += Std.string(v7);
 						this.buf.b += " ";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 					}
 				} else {
 					this.addValue(e11,tabs);
 					this.buf.b += " ";
-					this.buf.b += Std.string(hxsl_Printer.opStr(op));
+					var v8 = hxsl_Printer.opStr(op);
+					this.buf.b += Std.string(v8);
 					this.buf.b += " ";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 				}
 				break;
 			case 5:
 				if(_g11[1] == 5) {
 					if(_g2[1] == 5) {
-						this.buf.b += Std.string("vec" + _g11[2] + "(");
-						var v2;
+						var n = _g11[2];
+						this.buf.b += Std.string("vec" + n + "(");
+						var v9;
 						switch(op[1]) {
 						case 5:
-							v2 = "equal";
+							v9 = "equal";
 							break;
 						case 6:
-							v2 = "notEqual";
+							v9 = "notEqual";
 							break;
 						case 7:
-							v2 = "greaterThan";
+							v9 = "greaterThan";
 							break;
 						case 8:
-							v2 = "greaterThanEqual";
+							v9 = "greaterThanEqual";
 							break;
 						case 9:
-							v2 = "lessThan";
+							v9 = "lessThan";
 							break;
 						case 10:
-							v2 = "lessThanEqual";
+							v9 = "lessThanEqual";
 							break;
 						default:
 							throw new js__$Boot_HaxeError("assert");
 						}
-						this.buf.b += Std.string(v2);
+						this.buf.b += Std.string(v9);
 						this.buf.b += "(";
 						this.addValue(e11,tabs);
 						this.buf.b += ",";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 						this.buf.b += "))";
 					} else {
 						this.addValue(e11,tabs);
 						this.buf.b += " ";
-						this.buf.b += Std.string(hxsl_Printer.opStr(op));
+						var v10 = hxsl_Printer.opStr(op);
+						this.buf.b += Std.string(v10);
 						this.buf.b += " ";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 					}
 				} else {
 					this.addValue(e11,tabs);
 					this.buf.b += " ";
-					this.buf.b += Std.string(hxsl_Printer.opStr(op));
+					var v11 = hxsl_Printer.opStr(op);
+					this.buf.b += Std.string(v11);
 					this.buf.b += " ";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 				}
 				break;
 			case 6:
 				if(_g11[1] == 5) {
 					if(_g2[1] == 5) {
-						this.buf.b += Std.string("vec" + _g11[2] + "(");
-						var v3;
+						var n1 = _g11[2];
+						this.buf.b += Std.string("vec" + n1 + "(");
+						var v12;
 						switch(op[1]) {
 						case 5:
-							v3 = "equal";
+							v12 = "equal";
 							break;
 						case 6:
-							v3 = "notEqual";
+							v12 = "notEqual";
 							break;
 						case 7:
-							v3 = "greaterThan";
+							v12 = "greaterThan";
 							break;
 						case 8:
-							v3 = "greaterThanEqual";
+							v12 = "greaterThanEqual";
 							break;
 						case 9:
-							v3 = "lessThan";
+							v12 = "lessThan";
 							break;
 						case 10:
-							v3 = "lessThanEqual";
+							v12 = "lessThanEqual";
 							break;
 						default:
 							throw new js__$Boot_HaxeError("assert");
 						}
-						this.buf.b += Std.string(v3);
+						this.buf.b += Std.string(v12);
 						this.buf.b += "(";
 						this.addValue(e11,tabs);
 						this.buf.b += ",";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 						this.buf.b += "))";
 					} else {
 						this.addValue(e11,tabs);
 						this.buf.b += " ";
-						this.buf.b += Std.string(hxsl_Printer.opStr(op));
+						var v13 = hxsl_Printer.opStr(op);
+						this.buf.b += Std.string(v13);
 						this.buf.b += " ";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 					}
 				} else {
 					this.addValue(e11,tabs);
 					this.buf.b += " ";
-					this.buf.b += Std.string(hxsl_Printer.opStr(op));
+					var v14 = hxsl_Printer.opStr(op);
+					this.buf.b += Std.string(v14);
 					this.buf.b += " ";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 				}
 				break;
 			case 7:
 				if(_g11[1] == 5) {
 					if(_g2[1] == 5) {
-						this.buf.b += Std.string("vec" + _g11[2] + "(");
-						var v4;
+						var n2 = _g11[2];
+						this.buf.b += Std.string("vec" + n2 + "(");
+						var v15;
 						switch(op[1]) {
 						case 5:
-							v4 = "equal";
+							v15 = "equal";
 							break;
 						case 6:
-							v4 = "notEqual";
+							v15 = "notEqual";
 							break;
 						case 7:
-							v4 = "greaterThan";
+							v15 = "greaterThan";
 							break;
 						case 8:
-							v4 = "greaterThanEqual";
+							v15 = "greaterThanEqual";
 							break;
 						case 9:
-							v4 = "lessThan";
+							v15 = "lessThan";
 							break;
 						case 10:
-							v4 = "lessThanEqual";
+							v15 = "lessThanEqual";
 							break;
 						default:
 							throw new js__$Boot_HaxeError("assert");
 						}
-						this.buf.b += Std.string(v4);
+						this.buf.b += Std.string(v15);
 						this.buf.b += "(";
 						this.addValue(e11,tabs);
 						this.buf.b += ",";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 						this.buf.b += "))";
 					} else {
 						this.addValue(e11,tabs);
 						this.buf.b += " ";
-						this.buf.b += Std.string(hxsl_Printer.opStr(op));
+						var v16 = hxsl_Printer.opStr(op);
+						this.buf.b += Std.string(v16);
 						this.buf.b += " ";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 					}
 				} else {
 					this.addValue(e11,tabs);
 					this.buf.b += " ";
-					this.buf.b += Std.string(hxsl_Printer.opStr(op));
+					var v17 = hxsl_Printer.opStr(op);
+					this.buf.b += Std.string(v17);
 					this.buf.b += " ";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 				}
 				break;
 			case 8:
 				if(_g11[1] == 5) {
 					if(_g2[1] == 5) {
-						this.buf.b += Std.string("vec" + _g11[2] + "(");
-						var v5;
+						var n3 = _g11[2];
+						this.buf.b += Std.string("vec" + n3 + "(");
+						var v18;
 						switch(op[1]) {
 						case 5:
-							v5 = "equal";
+							v18 = "equal";
 							break;
 						case 6:
-							v5 = "notEqual";
+							v18 = "notEqual";
 							break;
 						case 7:
-							v5 = "greaterThan";
+							v18 = "greaterThan";
 							break;
 						case 8:
-							v5 = "greaterThanEqual";
+							v18 = "greaterThanEqual";
 							break;
 						case 9:
-							v5 = "lessThan";
+							v18 = "lessThan";
 							break;
 						case 10:
-							v5 = "lessThanEqual";
+							v18 = "lessThanEqual";
 							break;
 						default:
 							throw new js__$Boot_HaxeError("assert");
 						}
-						this.buf.b += Std.string(v5);
+						this.buf.b += Std.string(v18);
 						this.buf.b += "(";
 						this.addValue(e11,tabs);
 						this.buf.b += ",";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 						this.buf.b += "))";
 					} else {
 						this.addValue(e11,tabs);
 						this.buf.b += " ";
-						this.buf.b += Std.string(hxsl_Printer.opStr(op));
+						var v19 = hxsl_Printer.opStr(op);
+						this.buf.b += Std.string(v19);
 						this.buf.b += " ";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 					}
 				} else {
 					this.addValue(e11,tabs);
 					this.buf.b += " ";
-					this.buf.b += Std.string(hxsl_Printer.opStr(op));
+					var v20 = hxsl_Printer.opStr(op);
+					this.buf.b += Std.string(v20);
 					this.buf.b += " ";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 				}
 				break;
 			case 9:
 				if(_g11[1] == 5) {
 					if(_g2[1] == 5) {
-						this.buf.b += Std.string("vec" + _g11[2] + "(");
-						var v6;
+						var n4 = _g11[2];
+						this.buf.b += Std.string("vec" + n4 + "(");
+						var v21;
 						switch(op[1]) {
 						case 5:
-							v6 = "equal";
+							v21 = "equal";
 							break;
 						case 6:
-							v6 = "notEqual";
+							v21 = "notEqual";
 							break;
 						case 7:
-							v6 = "greaterThan";
+							v21 = "greaterThan";
 							break;
 						case 8:
-							v6 = "greaterThanEqual";
+							v21 = "greaterThanEqual";
 							break;
 						case 9:
-							v6 = "lessThan";
+							v21 = "lessThan";
 							break;
 						case 10:
-							v6 = "lessThanEqual";
+							v21 = "lessThanEqual";
 							break;
 						default:
 							throw new js__$Boot_HaxeError("assert");
 						}
-						this.buf.b += Std.string(v6);
+						this.buf.b += Std.string(v21);
 						this.buf.b += "(";
 						this.addValue(e11,tabs);
 						this.buf.b += ",";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 						this.buf.b += "))";
 					} else {
 						this.addValue(e11,tabs);
 						this.buf.b += " ";
-						this.buf.b += Std.string(hxsl_Printer.opStr(op));
+						var v22 = hxsl_Printer.opStr(op);
+						this.buf.b += Std.string(v22);
 						this.buf.b += " ";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 					}
 				} else {
 					this.addValue(e11,tabs);
 					this.buf.b += " ";
-					this.buf.b += Std.string(hxsl_Printer.opStr(op));
+					var v23 = hxsl_Printer.opStr(op);
+					this.buf.b += Std.string(v23);
 					this.buf.b += " ";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 				}
 				break;
 			case 10:
 				if(_g11[1] == 5) {
 					if(_g2[1] == 5) {
-						this.buf.b += Std.string("vec" + _g11[2] + "(");
-						var v7;
+						var n5 = _g11[2];
+						this.buf.b += Std.string("vec" + n5 + "(");
+						var v24;
 						switch(op[1]) {
 						case 5:
-							v7 = "equal";
+							v24 = "equal";
 							break;
 						case 6:
-							v7 = "notEqual";
+							v24 = "notEqual";
 							break;
 						case 7:
-							v7 = "greaterThan";
+							v24 = "greaterThan";
 							break;
 						case 8:
-							v7 = "greaterThanEqual";
+							v24 = "greaterThanEqual";
 							break;
 						case 9:
-							v7 = "lessThan";
+							v24 = "lessThan";
 							break;
 						case 10:
-							v7 = "lessThanEqual";
+							v24 = "lessThanEqual";
 							break;
 						default:
 							throw new js__$Boot_HaxeError("assert");
 						}
-						this.buf.b += Std.string(v7);
+						this.buf.b += Std.string(v24);
 						this.buf.b += "(";
 						this.addValue(e11,tabs);
 						this.buf.b += ",";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 						this.buf.b += "))";
 					} else {
 						this.addValue(e11,tabs);
 						this.buf.b += " ";
-						this.buf.b += Std.string(hxsl_Printer.opStr(op));
+						var v25 = hxsl_Printer.opStr(op);
+						this.buf.b += Std.string(v25);
 						this.buf.b += " ";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 					}
 				} else {
 					this.addValue(e11,tabs);
 					this.buf.b += " ";
-					this.buf.b += Std.string(hxsl_Printer.opStr(op));
+					var v26 = hxsl_Printer.opStr(op);
+					this.buf.b += Std.string(v26);
 					this.buf.b += " ";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 				}
 				break;
 			case 18:
@@ -43803,7 +45724,7 @@ hxsl_GlslOut.prototype = {
 				this.buf.b += "_ushr(";
 				this.addValue(e11,tabs);
 				this.buf.b += ",";
-				this.addValue(e2,tabs);
+				this.addValue(e21,tabs);
 				this.buf.b += ")";
 				break;
 			case 19:
@@ -43814,7 +45735,7 @@ hxsl_GlslOut.prototype = {
 				this.buf.b += "mod(";
 				this.addValue(e11,tabs);
 				this.buf.b += ",";
-				this.addValue(e2,tabs);
+				this.addValue(e21,tabs);
 				this.buf.b += ")";
 				break;
 			case 20:
@@ -43833,35 +45754,39 @@ hxsl_GlslOut.prototype = {
 									this.buf.b += "m3x4mult(";
 									this.addValue(e11,tabs);
 									this.buf.b += ",";
-									this.addValue(e2,tabs);
+									this.addValue(e21,tabs);
 									this.buf.b += ")";
 								} else {
 									this.addValue(e11,tabs);
 									this.buf.b += " ";
-									this.buf.b += Std.string(hxsl_Printer.opStr(op));
+									var v27 = hxsl_Printer.opStr(op);
+									this.buf.b += Std.string(v27);
 									this.buf.b += " ";
-									this.addValue(e2,tabs);
+									this.addValue(e21,tabs);
 								}
 							} else {
 								this.addValue(e11,tabs);
 								this.buf.b += " ";
-								this.buf.b += Std.string(hxsl_Printer.opStr(op));
+								var v28 = hxsl_Printer.opStr(op);
+								this.buf.b += Std.string(v28);
 								this.buf.b += " ";
-								this.addValue(e2,tabs);
+								this.addValue(e21,tabs);
 							}
 						} else {
 							this.addValue(e11,tabs);
 							this.buf.b += " ";
-							this.buf.b += Std.string(hxsl_Printer.opStr(op));
+							var v29 = hxsl_Printer.opStr(op);
+							this.buf.b += Std.string(v29);
 							this.buf.b += " ";
-							this.addValue(e2,tabs);
+							this.addValue(e21,tabs);
 						}
 					} else {
 						this.addValue(e11,tabs);
 						this.buf.b += " ";
-						this.buf.b += Std.string(hxsl_Printer.opStr(op));
+						var v30 = hxsl_Printer.opStr(op);
+						this.buf.b += Std.string(v30);
 						this.buf.b += " ";
-						this.addValue(e2,tabs);
+						this.addValue(e21,tabs);
 					}
 					break;
 				case 19:
@@ -43872,31 +45797,34 @@ hxsl_GlslOut.prototype = {
 					this.buf.b += "mod(";
 					this.addValue(e11,tabs);
 					this.buf.b += ",";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 					this.buf.b += ")";
 					break;
 				default:
 					this.addValue(e11,tabs);
 					this.buf.b += " ";
-					this.buf.b += Std.string(hxsl_Printer.opStr(op));
+					var v31 = hxsl_Printer.opStr(op);
+					this.buf.b += Std.string(v31);
 					this.buf.b += " ";
-					this.addValue(e2,tabs);
+					this.addValue(e21,tabs);
 				}
 				break;
 			default:
 				this.addValue(e11,tabs);
 				this.buf.b += " ";
-				this.buf.b += Std.string(hxsl_Printer.opStr(op));
+				var v32 = hxsl_Printer.opStr(op);
+				this.buf.b += Std.string(v32);
 				this.buf.b += " ";
-				this.addValue(e2,tabs);
+				this.addValue(e21,tabs);
 			}
 			break;
 		case 6:
 			var e12 = _g[3];
+			var op1 = _g[2];
 			var _this = this.buf;
 			var _this1 = _this.b;
 			var tmp;
-			switch(_g[2][1]) {
+			switch(op1[1]) {
 			case 0:
 				tmp = "++";
 				break;
@@ -43918,11 +45846,11 @@ hxsl_GlslOut.prototype = {
 			break;
 		case 7:
 			var init = _g[3];
-			var v8 = _g[2];
-			this.locals.set(v8.id,v8);
+			var v33 = _g[2];
+			this.locals.set(v33.id,v33);
 			if(init != null) {
-				var v9 = this.varName(v8);
-				this.buf.b += Std.string(v9);
+				var v34 = this.varName(v33);
+				this.buf.b += Std.string(v34);
 				this.buf.b += " = ";
 				this.addValue(init,tabs);
 			} else {
@@ -43936,64 +45864,42 @@ hxsl_GlslOut.prototype = {
 					if(_g[3].length == 1) {
 						var e3 = _g[3][0];
 						if(e3.t == hxsl_Type.TMat3x4) {
+							this.decl(hxsl_GlslOut.MAT34);
 							this.decl("mat3 _mat3( _mat3x4 v ) { return mat3(v.a.xyz,v.b.xyz,v.c.xyz); }");
 							this.buf.b += "_mat3(";
 							this.addValue(e3,tabs);
 							this.buf.b += ")";
 						} else {
+							var e4 = _g[2];
 							var args = _g[3];
-							this.addValue(_g[2],tabs);
+							this.addValue(e4,tabs);
 							this.buf.b += "(";
 							var first = true;
 							var _g3 = 0;
 							while(_g3 < args.length) {
-								var e4 = args[_g3];
+								var e5 = args[_g3];
 								++_g3;
 								if(first) {
 									first = false;
 								} else {
 									this.buf.b += ", ";
 								}
-								this.addValue(e4,tabs);
+								this.addValue(e5,tabs);
 							}
 							this.buf.b += ")";
 						}
 					} else {
+						var e6 = _g[2];
 						var args1 = _g[3];
-						this.addValue(_g[2],tabs);
+						this.addValue(e6,tabs);
 						this.buf.b += "(";
 						var first1 = true;
 						var _g4 = 0;
 						while(_g4 < args1.length) {
-							var e5 = args1[_g4];
+							var e7 = args1[_g4];
 							++_g4;
 							if(first1) {
 								first1 = false;
-							} else {
-								this.buf.b += ", ";
-							}
-							this.addValue(e5,tabs);
-						}
-						this.buf.b += ")";
-					}
-					break;
-				case 51:
-					if(_g[3].length == 1) {
-						var e6 = _g[3][0];
-						this.buf.b += "clamp(";
-						this.addValue(e6,tabs);
-						this.buf.b += ", 0., 1.)";
-					} else {
-						var args2 = _g[3];
-						this.addValue(_g[2],tabs);
-						this.buf.b += "(";
-						var first2 = true;
-						var _g5 = 0;
-						while(_g5 < args2.length) {
-							var e7 = args2[_g5];
-							++_g5;
-							if(first2) {
-								first2 = false;
 							} else {
 								this.buf.b += ", ";
 							}
@@ -44002,87 +45908,117 @@ hxsl_GlslOut.prototype = {
 						this.buf.b += ")";
 					}
 					break;
+				case 51:
+					if(_g[3].length == 1) {
+						var e8 = _g[3][0];
+						this.buf.b += "clamp(";
+						this.addValue(e8,tabs);
+						this.buf.b += ", 0., 1.)";
+					} else {
+						var e9 = _g[2];
+						var args2 = _g[3];
+						this.addValue(e9,tabs);
+						this.buf.b += "(";
+						var first2 = true;
+						var _g5 = 0;
+						while(_g5 < args2.length) {
+							var e10 = args2[_g5];
+							++_g5;
+							if(first2) {
+								first2 = false;
+							} else {
+								this.buf.b += ", ";
+							}
+							this.addValue(e10,tabs);
+						}
+						this.buf.b += ")";
+					}
+					break;
 				default:
 					var args3 = _g[3];
-					this.addValue(_g[2],tabs);
+					var e13 = _g[2];
+					this.addValue(e13,tabs);
 					this.buf.b += "(";
 					var first3 = true;
 					var _g6 = 0;
 					while(_g6 < args3.length) {
-						var e8 = args3[_g6];
+						var e14 = args3[_g6];
 						++_g6;
 						if(first3) {
 							first3 = false;
 						} else {
 							this.buf.b += ", ";
 						}
-						this.addValue(e8,tabs);
+						this.addValue(e14,tabs);
 					}
 					this.buf.b += ")";
 				}
 			} else {
 				var args4 = _g[3];
-				this.addValue(_g[2],tabs);
+				var e15 = _g[2];
+				this.addValue(e15,tabs);
 				this.buf.b += "(";
 				var first4 = true;
 				var _g7 = 0;
 				while(_g7 < args4.length) {
-					var e9 = args4[_g7];
+					var e16 = args4[_g7];
 					++_g7;
 					if(first4) {
 						first4 = false;
 					} else {
 						this.buf.b += ", ";
 					}
-					this.addValue(e9,tabs);
+					this.addValue(e16,tabs);
 				}
 				this.buf.b += ")";
 			}
 			break;
 		case 9:
 			var regs = _g[3];
-			var e10 = _g[2];
-			if(e10.t[1] == 3) {
-				var _g8 = 0;
-				while(_g8 < regs.length) {
-					var r = regs[_g8];
-					++_g8;
+			var e17 = _g[2];
+			var _g8 = e17.t;
+			if(_g8[1] == 3) {
+				var _g9 = 0;
+				while(_g9 < regs.length) {
+					var r = regs[_g9];
+					++_g9;
 					if(r != hxsl_Component.X) {
 						throw new js__$Boot_HaxeError("assert");
 					}
 				}
-				switch(regs.length) {
+				var _g10 = regs.length;
+				switch(_g10) {
 				case 1:
-					this.addValue(e10,tabs);
+					this.addValue(e17,tabs);
 					break;
 				case 2:
 					this.decl("vec2 _vec2( float v ) { return vec2(v,v); }");
 					this.buf.b += "_vec2(";
-					this.addValue(e10,tabs);
+					this.addValue(e17,tabs);
 					this.buf.b += ")";
 					break;
 				case 3:
 					this.decl("vec3 _vec3( float v ) { return vec3(v,v,v); }");
 					this.buf.b += "_vec3(";
-					this.addValue(e10,tabs);
+					this.addValue(e17,tabs);
 					this.buf.b += ")";
 					break;
 				case 4:
 					this.decl("vec4 _vec4( float v ) { return vec4(v,v,v,v); }");
 					this.buf.b += "_vec4(";
-					this.addValue(e10,tabs);
+					this.addValue(e17,tabs);
 					this.buf.b += ")";
 					break;
 				default:
 					throw new js__$Boot_HaxeError("assert");
 				}
 			} else {
-				this.addValue(e10,tabs);
+				this.addValue(e17,tabs);
 				this.buf.b += ".";
-				var _g9 = 0;
-				while(_g9 < regs.length) {
-					var r1 = regs[_g9];
-					++_g9;
+				var _g12 = 0;
+				while(_g12 < regs.length) {
+					var r1 = regs[_g12];
+					++_g12;
 					var _this2 = this.buf;
 					var _this3 = _this2.b;
 					var tmp1;
@@ -44107,8 +46043,9 @@ hxsl_GlslOut.prototype = {
 		case 10:
 			var eelse = _g[4];
 			var eif = _g[3];
+			var econd = _g[2];
 			this.buf.b += "if( ";
-			this.addValue(_g[2],tabs);
+			this.addValue(econd,tabs);
 			this.buf.b += ") ";
 			this.addExpr(eif,tabs);
 			if(eelse != null) {
@@ -44123,27 +46060,31 @@ hxsl_GlslOut.prototype = {
 			this.buf.b += "discard";
 			break;
 		case 12:
-			var e13 = _g[2];
-			if(e13 == null) {
+			var e18 = _g[2];
+			if(e18 == null) {
 				this.buf.b += "return";
 			} else {
 				this.buf.b += "return ";
-				this.addValue(e13,tabs);
+				this.addValue(e18,tabs);
 			}
 			break;
 		case 13:
-			var v10 = _g[2];
-			this.locals.set(v10.id,v10);
-			var _g10 = _g[3].e;
-			if(_g10[1] == 5) {
-				if(_g10[2][1] == 21) {
+			var loop = _g[4];
+			var it = _g[3];
+			var v35 = _g[2];
+			this.locals.set(v35.id,v35);
+			var _g13 = it.e;
+			if(_g13[1] == 5) {
+				if(_g13[2][1] == 21) {
+					var e22 = _g13[4];
+					var e19 = _g13[3];
 					this.buf.b += "for(";
-					this.buf.b += Std.string(v10.name + "=");
-					this.addValue(_g10[3],tabs);
-					this.buf.b += Std.string(";" + v10.name + "<");
-					this.addValue(_g10[4],tabs);
-					this.buf.b += Std.string(";" + v10.name + "++) ");
-					this.addBlock(_g[4],tabs);
+					this.buf.b += Std.string(v35.name + "=");
+					this.addValue(e19,tabs);
+					this.buf.b += Std.string(";" + v35.name + "<");
+					this.addValue(e22,tabs);
+					this.buf.b += Std.string(";" + v35.name + "++) ");
+					this.addBlock(loop,tabs);
 				} else {
 					throw new js__$Boot_HaxeError("assert");
 				}
@@ -44158,25 +46099,27 @@ hxsl_GlslOut.prototype = {
 			this.buf.b += "break";
 			break;
 		case 16:
-			this.addValue(_g[2],tabs);
+			var index = _g[3];
+			var e20 = _g[2];
+			this.addValue(e20,tabs);
 			this.buf.b += "[";
-			this.addValue(_g[3],tabs);
+			this.addValue(index,tabs);
 			this.buf.b += "]";
 			break;
 		case 17:
 			var el1 = _g[2];
 			this.buf.b += "[";
 			var first5 = true;
-			var _g12 = 0;
-			while(_g12 < el1.length) {
-				var e14 = el1[_g12];
-				++_g12;
+			var _g14 = 0;
+			while(_g14 < el1.length) {
+				var e23 = el1[_g14];
+				++_g14;
 				if(first5) {
 					first5 = false;
 				} else {
 					this.buf.b += ", ";
 				}
-				this.addValue(e14,tabs);
+				this.addValue(e23,tabs);
 			}
 			this.buf.b += "]";
 			break;
@@ -44185,21 +46128,27 @@ hxsl_GlslOut.prototype = {
 			break;
 		case 19:
 			if(_g[4] == false) {
+				var e24 = _g[2];
+				var loop1 = _g[3];
+				var old = tabs;
 				tabs += "\t";
 				this.buf.b += "do ";
-				this.addBlock(_g[3],tabs);
+				this.addBlock(loop1,tabs);
 				this.buf.b += " while( ";
-				this.addValue(_g[2],tabs);
+				this.addValue(e24,tabs);
 				this.buf.b += " )";
 			} else {
+				var e25 = _g[2];
+				var loop2 = _g[3];
 				this.buf.b += "while( ";
-				this.addValue(_g[2],tabs);
+				this.addValue(e25,tabs);
 				this.buf.b += " ) ";
-				this.addBlock(_g[3],tabs);
+				this.addBlock(loop2,tabs);
 			}
 			break;
 		case 20:
-			this.addExpr(_g[4],tabs);
+			var e26 = _g[4];
+			this.addExpr(e26,tabs);
 			break;
 		}
 	}
@@ -44261,10 +46210,12 @@ hxsl_GlslOut.prototype = {
 		case 4:
 			return true;
 		case 13:
-			return this.isBlock(_g[4]);
+			var loop = _g[4];
+			return this.isBlock(loop);
 		case 19:
 			if(_g[4] == true) {
-				return this.isBlock(_g[3]);
+				var loop1 = _g[3];
+				return this.isBlock(loop1);
 			} else {
 				return false;
 			}
@@ -44291,7 +46242,8 @@ hxsl_GlslOut.prototype = {
 		while(_g < _g1.length) {
 			var v = _g1[_g];
 			++_g;
-			switch(v.kind[1]) {
+			var _g2 = v.kind;
+			switch(_g2[1]) {
 			case 0:case 2:
 				this.buf.b += "uniform ";
 				break;
@@ -44324,7 +46276,8 @@ hxsl_GlslOut.prototype = {
 					var q = _g4[_g3];
 					++_g3;
 					if(q[1] == 6) {
-						switch(q[2][1]) {
+						var p = q[2];
+						switch(p[1]) {
 						case 0:
 							this.buf.b += "lowp ";
 							break;
@@ -44350,13 +46303,13 @@ hxsl_GlslOut.prototype = {
 		var tmp = this.buf;
 		this.buf = new StringBuf();
 		this.buf.b += "void main(void) {\n";
-		var _g2 = f.expr.e;
-		if(_g2[1] == 4) {
-			var el = _g2[2];
-			var _g5 = 0;
-			while(_g5 < el.length) {
-				var e = el[_g5];
-				++_g5;
+		var _g5 = f.expr.e;
+		if(_g5[1] == 4) {
+			var el = _g5[2];
+			var _g6 = 0;
+			while(_g6 < el.length) {
+				var e = el[_g6];
+				++_g6;
 				this.buf.b += "\t";
 				this.addExpr(e,"\t");
 				this.newLine(e);
@@ -44369,7 +46322,8 @@ hxsl_GlslOut.prototype = {
 		this.buf = tmp;
 		var v1 = this.locals.iterator();
 		while(v1.hasNext()) {
-			this.addVar(v1.next());
+			var v2 = v1.next();
+			this.addVar(v2);
 			this.buf.b += ";\n";
 		}
 		this.buf.b += "\n";
@@ -44426,7 +46380,8 @@ hxsl_Linker.prototype = {
 		return hxsl_Error.t(msg,p);
 	}
 	,mergeVar: function(path,v,v2,p) {
-		switch(v.kind[1]) {
+		var _g = v.kind;
+		switch(_g[1]) {
 		case 2:case 6:
 			throw new js__$Boot_HaxeError("assert");
 			break;
@@ -44488,7 +46443,8 @@ hxsl_Linker.prototype = {
 				var q = _g1[_g];
 				++_g;
 				if(q[1] == 4) {
-					key = q[2];
+					var n = q[2];
+					key = n;
 				}
 			}
 		}
@@ -44597,8 +46553,10 @@ hxsl_Linker.prototype = {
 			if(!this.locals.exists(v.id)) {
 				var v1 = this.allocVar(v,e.p);
 				if(this.curShader != null && !this.curShader.write.exists(v1.id)) {
+					var msg = this.curShader.name + " read " + v1.path;
 					this.curShader.read.set(v1.id,v1);
 					if(this.curShader.vertex == null && v1.v.kind == hxsl_VarKind.Var) {
+						var msg1 = "Force " + this.curShader.name + " into fragment (use varying)";
 						this.curShader.vertex = false;
 					}
 				}
@@ -44619,6 +46577,7 @@ hxsl_Linker.prototype = {
 						var e21 = this.mapExprVar(e2);
 						var v3 = this.allocVar(v2,e1.p);
 						if(this.curShader != null) {
+							var msg2 = this.curShader.name + " write " + v3.path;
 							this.curShader.write.set(v3.id,v3);
 						}
 						return { e : hxsl_TExprDef.TBinop(op,{ e : hxsl_TExprDef.TVar(v3.v), t : v3.v.type, p : e.p},e21), t : e.t, p : e.p};
@@ -44629,6 +46588,7 @@ hxsl_Linker.prototype = {
 							var e22 = this.mapExprVar(e2);
 							var v5 = this.allocVar(v4,e11.p);
 							if(this.curShader != null) {
+								var msg3 = this.curShader.name + " write " + v5.path;
 								this.curShader.write.set(v5.id,v5);
 							}
 							return { e : hxsl_TExprDef.TBinop(op,e11,e22), t : e.t, p : e.p};
@@ -44643,6 +46603,7 @@ hxsl_Linker.prototype = {
 							var e23 = this.mapExprVar(e2);
 							var v7 = this.allocVar(v6,e12.p);
 							if(this.curShader != null) {
+								var msg4 = this.curShader.name + " write " + v7.path;
 								this.curShader.write.set(v7.id,v7);
 							}
 							return { e : hxsl_TExprDef.TBinop(op,e12,e23), t : e.t, p : e.p};
@@ -44661,6 +46622,7 @@ hxsl_Linker.prototype = {
 						var e24 = this.mapExprVar(e2);
 						var v9 = this.allocVar(v8,e13.p);
 						if(this.curShader != null) {
+							var msg5 = this.curShader.name + " write " + v9.path;
 							this.curShader.write.set(v9.id,v9);
 						}
 						return { e : hxsl_TExprDef.TBinop(op,e13,e24), t : e.t, p : e.p};
@@ -44674,6 +46636,7 @@ hxsl_Linker.prototype = {
 							var e25 = this.mapExprVar(e2);
 							var v11 = this.allocVar(v10,e14.p);
 							if(this.curShader != null) {
+								var msg6 = this.curShader.name + " write " + v11.path;
 								this.curShader.write.set(v11.id,v11);
 							}
 							return { e : hxsl_TExprDef.TBinop(op,e14,e25), t : e.t, p : e.p};
@@ -44687,7 +46650,8 @@ hxsl_Linker.prototype = {
 			}
 			break;
 		case 7:
-			this.locals.set(_g[2].id,true);
+			var v12 = _g[2];
+			this.locals.set(v12.id,true);
 			break;
 		case 11:
 			if(this.curShader != null) {
@@ -44696,7 +46660,8 @@ hxsl_Linker.prototype = {
 			}
 			break;
 		case 13:
-			this.locals.set(_g[2].id,true);
+			var v13 = _g[2];
+			this.locals.set(v13.id,true);
 			break;
 		default:
 		}
@@ -44733,6 +46698,7 @@ hxsl_Linker.prototype = {
 			if(s.vertex && parent.vertex == false) {
 				continue;
 			}
+			var msg = s.name + " => " + parent.name + " (" + v.path + ")";
 			s.deps.set(parent,true);
 			this.debugDepth++;
 			this.initDependencies(parent);
@@ -44757,17 +46723,22 @@ hxsl_Linker.prototype = {
 		}
 		if(s.vertex == null) {
 			var d = s.deps.keys();
-			while(d.hasNext()) if(d.next().vertex == false) {
-				s.vertex = false;
-				break;
+			while(d.hasNext()) {
+				var d1 = d.next();
+				if(d1.vertex == false) {
+					var msg = s.name + " marked as fragment because of " + d1.name;
+					s.vertex = false;
+					break;
+				}
 			}
 		}
 		if(s.vertex) {
-			var d1 = s.deps.keys();
-			while(d1.hasNext()) {
-				var d2 = d1.next();
-				if(d2.vertex == null) {
-					d2.vertex = true;
+			var d2 = s.deps.keys();
+			while(d2.hasNext()) {
+				var d3 = d2.next();
+				if(d3.vertex == null) {
+					var msg1 = d3.name + " marked as vertex because of " + s.name;
+					d3.vertex = true;
 				}
 			}
 		}
@@ -44783,18 +46754,24 @@ hxsl_Linker.prototype = {
 		cur.onStack = true;
 		var _g = [];
 		var d = cur.deps.keys();
-		while(d.hasNext()) _g.push(d.next());
-		_g.sort($bind(this,this.sortByPriorityDesc));
+		while(d.hasNext()) {
+			var d1 = d.next();
+			_g.push(d1);
+		}
+		var deps = _g;
+		deps.sort($bind(this,this.sortByPriorityDesc));
 		var _g1 = 0;
-		while(_g1 < _g.length) {
-			var d1 = _g[_g1];
+		while(_g1 < deps.length) {
+			var d2 = deps[_g1];
 			++_g1;
-			this.collect(d1,out,vertex);
+			this.collect(d2,out,vertex);
 		}
 		if(cur.vertex == null) {
+			var msg = "MARK " + cur.name + " " + (vertex ? "vertex" : "fragment");
 			cur.vertex = vertex;
 		}
 		if(cur.vertex == vertex) {
+			var msg1 = "COLLECT " + cur.name + " " + (vertex ? "vertex" : "fragment");
 			out.push(cur);
 		}
 		cur.onStack = false;
@@ -44814,11 +46791,12 @@ hxsl_Linker.prototype = {
 					_g1.h[k1] = true;
 				}
 			}
+			var locals1 = _g1;
 			var _g11 = 0;
 			while(_g11 < el.length) {
 				var e = el[_g11];
 				++_g11;
-				this.uniqueLocals(e,_g1);
+				this.uniqueLocals(e,locals1);
 			}
 			break;
 		case 7:
@@ -44864,16 +46842,18 @@ hxsl_Linker.prototype = {
 			var s = shadersData[_g1];
 			++_g1;
 			var s1 = s;
-			if(dupShaders.h.__keys__[s.__id__] != null) {
-				s1 = hxsl_Clone.shaderData(s);
+			var sreal = s1;
+			if(dupShaders.h.__keys__[s1.__id__] != null) {
+				s1 = hxsl_Clone.shaderData(s1);
 			}
-			dupShaders.set(s1,s);
+			dupShaders.set(s1,sreal);
 			_g.push(s1);
 		}
+		shadersData = _g;
 		this.curInstance = 0;
 		var _g11 = 0;
-		while(_g11 < _g.length) {
-			var s2 = _g[_g11];
+		while(_g11 < shadersData.length) {
+			var s2 = shadersData[_g11];
 			++_g11;
 			var _g2 = 0;
 			var _g3 = s2.vars;
@@ -44887,31 +46867,34 @@ hxsl_Linker.prototype = {
 			while(_g21 < _g31.length) {
 				var f = _g31[_g21];
 				++_g21;
-				this.allocVar(f.ref,f.expr.p).kind = f.kind;
+				var v1 = this.allocVar(f.ref,f.expr.p);
+				v1.kind = f.kind;
 			}
 			this.curInstance++;
 		}
 		var priority = 0;
 		var _g12 = 0;
-		while(_g12 < _g.length) {
-			var s3 = _g[_g12];
+		while(_g12 < shadersData.length) {
+			var s3 = shadersData[_g12];
 			++_g12;
 			var _g22 = 0;
 			var _g32 = s3.funs;
 			while(_g22 < _g32.length) {
 				var f1 = _g32[_g22];
 				++_g22;
-				var v1 = this.allocVar(f1.ref,f1.expr.p);
-				if(v1.kind == null) {
+				var v2 = this.allocVar(f1.ref,f1.expr.p);
+				if(v2.kind == null) {
 					throw new js__$Boot_HaxeError("assert");
 				}
-				switch(v1.kind[1]) {
+				var _g4 = v2.kind;
+				switch(_g4[1]) {
 				case 0:case 1:
-					this.addShader(s3.name + "." + (v1.kind == hxsl_FunctionKind.Vertex ? "vertex" : "fragment"),v1.kind == hxsl_FunctionKind.Vertex,f1.expr,priority);
+					this.addShader(s3.name + "." + (v2.kind == hxsl_FunctionKind.Vertex ? "vertex" : "fragment"),v2.kind == hxsl_FunctionKind.Vertex,f1.expr,priority);
 					break;
 				case 2:
 					var status;
-					switch(f1.ref.name) {
+					var _g41 = f1.ref.name;
+					switch(_g41) {
 					case "__init__fragment":
 						status = false;
 						break;
@@ -44937,7 +46920,7 @@ hxsl_Linker.prototype = {
 					}
 					break;
 				case 3:
-					throw new js__$Boot_HaxeError("Unexpected helper function in linker " + v1.v.name);
+					throw new js__$Boot_HaxeError("Unexpected helper function in linker " + v2.v.name);
 					break;
 				}
 			}
@@ -44951,12 +46934,12 @@ hxsl_Linker.prototype = {
 			var outVar = outVars[_g13];
 			++_g13;
 			var _this = this.varMap;
-			var v2 = __map_reserved[outVar] != null ? _this.getReserved(outVar) : _this.h[outVar];
-			if(v2 == null) {
+			var v3 = __map_reserved[outVar] != null ? _this.getReserved(outVar) : _this.h[outVar];
+			if(v3 == null) {
 				throw new js__$Boot_HaxeError("Variable not found " + outVar);
 			}
-			v2.v.kind = hxsl_VarKind.Output;
-			this.buildDependency(entry,v2,false);
+			v3.v.kind = hxsl_VarKind.Output;
+			this.buildDependency(entry,v3,false);
 		}
 		var _g14 = 0;
 		var _g23 = this.shaders;
@@ -44978,17 +46961,21 @@ hxsl_Linker.prototype = {
 			}
 			var onlyParams = true;
 			var r = s5.read.iterator();
-			while(r.hasNext()) if(r.next().v.kind != hxsl_VarKind.Param) {
-				onlyParams = false;
-				break;
+			while(r.hasNext()) {
+				var r1 = r.next();
+				if(r1.v.kind != hxsl_VarKind.Param) {
+					onlyParams = false;
+					break;
+				}
 			}
 			if(onlyParams) {
+				var msg = "Force " + s5.name + " into fragment since it only reads params";
 				s5.vertex = false;
 			}
 		}
-		var v3 = [];
+		var v4 = [];
 		var f2 = [];
-		this.collect(entry,v3,true);
+		this.collect(entry,v4,true);
 		this.collect(entry,f2,false);
 		if(f2.pop() != entry) {
 			throw new js__$Boot_HaxeError("assert");
@@ -45001,7 +46988,7 @@ hxsl_Linker.prototype = {
 			s6.marked = null;
 		}
 		var _g17 = 0;
-		var _g26 = v3.concat(f2);
+		var _g26 = v4.concat(f2);
 		while(_g17 < _g26.length) {
 			var s7 = _g26[_g17];
 			++_g17;
@@ -45017,58 +47004,64 @@ hxsl_Linker.prototype = {
 		var outVars1 = [];
 		var varMap = new haxe_ds_IntMap();
 		var addVar = null;
-		addVar = function(v4) {
-			if(varMap.h.hasOwnProperty(v4.id)) {
+		addVar = function(v5) {
+			if(varMap.h.hasOwnProperty(v5.id)) {
 				return;
 			}
-			varMap.h[v4.id] = true;
-			if(v4.v.parent != null) {
-				addVar(v4.parent);
+			varMap.h[v5.id] = true;
+			if(v5.v.parent != null) {
+				addVar(v5.parent);
 			} else {
-				outVars1.push(v4.v);
+				outVars1.push(v5.v);
 			}
 		};
 		var addVar1 = addVar;
 		var _g18 = 0;
-		var _g27 = v3.concat(f2);
+		var _g27 = v4.concat(f2);
 		while(_g18 < _g27.length) {
 			var s8 = _g27[_g18];
 			++_g18;
-			var v5 = s8.read.iterator();
-			while(v5.hasNext()) addVar1(v5.next());
-			var v6 = s8.write.iterator();
-			while(v6.hasNext()) addVar1(v6.next());
+			var v6 = s8.read.iterator();
+			while(v6.hasNext()) {
+				var v7 = v6.next();
+				addVar1(v7);
+			}
+			var v8 = s8.write.iterator();
+			while(v8.hasNext()) {
+				var v9 = v8.next();
+				addVar1(v9);
+			}
 		}
 		var cleanVar = null;
-		cleanVar = function(v7) {
-			var _g19 = v7.type;
+		cleanVar = function(v10) {
+			var _g19 = v10.type;
 			if(_g19[1] == 12) {
 				var vl = _g19[2];
-				if(v7.kind != hxsl_VarKind.Input) {
+				if(v10.kind != hxsl_VarKind.Input) {
 					var vout = [];
 					var _g110 = 0;
 					while(_g110 < vl.length) {
-						var v8 = vl[_g110];
+						var v11 = vl[_g110];
 						++_g110;
-						if(varMap.h.hasOwnProperty(v8.id)) {
-							cleanVar(v8);
-							vout.push(v8);
+						if(varMap.h.hasOwnProperty(v11.id)) {
+							cleanVar(v11);
+							vout.push(v11);
 						}
 					}
-					v7.type = hxsl_Type.TStruct(vout);
+					v10.type = hxsl_Type.TStruct(vout);
 				}
 			}
 		};
 		var cleanVar1 = cleanVar;
 		var _g111 = 0;
 		while(_g111 < outVars1.length) {
-			var v9 = outVars1[_g111];
+			var v12 = outVars1[_g111];
 			++_g111;
-			cleanVar1(v9);
+			cleanVar1(v12);
 		}
 		var build = function(kind,name,a) {
-			var v10 = { id : hxsl_Tools.allocVarId(), name : name, type : hxsl_Type.TFun([{ ret : hxsl_Type.TVoid, args : []}]), kind : hxsl_VarKind.Function};
-			outVars1.push(v10);
+			var v13 = { id : hxsl_Tools.allocVarId(), name : name, type : hxsl_Type.TFun([{ ret : hxsl_Type.TVoid, args : []}]), kind : hxsl_VarKind.Function};
+			outVars1.push(v13);
 			var exprs = [];
 			var _g112 = 0;
 			while(_g112 < a.length) {
@@ -45089,21 +47082,21 @@ hxsl_Linker.prototype = {
 			}
 			var expr = { e : hxsl_TExprDef.TBlock(exprs), t : hxsl_Type.TVoid, p : exprs.length == 0 ? null : exprs[0].p};
 			_gthis.uniqueLocals(expr,new haxe_ds_StringMap());
-			return { kind : kind, ref : v10, ret : hxsl_Type.TVoid, args : [], expr : expr};
+			return { kind : kind, ref : v13, ret : hxsl_Type.TVoid, args : [], expr : expr};
 		};
-		var funs = [build(hxsl_FunctionKind.Vertex,"vertex",v3),build(hxsl_FunctionKind.Fragment,"fragment",f2)];
+		var funs = [build(hxsl_FunctionKind.Vertex,"vertex",v4),build(hxsl_FunctionKind.Fragment,"fragment",f2)];
 		var s10 = dupShaders.keys();
 		while(s10.hasNext()) {
 			var s11 = s10.next();
-			var sreal = dupShaders.h[s11.__id__];
-			if(s11 == sreal) {
+			var sreal1 = dupShaders.h[s11.__id__];
+			if(s11 == sreal1) {
 				continue;
 			}
 			var _g210 = 0;
 			var _g113 = s11.vars.length;
 			while(_g210 < _g113) {
 				var i = _g210++;
-				this.allocVar(s11.vars[i],null).merged.unshift(sreal.vars[i]);
+				this.allocVar(s11.vars[i],null).merged.unshift(sreal1.vars[i]);
 			}
 		}
 		return { name : "out", vars : outVars1, funs : funs};
@@ -45161,7 +47154,8 @@ hxsl_Printer.opStr = function(op) {
 	case 19:
 		return "%";
 	case 20:
-		return hxsl_Printer.opStr(op[2]) + "=";
+		var op1 = op[2];
+		return hxsl_Printer.opStr(op1) + "=";
 	case 21:
 		return "...";
 	case 22:
@@ -45237,17 +47231,20 @@ hxsl_Printer.check = function(s,from) {
 				break;
 			case 7:
 				var init = _g2[3];
+				var v4 = _g2[2];
 				if(init != null) {
 					checkExpr(init);
 				}
-				regVar1(_g2[2],true);
+				regVar1(v4,true);
 				break;
 			case 13:
-				var v4 = _g2[2];
-				checkExpr(_g2[3]);
-				regVar1(v4,true);
-				checkExpr(_g2[4]);
-				regVar1(v4,false);
+				var loop = _g2[4];
+				var it = _g2[3];
+				var v5 = _g2[2];
+				checkExpr(it);
+				regVar1(v5,true);
+				checkExpr(loop);
+				regVar1(v5,false);
 				break;
 			default:
 				hxsl_Tools.iter(e,checkExpr);
@@ -45257,9 +47254,9 @@ hxsl_Printer.check = function(s,from) {
 		var _g5 = 0;
 		var _g11 = s.vars;
 		while(_g5 < _g11.length) {
-			var v5 = _g11[_g5];
+			var v6 = _g11[_g5];
 			++_g5;
-			regVar1(v5,true);
+			regVar1(v6,true);
 		}
 		var _g6 = 0;
 		var _g12 = s.funs;
@@ -45269,17 +47266,17 @@ hxsl_Printer.check = function(s,from) {
 			var _g21 = 0;
 			var _g31 = f.args;
 			while(_g21 < _g31.length) {
-				var v6 = _g31[_g21];
+				var v7 = _g31[_g21];
 				++_g21;
-				regVar1(v6,true);
+				regVar1(v7,true);
 			}
 			checkExpr1(f.expr);
 			var _g22 = 0;
 			var _g32 = f.args;
 			while(_g22 < _g32.length) {
-				var v7 = _g32[_g22];
+				var v8 = _g32[_g22];
 				++_g22;
-				regVar1(v7,false);
+				regVar1(v8,false);
 			}
 		}
 	} catch( e2 ) {
@@ -45368,16 +47365,20 @@ hxsl_Printer.prototype = {
 					v1 = "perObject";
 					break;
 				case 4:
-					v1 = "name('" + q[2] + "')";
+					var n = q[2];
+					v1 = "name('" + n + "')";
 					break;
 				case 5:
 					v1 = "shared";
 					break;
 				case 6:
-					v1 = q[2][0].toLowerCase() + "p";
+					var p = q[2];
+					v1 = p[0].toLowerCase() + "p";
 					break;
 				case 7:
-					v1 = "range(" + q[2] + "," + q[3] + ")";
+					var max1 = q[3];
+					var min = q[2];
+					v1 = "range(" + min + "," + max1 + ")";
 					break;
 				case 8:
 					v1 = "ignore";
@@ -45387,7 +47388,8 @@ hxsl_Printer.prototype = {
 			}
 		}
 		if(v.kind != defKind) {
-			switch(v.kind[1]) {
+			var _g2 = v.kind;
+			switch(_g2[1]) {
 			case 0:
 				this.buffer.b += "@global ";
 				break;
@@ -45418,15 +47420,15 @@ hxsl_Printer.prototype = {
 			this.addVarName(v);
 		}
 		this.buffer.b += " : ";
-		var _g2 = v.type;
-		if(_g2[1] == 12) {
-			var vl = _g2[2];
+		var _g3 = v.type;
+		if(_g3[1] == 12) {
+			var vl = _g3[2];
 			this.buffer.b += "{";
 			var first = true;
-			var _g3 = 0;
-			while(_g3 < vl.length) {
-				var v2 = vl[_g3];
-				++_g3;
+			var _g4 = 0;
+			while(_g4 < vl.length) {
+				var v2 = vl[_g4];
+				++_g4;
 				if(first) {
 					first = false;
 				} else {
@@ -45482,16 +47484,20 @@ hxsl_Printer.prototype = {
 			tmp = "null";
 			break;
 		case 1:
-			tmp = c[2];
+			var b = c[2];
+			tmp = b;
 			break;
 		case 2:
-			tmp = c[2];
+			var i = c[2];
+			tmp = i;
 			break;
 		case 3:
-			tmp = c[2];
+			var f = c[2];
+			tmp = f;
 			break;
 		case 4:
-			tmp = "\"" + c[2] + "\"";
+			var s = c[2];
+			tmp = "\"" + s + "\"";
 			break;
 		}
 		_this.b = _this1 + Std.string(tmp);
@@ -45500,18 +47506,22 @@ hxsl_Printer.prototype = {
 		var _g = e.e;
 		switch(_g[1]) {
 		case 0:
-			this.addConst(_g[2]);
+			var c = _g[2];
+			this.addConst(c);
 			break;
 		case 1:
-			this.addVarName(_g[2]);
+			var v = _g[2];
+			this.addVarName(v);
 			break;
 		case 2:
-			var v = hxsl_Tools2.toString(_g[2]);
-			this.buffer.b += Std.string(v);
+			var g = _g[2];
+			var v1 = hxsl_Tools2.toString(g);
+			this.buffer.b += Std.string(v1);
 			break;
 		case 3:
+			var e1 = _g[2];
 			this.buffer.b += "(";
-			this.addExpr(_g[2],tabs);
+			this.addExpr(e1,tabs);
 			this.buffer.b += ")";
 			break;
 		case 4:
@@ -45520,10 +47530,10 @@ hxsl_Printer.prototype = {
 			tabs += "\t";
 			var _g1 = 0;
 			while(_g1 < el.length) {
-				var e1 = el[_g1];
+				var e2 = el[_g1];
 				++_g1;
 				this.buffer.b += Std.string("\n" + tabs);
-				this.addExpr(e1,tabs);
+				this.addExpr(e2,tabs);
 				this.buffer.b += ";";
 			}
 			tabs = HxOverrides.substr(tabs,1,null);
@@ -45533,16 +47543,21 @@ hxsl_Printer.prototype = {
 			this.buffer.b += "}";
 			break;
 		case 5:
-			this.addExpr(_g[3],tabs);
-			this.buffer.b += Std.string(" " + hxsl_Printer.opStr(_g[2]) + " ");
-			this.addExpr(_g[4],tabs);
+			var e21 = _g[4];
+			var e11 = _g[3];
+			var op = _g[2];
+			this.addExpr(e11,tabs);
+			var v2 = " " + hxsl_Printer.opStr(op) + " ";
+			this.buffer.b += Std.string(v2);
+			this.addExpr(e21,tabs);
 			break;
 		case 6:
-			var e2 = _g[3];
+			var e3 = _g[3];
+			var op1 = _g[2];
 			var _this = this.buffer;
 			var _this1 = _this.b;
 			var tmp;
-			switch(_g[2][1]) {
+			switch(op1[1]) {
 			case 0:
 				tmp = "++";
 				break;
@@ -45560,11 +47575,12 @@ hxsl_Printer.prototype = {
 				break;
 			}
 			_this.b = _this1 + Std.string(tmp);
-			this.addExpr(e2,tabs);
+			this.addExpr(e3,tabs);
 			break;
 		case 7:
 			var init = _g[3];
-			this.addVar(_g[2],hxsl_VarKind.Local,tabs);
+			var v3 = _g[2];
+			this.addVar(v3,hxsl_VarKind.Local,tabs);
 			if(init != null) {
 				this.buffer.b += " = ";
 				this.addExpr(init,tabs);
@@ -45572,25 +47588,27 @@ hxsl_Printer.prototype = {
 			break;
 		case 8:
 			var el1 = _g[3];
-			this.addExpr(_g[2],tabs);
+			var e4 = _g[2];
+			this.addExpr(e4,tabs);
 			this.buffer.b += "(";
 			var first = true;
 			var _g2 = 0;
 			while(_g2 < el1.length) {
-				var e3 = el1[_g2];
+				var e5 = el1[_g2];
 				++_g2;
 				if(first) {
 					first = false;
 				} else {
 					this.buffer.b += ", ";
 				}
-				this.addExpr(e3,tabs);
+				this.addExpr(e5,tabs);
 			}
 			this.buffer.b += ")";
 			break;
 		case 9:
 			var regs = _g[3];
-			this.addExpr(_g[2],tabs);
+			var e6 = _g[2];
+			this.addExpr(e6,tabs);
 			this.buffer.b += ".";
 			var _g3 = 0;
 			while(_g3 < regs.length) {
@@ -45601,10 +47619,12 @@ hxsl_Printer.prototype = {
 			break;
 		case 10:
 			var eelse = _g[4];
+			var eif = _g[3];
+			var cond = _g[2];
 			this.buffer.b += "if( ";
-			this.addExpr(_g[2],tabs);
+			this.addExpr(cond,tabs);
 			this.buffer.b += " ) ";
-			this.addExpr(_g[3],tabs);
+			this.addExpr(eif,tabs);
 			if(eelse != null) {
 				this.buffer.b += " else ";
 				this.addExpr(eelse,tabs);
@@ -45614,20 +47634,23 @@ hxsl_Printer.prototype = {
 			this.buffer.b += "discard";
 			break;
 		case 12:
-			var e4 = _g[2];
+			var e7 = _g[2];
 			this.buffer.b += "return";
-			if(e4 != null) {
+			if(e7 != null) {
 				this.buffer.b += " ";
-				this.addExpr(e4,tabs);
+				this.addExpr(e7,tabs);
 			}
 			break;
 		case 13:
+			var loop = _g[4];
+			var it = _g[3];
+			var v4 = _g[2];
 			this.buffer.b += "for( ";
-			this.addVarName(_g[2]);
+			this.addVarName(v4);
 			this.buffer.b += " in ";
-			this.addExpr(_g[3],tabs);
+			this.addExpr(it,tabs);
 			this.buffer.b += " ) ";
-			this.addExpr(_g[4],tabs);
+			this.addExpr(loop,tabs);
 			break;
 		case 14:
 			this.buffer.b += "continue";
@@ -45636,9 +47659,11 @@ hxsl_Printer.prototype = {
 			this.buffer.b += "break";
 			break;
 		case 16:
-			this.addExpr(_g[2],tabs);
+			var e22 = _g[3];
+			var e12 = _g[2];
+			this.addExpr(e12,tabs);
 			this.buffer.b += "[";
-			this.addExpr(_g[3],tabs);
+			this.addExpr(e22,tabs);
 			this.buffer.b += "]";
 			break;
 		case 17:
@@ -45647,46 +47672,47 @@ hxsl_Printer.prototype = {
 			var first1 = true;
 			var _g4 = 0;
 			while(_g4 < el2.length) {
-				var e5 = el2[_g4];
+				var e8 = el2[_g4];
 				++_g4;
 				if(first1) {
 					first1 = false;
 				} else {
 					this.buffer.b += ", ";
 				}
-				this.addExpr(e5,tabs);
+				this.addExpr(e8,tabs);
 			}
 			this.buffer.b += "]";
 			break;
 		case 18:
 			var def = _g[4];
 			var cases = _g[3];
+			var e9 = _g[2];
 			this.buffer.b += "switch( ";
-			this.addExpr(_g[2],tabs);
+			this.addExpr(e9,tabs);
 			this.buffer.b += ") {";
 			var old = tabs;
 			var _g5 = 0;
 			while(_g5 < cases.length) {
-				var c = cases[_g5];
+				var c1 = cases[_g5];
 				++_g5;
 				this.buffer.b += Std.string("\n" + tabs);
 				this.buffer.b += "case ";
 				var first2 = true;
 				var _g11 = 0;
-				var _g21 = c.values;
+				var _g21 = c1.values;
 				while(_g11 < _g21.length) {
-					var v1 = _g21[_g11];
+					var v5 = _g21[_g11];
 					++_g11;
 					if(first2) {
 						first2 = false;
 					} else {
 						this.buffer.b += ", ";
 					}
-					this.addExpr(v1,tabs);
+					this.addExpr(v5,tabs);
 				}
 				tabs += "\t";
 				this.buffer.b += Std.string(":\n" + tabs);
-				this.addExpr(c.expr,tabs);
+				this.addExpr(c1.expr,tabs);
 				tabs = old;
 			}
 			if(def != null) {
@@ -45700,47 +47726,52 @@ hxsl_Printer.prototype = {
 			break;
 		case 19:
 			if(_g[4] == false) {
+				var e10 = _g[2];
+				var loop1 = _g[3];
 				var old1 = tabs;
 				tabs += "\t";
 				this.buffer.b += Std.string("do {\n" + tabs);
-				this.addExpr(_g[3],tabs);
+				this.addExpr(loop1,tabs);
 				tabs = old1;
-				this.buffer.b += Std.string("\n" + old1 + "} while( ");
-				this.addExpr(_g[2],old1);
+				this.buffer.b += Std.string("\n" + tabs + "} while( ");
+				this.addExpr(e10,tabs);
 				this.buffer.b += " )";
 			} else {
+				var e13 = _g[2];
+				var loop2 = _g[3];
 				this.buffer.b += "while( ";
-				this.addExpr(_g[2],tabs);
+				this.addExpr(e13,tabs);
 				var old2 = tabs;
 				tabs += "\t";
 				this.buffer.b += Std.string(" ) {\n" + tabs);
-				this.addExpr(_g[3],tabs);
+				this.addExpr(loop2,tabs);
 				tabs = old2;
-				this.buffer.b += Std.string("\n" + old2 + "}");
+				this.buffer.b += Std.string("\n" + tabs + "}");
 			}
 			break;
 		case 20:
-			var e6 = _g[4];
+			var e14 = _g[4];
 			var args = _g[3];
-			this.buffer.b += Std.string(_g[2]);
+			var m = _g[2];
+			this.buffer.b += Std.string(m);
 			if(args.length > 0) {
 				this.buffer.b += "(";
 				var first3 = true;
 				var _g6 = 0;
 				while(_g6 < args.length) {
-					var c1 = args[_g6];
+					var c2 = args[_g6];
 					++_g6;
 					if(first3) {
 						first3 = false;
 					} else {
 						this.buffer.b += ", ";
 					}
-					this.addConst(c1);
+					this.addConst(c2);
 				}
 				this.buffer.b += ")";
 			}
 			this.buffer.b += " ";
-			this.addExpr(e6,tabs);
+			this.addExpr(e14,tabs);
 			break;
 		}
 	}
@@ -45880,8 +47911,9 @@ hxsl_SharedShader.prototype = {
 		var c = this.consts;
 		while(c != null) {
 			var c1 = c.v;
+			var _g = c.v.type;
 			var tmp;
-			switch(c.v.type[1]) {
+			switch(_g[1]) {
 			case 1:
 				tmp = hxsl_Const.CInt(constBits >>> c.pos & (1 << c.bits) - 1);
 				break;
@@ -45898,11 +47930,11 @@ hxsl_SharedShader.prototype = {
 		$eval.unrollLoops = true;
 		var i = new hxsl_ShaderInstance($eval["eval"](this.data));
 		this.paramsCount = 0;
-		var _g = 0;
-		var _g1 = this.data.vars;
-		while(_g < _g1.length) {
-			var v = _g1[_g];
-			++_g;
+		var _g1 = 0;
+		var _g11 = this.data.vars;
+		while(_g1 < _g11.length) {
+			var v = _g11[_g1];
+			++_g1;
 			this.addParam($eval,i,v);
 		}
 		this.instanceCache.h[constBits] = i;
@@ -45965,7 +47997,8 @@ hxsl_SharedShader.prototype = {
 			}
 			var bits = hxsl_Tools.getConstBits(v);
 			if(bits > 0) {
-				var c = new hxsl_ShaderConst(v,this.consts == null ? 0 : this.consts.pos + this.consts.bits,bits);
+				var pos = this.consts == null ? 0 : this.consts.pos + this.consts.bits;
+				var c = new hxsl_ShaderConst(v,pos,bits);
 				c.globalId = globalId;
 				c.next = this.consts;
 				this.consts = c;
@@ -46000,7 +48033,8 @@ hxsl_Splitter.prototype = {
 		while(_g < _g1.length) {
 			var f = _g1[_g];
 			++_g;
-			switch(f.kind[1]) {
+			var _g2 = f.kind;
+			switch(_g2[1]) {
 			case 0:
 				this.vars = vvars;
 				vfun = f;
@@ -46016,24 +48050,26 @@ hxsl_Splitter.prototype = {
 			}
 		}
 		this.varMap = new haxe_ds_ObjectMap();
-		var _g2 = 0;
+		var _g3 = 0;
 		var _g11 = Lambda.array(vvars);
-		while(_g2 < _g11.length) {
-			var inf = _g11[_g2];
-			++_g2;
+		while(_g3 < _g11.length) {
+			var inf = _g11[_g3];
+			++_g3;
 			var v = inf.v;
-			switch(v.kind[1]) {
+			var _g21 = v.kind;
+			switch(_g21[1]) {
 			case 3:case 4:
 				v.kind = fvars.h.hasOwnProperty(v.id) ? hxsl_VarKind.Var : hxsl_VarKind.Local;
 				break;
 			default:
 			}
-			switch(v.kind[1]) {
+			var _g31 = v.kind;
+			switch(_g31[1]) {
 			case 3:case 5:
 				if(inf.read > 0 || inf.write > 1) {
 					var nv = { id : hxsl_Tools.allocVarId(), name : v.name, kind : v.kind, type : v.type};
 					this.vars = vvars;
-					this.get(nv);
+					var ninf = this.get(nv);
 					v.kind = hxsl_VarKind.Local;
 					var p = vfun.expr.p;
 					var e = { e : hxsl_TExprDef.TBinop(haxe_macro_Binop.OpAssign,{ e : hxsl_TExprDef.TVar(nv), t : nv.type, p : p},{ e : hxsl_TExprDef.TVar(v), t : v.type, p : p}), t : nv.type, p : p};
@@ -46059,7 +48095,8 @@ hxsl_Splitter.prototype = {
 		while(inf1.hasNext()) {
 			var inf2 = inf1.next();
 			var v1 = inf2.v;
-			switch(v1.kind[1]) {
+			var _g4 = v1.kind;
+			switch(_g4[1]) {
 			case 1:
 				var nv1 = { id : hxsl_Tools.allocVarId(), name : v1.name, kind : hxsl_VarKind.Var, type : v1.type};
 				this.uniqueName(nv1);
@@ -46090,32 +48127,38 @@ hxsl_Splitter.prototype = {
 			default:
 			}
 		}
-		var _g3 = 0;
-		while(_g3 < todo.length) {
-			var v2 = todo[_g3];
-			++_g3;
+		var _g5 = 0;
+		while(_g5 < todo.length) {
+			var v2 = todo[_g5];
+			++_g5;
 			fvars.h[v2.v.id] = v2;
 		}
 		var v3 = vvars.iterator();
-		while(v3.hasNext()) this.checkVar(v3.next(),true,vvars);
-		var v4 = fvars.iterator();
-		while(v4.hasNext()) this.checkVar(v4.next(),false,vvars);
-		var v5 = this.varMap.keys();
+		while(v3.hasNext()) {
+			var v4 = v3.next();
+			this.checkVar(v4,true,vvars);
+		}
+		var v5 = fvars.iterator();
 		while(v5.hasNext()) {
 			var v6 = v5.next();
-			var v21 = this.varMap.h[this.varMap.h[v6.__id__].__id__];
+			this.checkVar(v6,false,vvars);
+		}
+		var v7 = this.varMap.keys();
+		while(v7.hasNext()) {
+			var v8 = v7.next();
+			var v21 = this.varMap.h[this.varMap.h[v8.__id__].__id__];
 			if(v21 != null) {
-				this.varMap.set(v6,v21);
+				this.varMap.set(v8,v21);
 			}
 		}
 		ffun = { ret : ffun.ret, ref : ffun.ref, kind : ffun.kind, args : ffun.args, expr : this.mapVars(ffun.expr)};
-		var _g4 = ffun.expr.e;
-		if(_g4[1] == 4) {
-			var el = _g4[2];
-			var _g5 = 0;
-			while(_g5 < finits.length) {
-				var e1 = finits[_g5];
-				++_g5;
+		var _g6 = ffun.expr.e;
+		if(_g6[1] == 4) {
+			var el = _g6[2];
+			var _g7 = 0;
+			while(_g7 < finits.length) {
+				var e1 = finits[_g7];
+				++_g7;
 				el.unshift(e1);
 			}
 		} else {
@@ -46123,39 +48166,43 @@ hxsl_Splitter.prototype = {
 			ffun.expr = { e : hxsl_TExprDef.TBlock(finits), t : hxsl_Type.TVoid, p : ffun.expr.p};
 		}
 		var _g12 = [];
-		var v7 = vvars.iterator();
-		while(v7.hasNext()) {
-			var v8 = v7.next();
-			if(!v8.local) {
-				_g12.push(v8.v);
-			}
-		}
-		var _g21 = [];
-		var v9 = fvars.iterator();
+		var v9 = vvars.iterator();
 		while(v9.hasNext()) {
 			var v10 = v9.next();
 			if(!v10.local) {
-				_g21.push(v10.v);
+				_g12.push(v10.v);
 			}
 		}
-		_g12.sort(function(v11,v22) {
-			return v11.id - v22.id;
+		var vvars1 = _g12;
+		var _g22 = [];
+		var v11 = fvars.iterator();
+		while(v11.hasNext()) {
+			var v12 = v11.next();
+			if(!v12.local) {
+				_g22.push(v12.v);
+			}
+		}
+		var fvars1 = _g22;
+		vvars1.sort(function(v13,v22) {
+			return v13.id - v22.id;
 		});
-		_g21.sort(function(v12,v23) {
-			return v12.id - v23.id;
+		fvars1.sort(function(v14,v23) {
+			return v14.id - v23.id;
 		});
-		return { vertex : { name : "vertex", vars : _g12, funs : [vfun]}, fragment : { name : "fragment", vars : _g21, funs : [ffun]}};
+		return { vertex : { name : "vertex", vars : vvars1, funs : [vfun]}, fragment : { name : "fragment", vars : fvars1, funs : [ffun]}};
 	}
 	,addExpr: function(f,e) {
 		var _g = f.expr.e;
 		if(_g[1] == 4) {
-			_g[2].push(e);
+			var el = _g[2];
+			el.push(e);
 		} else {
 			f.expr = { e : hxsl_TExprDef.TBlock([f.expr,e]), t : hxsl_Type.TVoid, p : f.expr.p};
 		}
 	}
 	,checkVar: function(v,vertex,vvars) {
-		switch(v.v.kind[1]) {
+		var _g = v.v.kind;
+		switch(_g[1]) {
 		case 3:
 			if(!vertex) {
 				var i = vvars.h[v.v.id];
@@ -46175,7 +48222,8 @@ hxsl_Splitter.prototype = {
 	,mapVars: function(e) {
 		var _g = e.e;
 		if(_g[1] == 1) {
-			var v2 = this.varMap.get(_g[2]);
+			var v = _g[2];
+			var v2 = this.varMap.get(v);
 			if(v2 == null) {
 				return e;
 			} else {
@@ -46226,7 +48274,8 @@ hxsl_Splitter.prototype = {
 		var _g = e.e;
 		switch(_g[1]) {
 		case 1:
-			var inf = this.get(_g[2]);
+			var v = _g[2];
+			var inf = this.get(v);
 			if(inf.write == 0) {
 				inf.requireInit = true;
 			}
@@ -46237,15 +48286,19 @@ hxsl_Splitter.prototype = {
 			case 4:
 				switch(_g[3].e[1]) {
 				case 1:
-					var inf1 = this.get(_g[3].e[2]);
+					var e1 = _g[4];
+					var v1 = _g[3].e[2];
+					var inf1 = this.get(v1);
 					inf1.write++;
-					this.checkExpr(_g[4]);
+					this.checkExpr(e1);
 					break;
 				case 9:
 					if(_g[3].e[2].e[1] == 1) {
-						var inf2 = this.get(_g[3].e[2].e[2]);
+						var e2 = _g[4];
+						var v2 = _g[3].e[2].e[2];
+						var inf2 = this.get(v2);
 						inf2.write++;
-						this.checkExpr(_g[4]);
+						this.checkExpr(e2);
 					} else {
 						hxsl_Tools.iter(e,$bind(this,this.checkExpr));
 					}
@@ -46257,23 +48310,27 @@ hxsl_Splitter.prototype = {
 			case 20:
 				switch(_g[3].e[1]) {
 				case 1:
-					var inf3 = this.get(_g[3].e[2]);
+					var e3 = _g[4];
+					var v3 = _g[3].e[2];
+					var inf3 = this.get(v3);
 					if(inf3.write == 0) {
 						inf3.requireInit = true;
 					}
 					inf3.read++;
 					inf3.write++;
-					this.checkExpr(_g[4]);
+					this.checkExpr(e3);
 					break;
 				case 9:
 					if(_g[3].e[2].e[1] == 1) {
-						var inf4 = this.get(_g[3].e[2].e[2]);
+						var e4 = _g[4];
+						var v4 = _g[3].e[2].e[2];
+						var inf4 = this.get(v4);
 						if(inf4.write == 0) {
 							inf4.requireInit = true;
 						}
 						inf4.read++;
 						inf4.write++;
-						this.checkExpr(_g[4]);
+						this.checkExpr(e4);
 					} else {
 						hxsl_Tools.iter(e,$bind(this,this.checkExpr));
 					}
@@ -46288,7 +48345,8 @@ hxsl_Splitter.prototype = {
 			break;
 		case 7:
 			var init = _g[3];
-			var inf5 = this.get(_g[2]);
+			var v5 = _g[2];
+			var inf5 = this.get(v5);
 			inf5.local = true;
 			if(init != null) {
 				this.checkExpr(init);
@@ -46296,11 +48354,14 @@ hxsl_Splitter.prototype = {
 			}
 			break;
 		case 13:
-			this.checkExpr(_g[3]);
-			var inf6 = this.get(_g[2]);
+			var loop = _g[4];
+			var it = _g[3];
+			var v6 = _g[2];
+			this.checkExpr(it);
+			var inf6 = this.get(v6);
 			inf6.local = true;
 			inf6.write++;
-			this.checkExpr(_g[4]);
+			this.checkExpr(loop);
 			break;
 		default:
 			hxsl_Tools.iter(e,$bind(this,this.checkExpr));
@@ -46354,7 +48415,10 @@ var js_html_compat_ArrayBuffer = function(a) {
 		this.a = [];
 		var _g1 = 0;
 		var _g = len;
-		while(_g1 < _g) this.a[_g1++] = 0;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.a[i] = 0;
+		}
 		this.byteLength = len;
 	}
 };
@@ -46363,7 +48427,8 @@ js_html_compat_ArrayBuffer.__name__ = ["js","html","compat","ArrayBuffer"];
 js_html_compat_ArrayBuffer.sliceImpl = function(begin,end) {
 	var u = new Uint8Array(this,begin,end == null ? null : end - begin);
 	var result = new ArrayBuffer(u.byteLength);
-	new Uint8Array(result).set(u);
+	var resultArray = new Uint8Array(result);
+	resultArray.set(u);
 	return result;
 };
 js_html_compat_ArrayBuffer.prototype = {
@@ -46866,7 +48931,12 @@ haxe_Unserializer.BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 haxe_crypto_Base64.CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 haxe_crypto_Base64.BYTES = haxe_io_Bytes.ofString(haxe_crypto_Base64.CHARS);
 haxe_ds_ObjectMap.count = 0;
-haxe_io_FPHelper.i64tmp = new haxe__$Int64__$_$_$Int64(0,0);
+haxe_io_FPHelper.i64tmp = (function($this) {
+	var $r;
+	var this1 = new haxe__$Int64__$_$_$Int64(0,0);
+	$r = this1;
+	return $r;
+}(this));
 haxe_xml_Parser.escapes = (function($this) {
 	var $r;
 	var h = new haxe_ds_StringMap();
@@ -47029,10 +49099,11 @@ hxd_fmt_hmd__$Data_GeometryDataFormat_$Impl_$.DBytes4 = 9;
 hxd_fmt_hmd_Position.QTMP = new h3d_Quat();
 hxd_fmt_hmd_Material.DEFAULT_FLAGS = (function($this) {
 	var $r;
-	var f = 0;
-	f = 1;
-	f = 3;
-	f = 7;
+	var this1 = 0;
+	var f = this1;
+	f |= 1 << hxd_fmt_hmd_MaterialFlag.HasLighting[1];
+	f |= 1 << hxd_fmt_hmd_MaterialFlag.CastShadows[1];
+	f |= 1 << hxd_fmt_hmd_MaterialFlag.ReceiveShadows[1];
 	$r = f;
 	return $r;
 }(this));

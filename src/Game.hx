@@ -13,6 +13,11 @@ class Game extends hxd.App {
     public static var Player : Player;    
 
     /**
+        Enemies
+    **/
+    public static var Enemies : Array<Entity>;
+
+    /**
         Current game level
     **/
     public static var Level : Level;
@@ -20,12 +25,7 @@ class Game extends hxd.App {
     /**
         Current scene
     **/
-    public static var Scene : h2d.Scene;    
-
-    /**
-        Enemy
-    **/
-    public static var Ghost : Ghost;
+    public static var Scene : h2d.Scene;
 
     /**
         Collision shapes
@@ -42,13 +42,18 @@ class Game extends hxd.App {
     **/
     override function init () {
         _shapes = new Array<Shape> ();
+        Enemies = new Array<Entity> ();
         _collideResult = new Results<ShapeCollision> (0);
 
         Scene = s2d;
+        
+        Level = new Level ();
+
+        Enemies.push (new Ghost (300, 300));
+        Enemies.push (new Ghost (500, 300));
+        Enemies.push (new Ghost (700, 300));
 
         Player = new Player (100, 100);
-        Ghost = new Ghost (500, 200);
-        Level = new Level ();
     }
 
     /**
@@ -56,7 +61,9 @@ class Game extends hxd.App {
     **/
     override function update (dt:Float) {		
         Player.Update (dt);
-        Ghost.Update (dt);
+        for (e in Enemies) {
+            e.Update (dt);
+        }        
 	}
 
     /**

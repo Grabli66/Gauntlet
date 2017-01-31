@@ -1,3 +1,5 @@
+import h2d.Bitmap;
+
 /**
     Ghost enemy
 **/
@@ -13,11 +15,17 @@ class Ghost extends Entity {
     private static inline var SPEED = 2;
 
     /**
+        Enemy Bitmap
+    **/
+    private var _bitmap : Bitmap;
+
+    /**
         Constructor
     **/
     public function new (x : Int, y : Int) {
         super (x, y, SIZE);
-        Sprite.tile = h2d.Tile.fromColor(0x0000FF, SIZE, SIZE);
+        var tile = h2d.Tile.fromColor(0x0000FF, SIZE, SIZE);
+        _bitmap = new Bitmap (tile, Sprite);
     }
 
     /**
