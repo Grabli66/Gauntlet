@@ -25,6 +25,7 @@ var Entity = function(x,y,size) {
 	_this1.posChanged = true;
 	_this1.y = y;
 	this.Shape = new differ_shapes_Circle(x + size / 2,y + size / 2,size / 2);
+	this.Shape.data = this;
 	Game.AddShape(this.Shape);
 };
 $hxClasses["Entity"] = Entity;
@@ -64,6 +65,29 @@ Entity.prototype = {
 	}
 	,__class__: Entity
 };
+var Enemy = function(x,y,size) {
+	this.Life = 10;
+	Entity.call(this,x,y,size);
+};
+$hxClasses["Enemy"] = Enemy;
+Enemy.__name__ = ["Enemy"];
+Enemy.__super__ = Entity;
+Enemy.prototype = $extend(Entity.prototype,{
+	OnHit: function(power) {
+		this.Life -= power;
+		if(this.Life <= 0) {
+			this.OnDeath();
+		}
+	}
+	,OnDeath: function() {
+		var _this = this.Sprite;
+		if(_this != null && _this.parent != null) {
+			_this.parent.removeChild(_this);
+		}
+		Game.RemoveEnemy(this);
+	}
+	,__class__: Enemy
+});
 var h3d_IDrawable = function() { };
 $hxClasses["h3d.IDrawable"] = h3d_IDrawable;
 h3d_IDrawable.__name__ = ["h3d","IDrawable"];
@@ -189,6 +213,10 @@ Game.AddShape = function(shape) {
 Game.Collide = function(shape) {
 	return differ_Collision.shapeWithShapes(shape,Game._shapes,Game._collideResult);
 };
+Game.RemoveEnemy = function(enemy) {
+	HxOverrides.remove(Game.Enemies,enemy);
+	HxOverrides.remove(Game._shapes,enemy.Shape);
+};
 Game.main = function() {
 	hxd_Res.set_loader(new hxd_res_Loader(new hxd_fs_EmbedFileSystem(haxe_Unserializer.run("oy9:tiles.pngtg"))));
 	new Game();
@@ -219,14 +247,14 @@ Game.prototype = $extend(hxd_App.prototype,{
 	,__class__: Game
 });
 var Ghost = function(x,y) {
-	Entity.call(this,x,y,32);
+	Enemy.call(this,x,y,32);
 	var tile = h2d_Tile.fromColor(255,32,32);
 	this._bitmap = new h2d_Bitmap(tile,this.Sprite);
 };
 $hxClasses["Ghost"] = Ghost;
 Ghost.__name__ = ["Ghost"];
-Ghost.__super__ = Entity;
-Ghost.prototype = $extend(Entity.prototype,{
+Ghost.__super__ = Enemy;
+Ghost.prototype = $extend(Enemy.prototype,{
 	Update: function(dt) {
 		var pb = Game.Player.GetBounds();
 		var sb = this.GetBounds();
@@ -466,28 +494,7 @@ var Player = function(x,y) {
 	Entity.call(this,x,y,32);
 	var tile = h2d_Tile.fromColor(16711680,32,32);
 	this._bitmap = new h2d_Bitmap(tile,this.Sprite);
-	this._sword = new h2d_Sprite();
-	this.Sprite.addChild(this._sword);
-	var _this = this._sword;
-	_this.posChanged = true;
-	_this.x = 16.;
-	var _this1 = this._sword;
-	_this1.posChanged = true;
-	_this1.y = 16.;
-	var sword = new h2d_Graphics(this.Sprite);
-	sword.beginFill(16711680);
-	sword.flush();
-	sword.addVertex(0,0,sword.curR,sword.curG,sword.curB,sword.curA,0 * sword.ma + 0 * sword.mc + sword.mx,0 * sword.mb + 0 * sword.md + sword.my);
-	sword.addVertex(60,12,sword.curR,sword.curG,sword.curB,sword.curA,60 * sword.ma + 12 * sword.mc + sword.mx,60 * sword.mb + 12 * sword.md + sword.my);
-	sword.addVertex(0,28,sword.curR,sword.curG,sword.curB,sword.curA,0 * sword.ma + 28 * sword.mc + sword.mx,0 * sword.mb + 28 * sword.md + sword.my);
-	sword.endFill();
-	sword.posChanged = true;
-	sword.x = 32;
-	sword.posChanged = true;
-	sword.y = 2;
-	this._sword.addChild(sword);
-	this._sword.set_visible(false);
-	this._isSwordMoving = false;
+	this.CreateSword();
 };
 $hxClasses["Player"] = Player;
 Player.__name__ = ["Player"];
@@ -526,6 +533,12 @@ Player.prototype = $extend(Entity.prototype,{
 		if(!this._isSwordMoving) {
 			return;
 		}
+		var _this = this._sword;
+		_this.posChanged = true;
+		_this.x = this.Sprite.x + 16.;
+		var _this1 = this._sword;
+		_this1.posChanged = true;
+		_this1.y = this.Sprite.y + 16.;
 		if(this._swordMoveTime > 20) {
 			this._isSwordMoving = false;
 			this._sword.set_visible(false);
@@ -536,6 +549,38 @@ Player.prototype = $extend(Entity.prototype,{
 		_g.posChanged = true;
 		_g.rotation += 0.2;
 		this._swordMoveTime += dt;
+		var bounds = this._sword.getBounds();
+		var shape = differ_shapes_Polygon.rectangle(bounds.xMin,bounds.yMin,bounds.xMax - bounds.xMin,bounds.yMax - bounds.yMin);
+		var res = Game.Collide(shape);
+		if(res.count > 0) {
+			var _g1 = new differ_ResultsIterator_$differ_$data_$ShapeCollision(res);
+			while(_g1.index < _g1.results.count) {
+				var _this2 = _g1.results;
+				var index = _g1.index++;
+				var e = index < 0 && index > _this2.count - 1 ? null : _this2.items[index];
+				if(js_Boot.__instanceof(e.shape2.data,Enemy)) {
+					var enemy = js_Boot.__cast(e.shape2.data , Enemy);
+					enemy.OnHit(1);
+				}
+			}
+		}
+	}
+	,CreateSword: function() {
+		this._sword = new h2d_Sprite(Game.Scene);
+		var sword = new h2d_Graphics(this.Sprite);
+		sword.beginFill(16711680);
+		sword.flush();
+		sword.addVertex(0,0,sword.curR,sword.curG,sword.curB,sword.curA,0 * sword.ma + 0 * sword.mc + sword.mx,0 * sword.mb + 0 * sword.md + sword.my);
+		sword.addVertex(60,12,sword.curR,sword.curG,sword.curB,sword.curA,60 * sword.ma + 12 * sword.mc + sword.mx,60 * sword.mb + 12 * sword.md + sword.my);
+		sword.addVertex(0,28,sword.curR,sword.curG,sword.curB,sword.curA,0 * sword.ma + 28 * sword.mc + sword.mx,0 * sword.mb + 28 * sword.md + sword.my);
+		sword.endFill();
+		sword.posChanged = true;
+		sword.x = 32;
+		sword.posChanged = true;
+		sword.y = 2;
+		this._sword.addChild(sword);
+		this._sword.set_visible(false);
+		this._isSwordMoving = false;
 	}
 	,Update: function(dt) {
 		var dx = 0;

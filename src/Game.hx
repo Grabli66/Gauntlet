@@ -59,11 +59,11 @@ class Game extends hxd.App {
     /**
         On app update
     **/
-    override function update (dt:Float) {		
+    override function update (dt:Float) {
         Player.Update (dt);
         for (e in Enemies) {
             e.Update (dt);
-        }        
+        }
 	}
 
     /**
@@ -78,6 +78,14 @@ class Game extends hxd.App {
     **/
     public static function Collide (shape : Shape) : Results<ShapeCollision> {
         return Collision.shapeWithShapes (shape, _shapes, _collideResult);
+    }
+
+    /**
+        Remove enemy, add score
+    **/
+    public static function RemoveEnemy (enemy : Enemy) {
+        Enemies.remove (enemy);
+        _shapes.remove (enemy.Shape);
     }
 
     static function main () {

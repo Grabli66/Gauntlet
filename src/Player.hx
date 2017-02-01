@@ -1,4 +1,5 @@
 import differ.shapes.Circle;
+import differ.shapes.Polygon;
 import h2d.Sprite;
 import h2d.Graphics;
 import h2d.Bitmap;
@@ -38,6 +39,9 @@ class Player extends Entity {
     **/
     private var _isSwordMoving : Bool;
 
+    /**
+        Sword move time
+    **/
     private var _swordMoveTime : Float = 0.0;
 
     /**
@@ -54,15 +58,18 @@ class Player extends Entity {
         var distX = center.x - p.x;
         var distY = center.y - p.y;
         var nv = new h3d.Vector (distX, distY, 0, 0);
-        nv.normalizeFast ();        
-        _sword.rotation = Math.atan2 (nv.y, nv.x);        
+        nv.normalizeFast ();
+        _sword.rotation = Math.atan2 (nv.y, nv.x);
     }
 
     /**
         Move Sword
     **/
     private function MoveSword (dt : Float) : Void {
-        if (!_isSwordMoving) return;      
+        if (!_isSwordMoving) return; 
+        _sword.x = Sprite.x + SIZE / 2;
+        _sword.y = Sprite.y + SIZE / 2;
+
         if (_swordMoveTime > 20) {
             _isSwordMoving = false;
             _sword.visible = false;
@@ -70,22 +77,26 @@ class Player extends Entity {
             return;
         }
         _sword.rotate (0.2);
-        _swordMoveTime += dt;          
+        _swordMoveTime += dt;
+
+        var bounds = _sword.getBounds ();
+        var shape = Polygon.rectangle (bounds.x, bounds.y, bounds.width, bounds.height);
+        var res = Game.Collide (shape);
+        if (res.length > 0) {
+            for (e in res) {                
+                if (Std.is (e.shape2.data, Enemy)) {
+                    var enemy = cast (e.shape2.data, Enemy);
+                    enemy.OnHit (1);
+                }
+            }
+        }
     }
 
     /**
-        Constructor
+        Create sword items
     **/
-    public function new (x : Int, y : Int) {
-        super (x, y, SIZE);
-        var tile = h2d.Tile.fromColor(0xFF0000, SIZE, SIZE);
-        _bitmap = new Bitmap (tile, Sprite);
-
-        _sword = new Sprite ();
-        Sprite.addChild (_sword);
-        _sword.x = SIZE / 2;
-        _sword.y = SIZE / 2;        
-        
+    private function CreateSword () : Void {
+        _sword = new Sprite (Game.Scene);
         var sword = new Graphics (Sprite);        
         sword.beginFill (0xFF0000);
         sword.moveTo (0, 0);
@@ -96,7 +107,17 @@ class Player extends Entity {
         sword.y = 2;
         _sword.addChild (sword);
         _sword.visible = false;
-        _isSwordMoving = false;
+        _isSwordMoving = false;        
+    }
+
+    /**
+        Constructor
+    **/
+    public function new (x : Int, y : Int) {
+        super (x, y, SIZE);
+        var tile = h2d.Tile.fromColor(0xFF0000, SIZE, SIZE);
+        _bitmap = new Bitmap (tile, Sprite);
+        CreateSword ();        
     }
 
     /**

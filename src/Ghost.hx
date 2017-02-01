@@ -3,7 +3,7 @@ import h2d.Bitmap;
 /**
     Ghost enemy
 **/
-class Ghost extends Entity {
+class Ghost extends Enemy {
     /**
         Tile size
     **/
@@ -26,7 +26,7 @@ class Ghost extends Entity {
         super (x, y, SIZE);
         var tile = h2d.Tile.fromColor(0x0000FF, SIZE, SIZE);
         _bitmap = new Bitmap (tile, Sprite);
-    }
+    }    
 
     /**
         Update enemy logic

@@ -31,7 +31,8 @@ class Entity {
         Sprite.x = x;
         Sprite.y = y;
         Shape = new Circle (x + size / 2, y + size / 2, size / 2);
-        Game.AddShape (Shape);        
+        Shape.data = this;
+        Game.AddShape (Shape);
     }
 
     /**
@@ -55,14 +56,13 @@ class Entity {
         Shape.x += dx;
         Shape.y += dy;
         var colls = Game.Collide (Shape);
-        for (result in colls) {
-            //if ((result.shape1 != Shape) && (result.shape2 != Shape)) continue;            
+        for (result in colls) {            
             Shape.x = result.shape1.position.x + result.separationX;
             Shape.y = result.shape1.position.y + result.separationY;            
         }
         Sprite.x = Shape.x - _size / 2;
         Sprite.y = Shape.y - _size / 2;
-    }
+    }    
 
     /**
         On update for override
