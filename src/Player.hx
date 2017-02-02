@@ -1,5 +1,6 @@
 import differ.shapes.Circle;
 import differ.shapes.Polygon;
+import differ.shapes.Shape;
 import h2d.Sprite;
 import h2d.Graphics;
 import h2d.Bitmap;
@@ -45,10 +46,16 @@ class Player extends Entity {
     private var _swordMoveTime : Float = 0.0;
 
     /**
+        Shapes that already hited
+    **/
+    private var _hitedShapes : Map<Shape, Bool>;
+
+    /**
         Start to move sword
     **/
     private function StartSword () : Void {
         if (_isSwordMoving) return;
+        _hitedShapes = new Map<Shape, Bool> ();
         _isSwordMoving = true;
         _sword.visible = true;
         var mx = Game.Scene.mouseX;
@@ -83,7 +90,10 @@ class Player extends Entity {
         var shape = Polygon.rectangle (bounds.x, bounds.y, bounds.width, bounds.height);
         var res = Game.Collide (shape);
         if (res.length > 0) {
-            for (e in res) {                
+            for (e in res) {
+                var shape = e.shape2.data;
+                if (_hitedShapes.exists (shape)) continue;
+                _hitedShapes[shape] = true;
                 if (Std.is (e.shape2.data, Enemy)) {
                     var enemy = cast (e.shape2.data, Enemy);
                     enemy.OnHit (1);
@@ -114,7 +124,7 @@ class Player extends Entity {
         Constructor
     **/
     public function new (x : Int, y : Int) {
-        super (x, y, SIZE);
+        super (x, y, SIZE);        
         var tile = h2d.Tile.fromColor(0xFF0000, SIZE, SIZE);
         _bitmap = new Bitmap (tile, Sprite);
         CreateSword ();        

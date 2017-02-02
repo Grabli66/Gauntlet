@@ -32,6 +32,8 @@ class Ghost extends Enemy {
         Update enemy logic
     **/
     public override function Update (dt : Float) : Void {
+        super.Update (dt);
+        
         var pb = Game.Player.GetBounds ();
         var sb = GetBounds ();
 
